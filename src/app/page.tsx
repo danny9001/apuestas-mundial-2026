@@ -116,7 +116,7 @@ export default function PWAAppPage() {
   // Load Session on Mount
   const checkSession = async () => {
     try {
-      const res = await fetch('/api/auth');
+      const res = await fetch(`/api/auth?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -134,14 +134,14 @@ export default function PWAAppPage() {
     setDataLoading(true);
     try {
       // Fetch Matches
-      const mRes = await fetch('/api/matches');
+      const mRes = await fetch(`/api/matches?t=${Date.now()}`);
       if (mRes.ok) {
         const mData = await mRes.json();
         setMatches(mData);
       }
 
       // Fetch Predictions
-      const pRes = await fetch('/api/predictions');
+      const pRes = await fetch(`/api/predictions?t=${Date.now()}`);
       if (pRes.ok) {
         const pData = await pRes.json();
         setPredictions(pData);
@@ -155,7 +155,7 @@ export default function PWAAppPage() {
       }
 
       // Fetch Leaderboard
-      const lRes = await fetch('/api/leaderboard');
+      const lRes = await fetch(`/api/leaderboard?t=${Date.now()}`);
       if (lRes.ok) {
         const lData = await lRes.json();
         setLeaderboard(lData);
@@ -163,7 +163,7 @@ export default function PWAAppPage() {
 
       // Fetch Users if Admin
       if (user.tipo === 'admin') {
-        const uRes = await fetch('/api/admin/users');
+        const uRes = await fetch(`/api/admin/users?t=${Date.now()}`);
         if (uRes.ok) {
           const uData = await uRes.json();
           setAdminUsers(uData);
@@ -180,7 +180,7 @@ export default function PWAAppPage() {
   const fetchCommunityBets = async (matchId: number) => {
     setLoadingSummaryBets(true);
     try {
-      const res = await fetch(`/api/predictions?matchId=${matchId}`);
+      const res = await fetch(`/api/predictions?matchId=${matchId}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setCommunityBets(data);
@@ -221,7 +221,7 @@ export default function PWAAppPage() {
             }
           } else if (payload.type === 'leaderboard') {
             // Refetch leaderboard
-            fetch('/api/leaderboard')
+            fetch(`/api/leaderboard?t=${Date.now()}`)
               .then((res) => res.json())
               .then((lData) => setLeaderboard(lData));
             showToast('¡La clasificación general ha cambiado!');
@@ -1093,16 +1093,20 @@ export default function PWAAppPage() {
                                   <Lock className="w-3 h-3" /> Cerrado
                                 </span>
                               </div>
+                            ) : myPred ? (
+                              <span className="text-emerald-500 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg">
+                                <Check className="w-3.5 h-3.5" /> Confirmado
+                              </span>
                             ) : (
                               <button
                                 onClick={() => {
                                   setBetModalMatch(m);
-                                  setBetPredLocal(myPred ? myPred.pred_local : 0);
-                                  setBetPredVisitante(myPred ? myPred.pred_visitante : 0);
+                                  setBetPredLocal(0);
+                                  setBetPredVisitante(0);
                                 }}
                                 className="btn-primary-stitch px-3 py-1.5 text-[10px] tracking-wider uppercase z-10"
                               >
-                                {myPred ? 'Modificar' : 'Pronosticar'}
+                                Pronosticar
                               </button>
                             )}
                           </div>
@@ -1203,16 +1207,20 @@ export default function PWAAppPage() {
                                       <span className="text-zinc-650 text-[10px] uppercase font-bold flex items-center gap-1">
                                         <Lock className="w-3 h-3" /> Cerrado
                                       </span>
+                                    ) : myPred ? (
+                                      <span className="text-emerald-500 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg">
+                                        <Check className="w-3.5 h-3.5" /> Confirmado
+                                      </span>
                                     ) : (
                                       <button
                                         onClick={() => {
                                           setBetModalMatch(m);
-                                          setBetPredLocal(myPred ? myPred.pred_local : 0);
-                                          setBetPredVisitante(myPred ? myPred.pred_visitante : 0);
+                                          setBetPredLocal(0);
+                                          setBetPredVisitante(0);
                                         }}
                                         className="btn-primary-stitch px-3 py-1.5 text-[10px] tracking-wider uppercase z-10"
                                       >
-                                        {myPred ? 'Modificar' : 'Pronosticar'}
+                                        Pronosticar
                                       </button>
                                     )}
                                   </div>
@@ -1241,13 +1249,15 @@ export default function PWAAppPage() {
                           <th className="py-4 px-2 text-left">VISITANTE</th>
                           <th className="py-4 w-24">ESTADO</th>
                         </tr>
-                      </thead>
+</thead>
                       <tbody className="divide-y divide-zinc-900 text-xs">
                         {matches
                           .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
                           .filter((m) => filterFase === 'ALL' || m.fase === filterFase)
                           .map((m) => {
                             const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+                            const origPred = predictions.find((p) => p.match_id === m.id);
+                            const hasOrigVal = origPred !== undefined;
                             const currentScore = excelScores[m.id] || { local: 0, visitante: 0 };
 
                             return (
@@ -1276,7 +1286,7 @@ export default function PWAAppPage() {
                                     <input
                                       type="number"
                                       min="0"
-                                      disabled={isClosed}
+                                      disabled={isClosed || hasOrigVal}
                                       value={currentScore.local}
                                       onChange={(e) => {
                                         const val = Math.max(0, parseInt(e.target.value) || 0);
@@ -1291,7 +1301,7 @@ export default function PWAAppPage() {
                                     <input
                                       type="number"
                                       min="0"
-                                      disabled={isClosed}
+                                      disabled={isClosed || hasOrigVal}
                                       value={currentScore.visitante}
                                       onChange={(e) => {
                                         const val = Math.max(0, parseInt(e.target.value) || 0);
@@ -1314,13 +1324,18 @@ export default function PWAAppPage() {
                                 {/* Status Cell */}
                                 <td className="py-3 text-center">
                                   {isClosed ? (
-                                    <span className="text-zinc-600 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1">
+                                    <span className="text-zinc-650 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1">
                                       <Lock className="w-3 h-3 flex-shrink-0" />
                                       <span>Cerrado</span>
                                     </span>
-                                  ) : (
-                                    <span className="text-green-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1">
+                                  ) : hasOrigVal ? (
+                                    <span className="text-emerald-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg max-w-[100px] mx-auto">
                                       <Check className="w-3.5 h-3.5" />
+                                      <span>Confirmado</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-yellow-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1">
+                                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse"></span>
                                       <span>Abierto</span>
                                     </span>
                                   )}

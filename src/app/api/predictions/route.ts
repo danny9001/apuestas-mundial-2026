@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
          ORDER BY p.puntos DESC, u.nombre ASC`,
         [parseInt(matchId)]
       );
-      return NextResponse.json(res.rows);
+      const response = NextResponse.json(res.rows);
+      response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+      return response;
     }
 
     // Retrieve current user predictions joined with match information
@@ -36,7 +38,9 @@ export async function GET(req: NextRequest) {
       [user.id]
     );
 
-    return NextResponse.json(res.rows);
+    const response = NextResponse.json(res.rows);
+    response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+    return response;
   } catch (error: any) {
     console.error('Error fetching predictions:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
@@ -84,18 +88,25 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Upsert prediction
-        const upsertQuery = `
+        // Check if prediction already exists for this user and match
+        const existingPredRes = await pool.query(
+          'SELECT id FROM predictions WHERE user_id = $1 AND match_id = $2',
+          [user.id, matchId]
+        );
+
+        if (existingPredRes.rows.length > 0) {
+          errors.push({ matchId, error: 'La apuesta ya ha sido confirmada y no se puede modificar.' });
+          continue;
+        }
+
+        // Insert prediction
+        const insertQuery = `
           INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante)
           VALUES ($1, $2, $3, $4)
-          ON CONFLICT (user_id, match_id) 
-          DO UPDATE SET pred_local = EXCLUDED.pred_local,
-                        pred_visitante = EXCLUDED.pred_visitante,
-                        created_at = CURRENT_TIMESTAMP
           RETURNING *
         `;
 
-        const res = await pool.query(upsertQuery, [
+        const res = await pool.query(insertQuery, [
           user.id,
           matchId,
           parseInt(predLocal),
@@ -135,17 +146,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const upsertQuery = `
+    // Check if prediction already exists for this user and match
+    const existingPredRes = await pool.query(
+      'SELECT id FROM predictions WHERE user_id = $1 AND match_id = $2',
+      [user.id, matchId]
+    );
+
+    if (existingPredRes.rows.length > 0) {
+      return NextResponse.json(
+        { error: 'La apuesta ya ha sido confirmada y no se puede modificar.' },
+        { status: 400 }
+      );
+    }
+
+    const insertQuery = `
       INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante)
       VALUES ($1, $2, $3, $4)
-      ON CONFLICT (user_id, match_id) 
-      DO UPDATE SET pred_local = EXCLUDED.pred_local,
-                    pred_visitante = EXCLUDED.pred_visitante,
-                    created_at = CURRENT_TIMESTAMP
       RETURNING *
     `;
 
-    const res = await pool.query(upsertQuery, [
+    const res = await pool.query(insertQuery, [
       user.id,
       matchId,
       parseInt(predLocal),

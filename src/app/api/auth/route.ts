@@ -9,9 +9,13 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const user = await getSessionUser();
   if (!user) {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+    const response = NextResponse.json({ authenticated: false }, { status: 401 });
+    response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+    return response;
   }
-  return NextResponse.json({ authenticated: true, user });
+  const response = NextResponse.json({ authenticated: true, user });
+  response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+  return response;
 }
 
 // POST: login

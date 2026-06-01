@@ -68,6 +68,25 @@ services:
       timeout: 5s
       retries: 3
 
+  sync-worker:
+    image: curlimages/curl:latest
+    container_name: apuestas_sync
+    restart: always
+    depends_on:
+      app:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command: >
+      -c "while true; do
+        curl -s \"http://apuestas_app:3000/api/sync?key=$${SYNC_SECRET:-sync2026}\";
+        sleep $${SYNC_INTERVAL:-60};
+      done"
+    environment:
+      SYNC_SECRET: ${SYNC_SECRET:-sync2026}
+      SYNC_INTERVAL: 60
+    networks:
+      - apuestas_net
+
 volumes:
   db_data:
     driver: local

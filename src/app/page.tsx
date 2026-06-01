@@ -23,48 +23,73 @@ import {
   UserX,
   ChevronRight,
   BarChart3,
-  Grid
+  Grid,
+  BookOpen,
+  Activity
 } from 'lucide-react';
 
-// Team flags helper map
+// Team flags helper map — 48 equipos Mundial 2026
 const TEAM_FLAGS: { [key: string]: string } = {
-  'Argentina': '🇦🇷',
-  'Arabia Saudita': '🇸🇦',
-  'Francia': '🇫🇷',
-  'Australia': '🇦🇺',
-  'España': '🇪🇸',
-  'Costa Rica': '🇨🇷',
-  'Estados Unidos': '🇺🇸',
+  // Grupo A
   'México': '🇲🇽',
-  'Brasil': '🇧🇷',
-  'Camerún': '🇨🇲',
-  'Alemania': '🇩🇪',
-  'Japón': '🇯🇵',
-  'Canadá': '🇨🇦',
-  'Nigeria': '🇳🇬',
-  'Italia': '🇮🇹',
-  'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-  'Irán': '🇮🇷',
-  'Gales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
-  'Polonia': '🇵🇱',
-  'Dinamarca': '🇩🇰',
-  'Túnez': '🇹🇳',
-  'Bélgica': '🇧🇪',
-  'Marruecos': '🇲🇦',
-  'Croacia': '🇭🇷',
-  'Suiza': '🇨🇭',
-  'Serbia': '🇷🇸',
-  'Portugal': '🇵🇹',
-  'Ghana': '🇬🇭',
-  'Uruguay': '🇺🇾',
+  'Sudáfrica': '🇿🇦',
   'Corea del Sur': '🇰🇷',
-  'Países Bajos': '🇳🇱',
-  'Ecuador': '🇪🇨',
-  'Senegal': '🇸🇳',
+  'República Checa': '🇨🇿',
+  // Grupo B
+  'Canadá': '🇨🇦',
+  'Bosnia y Herzegovina': '🇧🇦',
   'Qatar': '🇶🇦',
-  'Colombia': '🇨🇴',
+  'Suiza': '🇨🇭',
+  // Grupo C
+  'Brasil': '🇧🇷',
+  'Marruecos': '🇲🇦',
+  'Haití': '🇭🇹',
+  'Escocia': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+  // Grupo D
+  'Estados Unidos': '🇺🇸',
+  'Paraguay': '🇵🇾',
+  'Australia': '🇦🇺',
+  'Turquía': '🇹🇷',
+  // Grupo E
+  'Alemania': '🇩🇪',
+  'Curazao': '🇨🇼',
+  'Costa de Marfil': '🇨🇮',
+  'Ecuador': '🇪🇨',
+  // Grupo F
+  'Países Bajos': '🇳🇱',
+  'Japón': '🇯🇵',
   'Suecia': '🇸🇪',
-  'Chile': '🇨🇱'
+  'Túnez': '🇹🇳',
+  // Grupo G
+  'Bélgica': '🇧🇪',
+  'Egipto': '🇪🇬',
+  'Irán': '🇮🇷',
+  'Nueva Zelanda': '🇳🇿',
+  // Grupo H
+  'España': '🇪🇸',
+  'Cabo Verde': '🇨🇻',
+  'Arabia Saudita': '🇸🇦',
+  'Uruguay': '🇺🇾',
+  // Grupo I
+  'Francia': '🇫🇷',
+  'Senegal': '🇸🇳',
+  'Irak': '🇮🇶',
+  'Noruega': '🇳🇴',
+  // Grupo J
+  'Argentina': '🇦🇷',
+  'Argelia': '🇩🇿',
+  'Austria': '🇦🇹',
+  'Jordania': '🇯🇴',
+  // Grupo K
+  'Portugal': '🇵🇹',
+  'RD Congo': '🇨🇩',
+  'Uzbekistán': '🇺🇿',
+  'Colombia': '🇨🇴',
+  // Grupo L
+  'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+  'Croacia': '🇭🇷',
+  'Ghana': '🇬🇭',
+  'Panamá': '🇵🇦',
 };
 
 function getTeamFlag(name: string): string {
@@ -92,7 +117,7 @@ export default function PWAAppPage() {
   const [registerLoading, setRegisterLoading] = useState(false);
 
   // Active Bottom Tab
-  const [activeTab, setActiveTab] = useState<'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture'>('partidos');
+  const [activeTab, setActiveTab] = useState<'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture' | 'reglas'>('partidos');
 
   // Group remaining matches toggle
   const [groupRemaining, setGroupRemaining] = useState(false);
@@ -106,6 +131,9 @@ export default function PWAAppPage() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [myStats, setMyStats] = useState<any>(null);
 
   // Excel Spreadsheet changes state
   const [excelScores, setExcelScores] = useState<{ [key: string]: { local: number; visitante: number } }>({});
@@ -250,6 +278,40 @@ export default function PWAAppPage() {
     }
   };
 
+  // Fetch sync status for admin panel
+  const fetchSyncStatus = async () => {
+    try {
+      const res = await fetch(`/api/admin/sync?t=${Date.now()}`);
+      if (res.ok) setSyncStatus(await res.json());
+    } catch (e) {}
+  };
+
+  // Fetch personal prediction stats for profile
+  const fetchMyStats = async () => {
+    try {
+      const res = await fetch(`/api/stats/me?t=${Date.now()}`);
+      if (res.ok) setMyStats(await res.json());
+    } catch (e) {}
+  };
+
+  // Admin force sync
+  const handleForceSyncAdmin = async () => {
+    setSyncLoading(true);
+    try {
+      const res = await fetch('/api/admin/sync', { method: 'POST' });
+      if (res.ok) {
+        showToast('🔄 Sincronización completada');
+        await fetchSyncStatus();
+      } else {
+        showToast('Error al sincronizar');
+      }
+    } catch (e) {
+      showToast('Error de red al sincronizar');
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
   // Handle Profile Update & Avatar Photo Upload
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,6 +376,16 @@ export default function PWAAppPage() {
       setProfileNombre(user.nombre);
     }
   }, [user]);
+
+  // Load sync status when admin tab is opened
+  useEffect(() => {
+    if (user && activeTab === 'admin') fetchSyncStatus();
+  }, [activeTab, user]);
+
+  // Load personal stats when profile tab is opened
+  useEffect(() => {
+    if (user && activeTab === 'perfil') fetchMyStats();
+  }, [activeTab, user]);
 
   useEffect(() => {
     checkSession();
@@ -850,13 +922,25 @@ export default function PWAAppPage() {
             <button
               onClick={() => setActiveTab('fixture')}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
-                activeTab === 'fixture' 
-                  ? 'btn-primary-stitch shadow-md' 
+                activeTab === 'fixture'
+                  ? 'btn-primary-stitch shadow-md'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent rounded-lg'
               }`}
             >
               <Trophy className="w-4 h-4" />
               <span>Fixture</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('reglas')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
+                activeTab === 'reglas'
+                  ? 'btn-primary-stitch shadow-md'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent rounded-lg'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Reglas</span>
             </button>
 
             <button
@@ -1061,8 +1145,11 @@ export default function PWAAppPage() {
                   >
                     <option value="ALL">Todas las Fases</option>
                     <option value="Fase de Grupos">Fase de Grupos</option>
-                    <option value="Octavos">Octavos de Final</option>
+                    <option value="Ronda de 32">Ronda de 32</option>
+                    <option value="Octavos de Final">Octavos de Final</option>
+                    <option value="Cuartos de Final">Cuartos de Final</option>
                     <option value="Semifinal">Semifinal</option>
+                    <option value="Tercer Puesto">Tercer Puesto</option>
                     <option value="Final">Final</option>
                   </select>
 
@@ -1252,7 +1339,7 @@ export default function PWAAppPage() {
 
               {viewMode === 'cards' && groupRemaining && (
                 <div className="space-y-8">
-                  {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+                  {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
                     .filter((grp) => {
                       const grpMatches = matches.filter(
                         (m) => m.grupo === grp && m.estado === 'upcoming'
@@ -1485,6 +1572,103 @@ export default function PWAAppPage() {
 
                 </div>
               )}
+
+            </section>
+          )}
+
+          {/* --- VIEW: REGLAS DEL JUEGO --- */}
+          {activeTab === 'reglas' && (
+            <section className="space-y-6 max-w-3xl mx-auto">
+
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Reglas del Juego</h2>
+              </div>
+
+              {/* Organizers card */}
+              <div className="glass-card border border-zinc-800/80 rounded-2xl p-5 space-y-2">
+                <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Organizadores</h3>
+                <div className="flex flex-wrap gap-3 pt-1">
+                  {['Marco Pabon', 'Wilber Calle', 'Daniel Landivar'].map((name) => (
+                    <span key={name} className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs font-bold px-3 py-1.5 rounded-lg">
+                      {name}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-zinc-500 text-xs leading-relaxed pt-1">
+                  Quiniela abierta a compañeros, familiares y amigos. Convocatoria oficial: 18 mayo 2026.
+                </p>
+              </div>
+
+              {/* Points system */}
+              <div className="glass-card border border-zinc-800/80 rounded-2xl p-5 space-y-4">
+                <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Sistema de Puntuación</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+                    <div>
+                      <div className="text-green-400 font-black text-sm">Resultado Exacto</div>
+                      <div className="text-zinc-400 text-xs mt-0.5">Ej: predices 2-1 y el partido termina 2-1</div>
+                    </div>
+                    <div className="text-green-400 font-black text-3xl font-mono">3 PTS</div>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                    <div>
+                      <div className="text-blue-400 font-black text-sm">Aciertas Ganador o Empate</div>
+                      <div className="text-zinc-400 text-xs mt-0.5">Ej: predices victoria local y el equipo local gana por cualquier marcador</div>
+                    </div>
+                    <div className="text-blue-400 font-black text-3xl font-mono">1 PTO</div>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                    <div>
+                      <div className="text-zinc-400 font-black text-sm">Fallo Total</div>
+                      <div className="text-zinc-500 text-xs mt-0.5">El resultado va en contra de tu predicción</div>
+                    </div>
+                    <div className="text-zinc-500 font-black text-3xl font-mono">0 PTS</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rules */}
+              <div className="glass-card border border-zinc-800/80 rounded-2xl p-5 space-y-3">
+                <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Reglas Generales</h3>
+                <ul className="space-y-3 text-sm">
+                  {[
+                    { icon: '🔒', text: 'Las apuestas se cierran automáticamente al inicio de cada partido (kickoff lock). No se pueden modificar una vez iniciado el partido.' },
+                    { icon: '🏆', text: 'Todos los partidos son apostables: Fase de Grupos, Ronda de 32, Octavos, Cuartos, Semifinales, Tercer Puesto y Gran Final.' },
+                    { icon: '📊', text: 'La clasificación general es visible para todos los participantes en tiempo real.' },
+                    { icon: '🔄', text: 'Los marcadores se actualizan automáticamente desde la API de football-data.org. La clasificación se recalcula al finalizar cada partido.' },
+                    { icon: '⚽', text: 'En caso de empate en puntos, se desempata por cantidad de resultados exactos (3 puntos). Si persiste el empate, gana quien se registró primero.' },
+                    { icon: '📱', text: 'Puedes realizar y modificar tus pronósticos desde cualquier dispositivo antes del kickoff.' },
+                  ].map((r, i) => (
+                    <li key={i} className="flex items-start gap-3 text-zinc-300">
+                      <span className="text-lg flex-shrink-0">{r.icon}</span>
+                      <span className="text-xs leading-relaxed text-zinc-400">{r.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Tournament info */}
+              <div className="glass-card border border-zinc-800/80 rounded-2xl p-5 space-y-3">
+                <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Datos del Torneo</h3>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  {[
+                    { label: 'Inicio', value: '11 Junio 2026' },
+                    { label: 'Final', value: '19 Julio 2026' },
+                    { label: 'Equipos', value: '48 selecciones' },
+                    { label: 'Grupos', value: '12 grupos (A-L)' },
+                    { label: 'Partidos', value: '104 en total' },
+                    { label: 'Sede Final', value: 'MetLife Stadium, NJ' },
+                  ].map((d) => (
+                    <div key={d.label} className="bg-zinc-950/60 border border-zinc-850 rounded-xl p-3">
+                      <div className="text-zinc-500 text-[10px] uppercase tracking-widest">{d.label}</div>
+                      <div className="text-zinc-200 font-bold mt-0.5">{d.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
             </section>
           )}
@@ -1881,6 +2065,54 @@ export default function PWAAppPage() {
                 </form>
               </div>
 
+              {/* Personal Stats Card */}
+              {myStats && (
+                <div className="glass-card border border-zinc-800/80 rounded-3xl p-6 shadow-xl space-y-4">
+                  <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                    <Activity className="w-4 h-4 text-yellow-500" />
+                    <h3 className="text-xs font-black text-zinc-300 uppercase tracking-widest">Mis Estadísticas</h3>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+                      <div className="text-green-400 font-black text-xl font-mono">{myStats.exactos}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">Exactos</div>
+                    </div>
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+                      <div className="text-blue-400 font-black text-xl font-mono">{myStats.aciertos}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">Aciertos</div>
+                    </div>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                      <div className="text-zinc-400 font-black text-xl font-mono">{myStats.fallos}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">Fallos</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    {[
+                      { label: 'Resultados exactos', pct: myStats.pct_exacto, color: 'bg-green-500' },
+                      { label: 'Acertaste ganador', pct: myStats.pct_acierto, color: 'bg-blue-500' },
+                      { label: 'Fallos totales', pct: myStats.pct_fallo, color: 'bg-zinc-600' },
+                    ].map((stat) => (
+                      <div key={stat.label} className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-zinc-500">
+                          <span>{stat.label}</span>
+                          <span className="font-mono font-bold text-zinc-400">{stat.pct}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                          <div className={`h-full ${stat.color} rounded-full transition-all duration-700`} style={{ width: `${stat.pct}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2 border-t border-zinc-800 text-xs">
+                    <span className="text-zinc-500">{myStats.total} predicciones en partidos finalizados</span>
+                    <span className="text-yellow-500 font-black font-mono">{myStats.puntos_totales} pts</span>
+                  </div>
+                </div>
+              )}
+
               {/* Logout actions */}
               <div className="glass-card border border-zinc-800/40 p-4 rounded-xl md:hidden">
                 <button
@@ -1910,6 +2142,74 @@ export default function PWAAppPage() {
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Recalcular Clasificación</span>
                 </button>
+              </div>
+
+              {/* Sync Dashboard */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Sincronización en Vivo</h3>
+                <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      {syncStatus?.last_synced ? (
+                        (() => {
+                          const secAgo = Math.floor((Date.now() - new Date(syncStatus.last_synced).getTime()) / 1000);
+                          const color = secAgo < 120 ? 'bg-green-500' : secAgo < 600 ? 'bg-yellow-500' : 'bg-red-500';
+                          const label = secAgo < 120 ? 'Activo' : secAgo < 600 ? 'Demorado' : 'Sin sync';
+                          return (
+                            <>
+                              <span className={`h-2.5 w-2.5 rounded-full ${color} animate-pulse`}></span>
+                              <span className="text-xs text-zinc-300 font-bold">{label}</span>
+                              <span className="text-[10px] text-zinc-500">· hace {secAgo < 60 ? `${secAgo}s` : `${Math.floor(secAgo / 60)}min`}</span>
+                            </>
+                          );
+                        })()
+                      ) : (
+                        <>
+                          <span className="h-2.5 w-2.5 rounded-full bg-zinc-600"></span>
+                          <span className="text-xs text-zinc-500">Sin datos de sync</span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleForceSyncAdmin}
+                      disabled={syncLoading}
+                      className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
+                      <span>{syncLoading ? 'Sincronizando...' : 'Forzar Sync'}</span>
+                    </button>
+                  </div>
+
+                  {!syncStatus?.sync_enabled && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs p-3 rounded-lg font-bold">
+                      ⚠️ Sincronización automática desactivada. Modo manual activo.
+                    </div>
+                  )}
+
+                  {syncStatus?.logs && syncStatus.logs.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Últimas sincronizaciones</div>
+                      <div className="bg-zinc-950 border border-zinc-850 rounded-xl divide-y divide-zinc-900 max-h-48 overflow-y-auto">
+                        {syncStatus.logs.map((log: any) => (
+                          <div key={log.id} className="flex justify-between items-center p-3 text-[10px] font-mono">
+                            <span className="text-zinc-500">
+                              {new Date(log.synced_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                            <div className="flex gap-3 text-zinc-400">
+                              <span className="text-yellow-500">↑{log.matches_updated} upd</span>
+                              <span className="text-green-400">⚽{log.goals_detected} goles</span>
+                              <span className="text-blue-400">✓{log.matches_finished} fin</span>
+                              <span className="text-zinc-500">{log.duration_ms}ms</span>
+                            </div>
+                            {log.errors && log.errors.length > 0 && (
+                              <span className="text-red-400 text-[9px]">ERR</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Admin match live updater list */}
@@ -2014,6 +2314,17 @@ export default function PWAAppPage() {
           >
             <Trophy className="w-5 h-5" />
             <span className="text-[9px] font-bold tracking-wide uppercase">Fixture</span>
+          </button>
+
+          {/* Tab Reglas */}
+          <button
+            onClick={() => setActiveTab('reglas')}
+            className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
+              activeTab === 'reglas' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <BookOpen className="w-5 h-5" />
+            <span className="text-[9px] font-bold tracking-wide uppercase">Reglas</span>
           </button>
 
           {/* Tab Leaderboard */}

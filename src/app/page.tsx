@@ -57,8 +57,20 @@ export default function PWAAppPage() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
+  // User Registration Form
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registerNombre, setRegisterNombre] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
+  const [registerError, setRegisterError] = useState('');
+  const [registerLoading, setRegisterLoading] = useState(false);
+
   // Active Bottom Tab
-  const [activeTab, setActiveTab] = useState<'partidos' | 'ranking' | 'perfil' | 'admin'>('partidos');
+  const [activeTab, setActiveTab] = useState<'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture'>('partidos');
+
+  // Group remaining matches toggle
+  const [groupRemaining, setGroupRemaining] = useState(false);
 
   // View Mode: Cards or Excel Planilla
   const [viewMode, setViewMode] = useState<'cards' | 'excel'>('cards');
@@ -252,6 +264,48 @@ export default function PWAAppPage() {
       setLoginError('Error de red al intentar iniciar sesión');
     } finally {
       setLoginLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegisterError('');
+
+    if (registerPassword !== registerConfirmPassword) {
+      setRegisterError('Las contraseñas no coinciden');
+      return;
+    }
+
+    setRegisterLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: registerNombre,
+          email: registerEmail,
+          password: registerPassword
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setUser(data.user);
+        showToast('¡Registro exitoso! Bienvenido.');
+        // Clean form states
+        setRegisterNombre('');
+        setRegisterEmail('');
+        setRegisterPassword('');
+        setRegisterConfirmPassword('');
+        setIsRegistering(false);
+      } else {
+        setRegisterError(data.error || 'Error al intentar registrarse');
+      }
+    } catch (err) {
+      setRegisterError('Error de red al intentar registrarse');
+    } finally {
+      setRegisterLoading(false);
     }
   };
 
@@ -494,7 +548,7 @@ export default function PWAAppPage() {
         <div className="w-full max-w-md bg-zinc-900/55 backdrop-blur-md border border-zinc-800 rounded-3xl p-8 shadow-2xl relative z-10">
           
           {/* Logo Splash */}
-          <div className="flex flex-col items-center text-center mb-8">
+          <div className="flex flex-col items-center text-center mb-6">
             <div className="h-16 w-16 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-inner animate-pulse">
               🏆
             </div>
@@ -502,47 +556,141 @@ export default function PWAAppPage() {
             <p className="text-zinc-400 text-xs tracking-widest uppercase mt-1">Plataforma de Apuestas y Quiniela</p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-2">Correo Electrónico</label>
-              <input 
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="ej: diego@mundial.com"
-                className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
-              />
-            </div>
-
-            <div>
-              <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-2">Contraseña</label>
-              <input 
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Contraseña de acceso"
-                className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
-              />
-            </div>
-
-            {loginError && (
-              <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                <span>{loginError}</span>
+          {!isRegistering ? (
+            /* Login Form */
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
+                <input 
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ej: diego@mundial.com"
+                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loginLoading}
-              className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
-            >
-              {loginLoading ? 'Iniciando Sesión...' : 'Entrar a la Quiniela'}
-            </button>
-          </form>
+              <div>
+                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña</label>
+                <input 
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Contraseña de acceso"
+                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                />
+              </div>
+
+              {loginError && (
+                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                  <span>{loginError}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
+              >
+                {loginLoading ? 'Iniciando Sesión...' : 'Entrar a la Quiniela'}
+              </button>
+
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegistering(true);
+                    setLoginError('');
+                  }}
+                  className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
+                >
+                  ¿No tienes cuenta? Regístrate aquí
+                </button>
+              </div>
+            </form>
+          ) : (
+            /* Register Form */
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div>
+                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Nombre Completo</label>
+                <input 
+                  type="text"
+                  required
+                  value={registerNombre}
+                  onChange={(e) => setRegisterNombre(e.target.value)}
+                  placeholder="ej: Diego Armando"
+                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
+                <input 
+                  type="email"
+                  required
+                  value={registerEmail}
+                  onChange={(e) => setRegisterEmail(e.target.value)}
+                  placeholder="ej: diego@mundial.com"
+                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña (mín. 6 carac.)</label>
+                <input 
+                  type="password"
+                  required
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                  placeholder="Elige tu contraseña"
+                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Confirmar Contraseña</label>
+                <input 
+                  type="password"
+                  required
+                  value={registerConfirmPassword}
+                  onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                  placeholder="Confirma tu contraseña"
+                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                />
+              </div>
+
+              {registerError && (
+                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                  <span>{registerError}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={registerLoading}
+                className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
+              >
+                {registerLoading ? 'Creando Cuenta...' : 'Registrarme ahora'}
+              </button>
+
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegistering(false);
+                    setRegisterError('');
+                  }}
+                  className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
+                >
+                  ¿Ya tienes cuenta? Inicia sesión aquí
+                </button>
+              </div>
+            </form>
+          )}
 
         </div>
       </main>
@@ -577,6 +725,18 @@ export default function PWAAppPage() {
             </button>
 
             <button
+              onClick={() => setActiveTab('fixture')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
+                activeTab === 'fixture' 
+                  ? 'btn-primary-stitch shadow-md' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent rounded-lg'
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
+              <span>Fixture</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('ranking')}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
                 activeTab === 'ranking' 
@@ -584,7 +744,7 @@ export default function PWAAppPage() {
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent rounded-lg'
               }`}
             >
-              <Trophy className="w-4 h-4" />
+              <BarChart3 className="w-4 h-4" />
               <span>Ranking</span>
             </button>
 
@@ -765,10 +925,15 @@ export default function PWAAppPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-4">
                   <select
                     value={filterFase}
-                    onChange={(e) => setFilterFase(e.target.value)}
+                    onChange={(e) => {
+                      setFilterFase(e.target.value);
+                      if (e.target.value !== 'Fase de Grupos') {
+                        setGroupRemaining(false);
+                      }
+                    }}
                     className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-lg p-2 md:p-3 outline-none"
                   >
                     <option value="ALL">Todas las Fases</option>
@@ -780,8 +945,14 @@ export default function PWAAppPage() {
 
                   <select
                     value={filterGrupo}
-                    onChange={(e) => setFilterGrupo(e.target.value)}
+                    onChange={(e) => {
+                      setFilterGrupo(e.target.value);
+                      if (e.target.value !== 'ALL') {
+                        setGroupRemaining(false);
+                      }
+                    }}
                     className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-lg p-2 md:p-3 outline-none"
+                    disabled={groupRemaining}
                   >
                     <option value="ALL">Todos los Grupos</option>
                     <option value="A">Grupo A</option>
@@ -791,10 +962,30 @@ export default function PWAAppPage() {
                     <option value="E">Grupo E</option>
                     <option value="G">Grupo G</option>
                   </select>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newVal = !groupRemaining;
+                      setGroupRemaining(newVal);
+                      if (newVal) {
+                        setFilterFase('Fase de Grupos');
+                        setFilterGrupo('ALL');
+                        setViewMode('cards');
+                      }
+                    }}
+                    className={`text-xs font-bold p-2 md:p-3 rounded-lg border transition col-span-2 md:col-span-1 cursor-pointer select-none ${
+                      groupRemaining
+                        ? 'bg-yellow-500 text-zinc-950 border-yellow-600 shadow-[0_0_12px_rgba(255,209,101,0.25)]'
+                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-zinc-200'
+                    }`}
+                  >
+                    <span>{groupRemaining ? '📂 Restantes por Grupo' : '📂 Agrupar por Grupo'}</span>
+                  </button>
                 </div>
               </div>
               {/* VIEW MODE A: TRADITIONAL CARDS LAYOUT */}
-              {viewMode === 'cards' && (
+              {viewMode === 'cards' && !groupRemaining && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {matches
                     .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
@@ -923,6 +1114,115 @@ export default function PWAAppPage() {
                       <p>Cargando lista de partidos...</p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {viewMode === 'cards' && groupRemaining && (
+                <div className="space-y-8">
+                  {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+                    .filter((grp) => {
+                      const grpMatches = matches.filter(
+                        (m) => m.grupo === grp && m.estado === 'upcoming'
+                      );
+                      return grpMatches.length > 0;
+                    })
+                    .map((grp) => {
+                      const grpMatches = matches.filter(
+                        (m) => m.grupo === grp && m.estado === 'upcoming'
+                      );
+                      return (
+                        <div key={grp} className="space-y-4">
+                          <div className="flex items-center gap-2 border-b border-zinc-850 pb-2">
+                            <span className="text-yellow-500 font-extrabold text-[11px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded">
+                              GRUPO {grp}
+                            </span>
+                            <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider">
+                              ({grpMatches.length} partidos por jugar)
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {grpMatches.map((m) => {
+                              const myPred = predictions.find((p) => p.match_id === m.id);
+                              const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+                              return (
+                                <div 
+                                  key={m.id} 
+                                  className="match-card-stitch p-5 shadow-lg flex flex-col justify-between gap-4 cursor-pointer relative"
+                                  onClick={() => {
+                                    setSummaryModalMatch(m);
+                                    fetchCommunityBets(m.id);
+                                  }}
+                                >
+                                  {/* Top Header Card */}
+                                  <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3 text-[11px] font-bold tracking-wider text-zinc-400" onClick={(e) => e.stopPropagation()}>
+                                    <span>{m.fase.toUpperCase()} - GRP {m.grupo}</span>
+                                    <span className="text-zinc-550 font-semibold text-[10px]">
+                                      {new Date(m.fecha).toLocaleDateString('es-ES', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                  </div>
+
+                                  {/* Scores and Country Details */}
+                                  <div className="flex justify-between items-center py-2 px-1">
+                                    <div className="flex items-center gap-3 w-[40%]">
+                                      <div className="w-9 h-9 rounded-full bg-zinc-950/80 border border-zinc-800 flex items-center justify-center text-xl shadow-inner select-none flex-shrink-0">
+                                        {getTeamFlag(m.local)}
+                                      </div>
+                                      <span className="font-extrabold text-xs text-zinc-200 uppercase truncate">{m.local}</span>
+                                    </div>
+                                    <div className="flex items-center justify-center bg-zinc-950/70 border border-zinc-800 rounded-lg px-3 py-1.5 font-mono font-black text-lg gap-2 min-w-[70px] shadow-inner select-none">
+                                      <span className="text-zinc-650 text-[10px] tracking-widest uppercase font-mono font-bold">VS</span>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-3 w-[40%] text-right">
+                                      <span className="font-extrabold text-xs text-zinc-200 uppercase truncate">{m.visitante}</span>
+                                      <div className="w-9 h-9 rounded-full bg-zinc-950/80 border border-zinc-800 flex items-center justify-center text-xl shadow-inner select-none flex-shrink-0">
+                                        {getTeamFlag(m.visitante)}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* User's Prediction Footer Card */}
+                                  <div className="bg-zinc-950/40 rounded-xl border border-zinc-800/40 p-3 mt-1 flex justify-between items-center text-xs" onClick={(e) => e.stopPropagation()}>
+                                    <div>
+                                      <span className="text-zinc-500">Mi apuesta: </span>
+                                      {myPred ? (
+                                        <span className="font-bold text-zinc-200 font-mono">
+                                          {myPred.pred_local} - {myPred.pred_visitante}
+                                        </span>
+                                      ) : (
+                                        <span className="text-zinc-650 italic">Sin pronóstico</span>
+                                      )}
+                                    </div>
+
+                                    {isClosed ? (
+                                      <span className="text-zinc-650 text-[10px] uppercase font-bold flex items-center gap-1">
+                                        <Lock className="w-3 h-3" /> Cerrado
+                                      </span>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          setBetModalMatch(m);
+                                          setBetPredLocal(myPred ? myPred.pred_local : 0);
+                                          setBetPredVisitante(myPred ? myPred.pred_visitante : 0);
+                                        }}
+                                        className="btn-primary-stitch px-3 py-1.5 text-[10px] tracking-wider uppercase z-10"
+                                      >
+                                        {myPred ? 'Modificar' : 'Pronosticar'}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
 
@@ -1159,6 +1459,141 @@ export default function PWAAppPage() {
             </section>
           )}
 
+          {/* --- VIEW 5: FIXTURE (WORLD CUP BRACKET) --- */}
+          {activeTab === 'fixture' && (
+            <section className="space-y-8 select-none">
+              
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-yellow-500 animate-pulse" />
+                  <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Fixture del Mundial</h2>
+                </div>
+                <span className="text-[10px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider font-mono font-bold">
+                  Quiniela Oficial 2026
+                </span>
+              </div>
+
+              {/* Monospace info panel */}
+              <div className="glass-card border border-zinc-800 p-5 rounded-xl text-xs flex flex-col md:flex-row gap-4 items-center justify-between shadow-lg animate-fade-in">
+                <div className="space-y-1 text-center md:text-left">
+                  <h4 className="font-extrabold text-sm text-zinc-200">Bracket Interactivo de Eliminatorias</h4>
+                  <p className="text-zinc-500 max-w-lg leading-relaxed">
+                    Sigue de cerca las etapas decisivas del torneo. Los equipos se cargarán dinámicamente y fluirán hacia la Gran Final a medida que concluyan los partidos de grupo.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 bg-zinc-950 p-3 border border-zinc-850 rounded-lg">
+                  <span className="h-2 w-2 rounded-full bg-red-500 live-dot"></span>
+                  <span className="font-mono text-[9px] text-zinc-400 font-bold uppercase tracking-widest">Sincronización SSE Activa</span>
+                </div>
+              </div>
+
+              {/* Tournament bracket structure container */}
+              <div className="overflow-x-auto no-scrollbar pb-6 pt-4">
+                <div className="flex flex-col md:flex-row md:justify-between items-stretch gap-6 min-w-[950px] md:min-w-0">
+                  
+                  {/* ROUND OF 16 (Octavos de Final) */}
+                  <div className="flex-1 flex flex-col justify-around gap-6">
+                    <h3 className="text-center font-black text-[10px] tracking-widest text-zinc-500 uppercase border-b border-zinc-900 pb-2">OCTAVOS DE FINAL</h3>
+                    
+                    {/* Octavos Match 1 */}
+                    <div className="glass-card p-3 rounded-lg border border-zinc-800/80 space-y-2 relative shadow-md hover:border-yellow-500/20 transition">
+                      <span className="absolute top-[-8px] left-3 bg-zinc-950 text-zinc-500 border border-zinc-850 text-[8px] font-mono font-bold px-1.5 rounded uppercase">Match #49</span>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-zinc-300 font-extrabold flex items-center gap-2">🇦🇷 Argentina (1°C)</span>
+                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs border-t border-zinc-900/60 pt-1.5">
+                        <span className="text-zinc-400 font-semibold flex items-center gap-2">🇺🇸 EE.UU. (2°D)</span>
+                        <span className="font-mono font-black text-zinc-650 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                    </div>
+
+                    {/* Octavos Match 2 */}
+                    <div className="glass-card p-3 rounded-lg border border-zinc-800/80 space-y-2 relative shadow-md hover:border-yellow-500/20 transition">
+                      <span className="absolute top-[-8px] left-3 bg-zinc-950 text-zinc-500 border border-zinc-850 text-[8px] font-mono font-bold px-1.5 rounded uppercase">Match #50</span>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-zinc-300 font-extrabold flex items-center gap-2">🇫🇷 Francia (1°D)</span>
+                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs border-t border-zinc-900/60 pt-1.5">
+                        <span className="text-zinc-400 font-semibold flex items-center gap-2">🇸🇦 Ar. Saudita (2°C)</span>
+                        <span className="font-mono font-black text-zinc-650 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CONNECTING LINE INDICATOR */}
+                  <div className="hidden md:flex flex-col justify-center items-center text-zinc-700 text-lg">➔</div>
+
+                  {/* QUARTER FINALS (Cuartos de Final) */}
+                  <div className="flex-1 flex flex-col justify-around gap-6 py-8">
+                    <h3 className="text-center font-black text-[10px] tracking-widest text-zinc-500 uppercase border-b border-zinc-900 pb-2">CUARTOS DE FINAL</h3>
+                    
+                    {/* Cuartos Match 1 */}
+                    <div className="glass-card p-4 rounded-lg border border-zinc-800/80 space-y-2 relative shadow-lg hover:border-yellow-500/20 transition">
+                      <span className="absolute top-[-8px] left-3 bg-zinc-950 text-zinc-550 border border-zinc-850 text-[8px] font-mono font-bold px-1.5 rounded uppercase">Match #57</span>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-zinc-400 font-semibold">Ganador Match #49</span>
+                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs border-t border-zinc-900/60 pt-2">
+                        <span className="text-zinc-400 font-semibold">Ganador Match #50</span>
+                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CONNECTING LINE INDICATOR */}
+                  <div className="hidden md:flex flex-col justify-center items-center text-zinc-700 text-lg">➔</div>
+
+                  {/* SEMI FINALS */}
+                  <div className="flex-1 flex flex-col justify-around gap-6 py-16">
+                    <h3 className="text-center font-black text-[10px] tracking-widest text-zinc-500 uppercase border-b border-zinc-900 pb-2">SEMIFINAL</h3>
+                    
+                    {/* Semis Match 1 */}
+                    <div className="glass-card p-4 rounded-lg border border-yellow-500/25 space-y-2 relative shadow-[0_0_15px_rgba(234,179,8,0.05)] hover:border-yellow-500/40 transition">
+                      <span className="absolute top-[-8px] left-3 bg-zinc-950 text-yellow-500 border border-yellow-500/20 text-[8px] font-mono font-bold px-1.5 rounded uppercase">Match #61</span>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-zinc-300 font-bold">Ganador Match #57</span>
+                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs border-t border-zinc-900/60 pt-2">
+                        <span className="text-zinc-300 font-bold">Ganador Match #58</span>
+                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CONNECTING LINE INDICATOR */}
+                  <div className="hidden md:flex flex-col justify-center items-center text-zinc-700 text-lg">➔</div>
+
+                  {/* GRAN FINAL */}
+                  <div className="flex-1 flex flex-col justify-center gap-6 py-20">
+                    <h3 className="text-center font-black text-[10px] tracking-widest text-yellow-500 uppercase border-b border-yellow-500/10 pb-2">GRAN FINAL</h3>
+                    
+                    {/* Final Match Card */}
+                    <div className="glass-card p-5 border-2 border-yellow-500 rounded-xl space-y-3 relative shadow-[0_0_24px_rgba(255,209,101,0.15)] scale-105 transition hover:scale-[1.07]">
+                      <span className="absolute top-[-10px] left-3 bg-yellow-500 text-zinc-950 text-[9px] font-black px-2 rounded-full uppercase tracking-widest shadow shadow-yellow-500/20">ESTADIO METLIFE</span>
+                      <div className="flex justify-between items-center text-xs font-black">
+                        <span className="text-zinc-100 flex items-center gap-2">🏆 Ganador Semis #61</span>
+                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-800 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-black border-t border-zinc-800 pt-3">
+                        <span className="text-zinc-100 flex items-center gap-2">🏆 Ganador Semis #62</span>
+                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-800 px-1.5 py-0.5 rounded">--</span>
+                      </div>
+                      <div className="text-center text-[8px] text-zinc-500 font-bold uppercase tracking-widest pt-1">
+                        Nueva York / Nueva Jersey - 19 de Julio
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+            </section>
+          )}
+
           {/* --- VIEW 3: PROFILE --- */}
           {activeTab === 'perfil' && (
             <section className="space-y-6 max-w-xl mx-auto">
@@ -1312,6 +1747,17 @@ export default function PWAAppPage() {
             <span className="text-[9px] font-bold tracking-wide uppercase">Partidos</span>
           </button>
 
+          {/* Tab Fixture */}
+          <button
+            onClick={() => setActiveTab('fixture')}
+            className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
+              activeTab === 'fixture' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Trophy className="w-5 h-5" />
+            <span className="text-[9px] font-bold tracking-wide uppercase">Fixture</span>
+          </button>
+
           {/* Tab Leaderboard */}
           <button
             onClick={() => setActiveTab('ranking')}
@@ -1319,7 +1765,7 @@ export default function PWAAppPage() {
               activeTab === 'ranking' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <Trophy className="w-5 h-5" />
+            <BarChart3 className="w-5 h-5" />
             <span className="text-[9px] font-bold tracking-wide uppercase">Ranking</span>
           </button>
 

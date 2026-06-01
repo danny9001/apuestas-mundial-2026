@@ -7,11 +7,22 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const res = await pool.query(
-      `SELECT l.*, u.nombre, u.email, u.tipo, u.avatar, u.activo
-       FROM leaderboard l
-       JOIN users u ON l.user_id = u.id
+      `SELECT
+         u.id as user_id,
+         u.nombre,
+         u.email,
+         u.tipo,
+         u.avatar,
+         u.activo,
+         COALESCE(l.puntos_totales, 0) as puntos_totales,
+         COALESCE(l.exactos, 0) as exactos,
+         COALESCE(l.posicion, 9999) as posicion,
+         COALESCE(l.posicion_anterior, 9999) as posicion_anterior,
+         COALESCE(l.tendencia, 'same') as tendencia
+       FROM users u
+       LEFT JOIN leaderboard l ON u.id = l.user_id
        WHERE u.activo = true
-       ORDER BY l.posicion ASC, u.nombre ASC`
+       ORDER BY COALESCE(l.posicion, 9999) ASC, u.nombre ASC`
     );
 
     const response = NextResponse.json(res.rows);

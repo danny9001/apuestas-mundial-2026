@@ -31,7 +31,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-mundial2026}@db:5432/${DB_NAME:-apuestas_mundial}
+      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-mundial2026}@apuestas_db_dev:5432/${DB_NAME:-apuestas_mundial}
       JWT_SECRET: ${JWT_SECRET:-mundial2026_secret_key_12345}
       PORT: 3000
     depends_on:

@@ -1,73 +1,60 @@
 # 🏆 Apuestas Mundial 2026 (PWA Dockerizada)
 
-Bienvenido a **Apuestas Mundial 2026**, una Progressive Web App (PWA) de alto rendimiento, diseñada mobile-first y completamente dockerizada. La plataforma permite realizar pronósticos deportivos en tiempo real, visualizar clasificaciones animadas de usuarios (con flechas de tendencia ▲, ▼ y medallas para el podio) y proyectar una pantalla de visualización masiva estilo aeropuerto para retransmisión de puntuaciones y partidos en vivo.
+Bienvenido a **Apuestas Mundial 2026**, una Progressive Web App (PWA) de alto rendimiento, diseñada para entornos productivos reales, completamente dockerizada, responsiva y orientada a la inmediatez de los datos.
 
 ---
 
-## 🚀 Arquitectura de Contenedores (Docker)
+## 🌟 Características Destacadas e Innovaciones
 
-El proyecto completo corre de forma aislada en contenedores Docker mediante una red interna protegida, con persistencia total de datos y caché optimizado de dependencias.
+La plataforma ofrece una experiencia moderna de alto impacto visual y funcional tanto para dispositivos móviles como para computadores de escritorio:
 
-### Servicios Incorporados:
-1. **`app`**: Aplicación web interactiva en Next.js (Puerto `3000`). En desarrollo utiliza montajes directos para hot-reload inmediato.
-2. **`db`**: Servidor de base de datos PostgreSQL 16 (Puerto `5432`) que inicializa automáticamente el esquema y las semillas de prueba.
-3. **`supabase-studio`**: pgAdmin 4 (Puerto `5050`) como estudio visual ligero para gestionar la base de datos local.
+### 1. 💻 Versión de Escritorio (Widescreen Responsive Dashboard)
+*   **Mobile-First Adaptativo**: En celulares, la app muestra un menú táctil inferior fijo y una distribución vertical pensada para el uso cómodo con una sola mano.
+*   **Widescreen Split-Screen**: En computadoras o tabletas (resolución `md:` y superior), la navegación inferior se oculta y es reemplazada por un **elegante menú lateral izquierdo (sidebar)**. El contenido principal se expande fluidamente en grillas anchas para aprovechar todo el monitor.
+
+### 2. 📊 Resumen Detallado y Estadísticas del Partido (ESPN Style)
+*   Al hacer clic en cualquier tarjeta o fila de partido, se despliega una **pantalla de resumen e información analítica**.
+*   **Estadísticas de Juego**: Compara la Posesión de Balón, Remates Totales y Faltas de cada selección en barras de progreso personalizadas con acentos dorados de alta gama.
+*   **Apuestas de la Comunidad en Directo**: Realiza llamadas dinámicas al backend para listar en tiempo real todos los pronósticos colocados por otros participantes (con nombres y avatares). Si el partido ya finalizó, muestra cuántos puntos acumuló cada jugador por su predicción, permitiendo comparar los resultados con el resto de la quiniela.
+
+### 3. 📉 Llenado Rápido Tipo Planilla (Excel-Style Grid)
+*   **Vista Alternativa**: Un selector interactivo te permite alternar entre la vista tradicional de tarjetas y la **Vista Planilla (Excel)**.
+*   **Edición Compacta**: Convierte la cartelera de partidos en una hoja de cálculo. Puedes ingresar todos tus pronósticos directamente en las celdas usando el teclado numérico de forma fluida.
+*   **Celdas Protegidas (Kickoff Lock)**: Los encuentros que ya están en vivo o finalizados bloquean y deshabilitan automáticamente sus inputs con un candado de seguridad para evitar apuestas fuera de tiempo.
+*   **Guardado por Lote (Batch Submissions)**: Mientras editas la planilla, un panel flotante dinámico se despliega en la esquina inferior: **"Planilla de Cambios (N Modificados)"**. Al hacer clic en **"Guardar Planilla"**, el sistema realiza una única petición masiva, optimizando la red y actualizando tu perfil en segundos.
+
+### 4. 📺 Pantalla de Aeropuerto / Modo TV (`/tv`)
+*   Diseñada para proyección estática y pantallas gigantes, cicla automáticamente cada 10 segundos entre la tabla de posiciones general (Top 20), los partidos en vivo y los próximos encuentros.
+*   Incorpora el efecto **Split-Flap Display**, simulando mecánicamente el volteo de tarjetas de aeropuertos cuando cambian las puntuaciones o nombres.
+*   Pulsaciones de ráfaga y visualizador de gol ante eventos live de ESPN.
 
 ---
 
-## 🛠️ Comandos de Ejecución
+## 🛠️ Arquitectura de Contenedores y Arranque
 
-Para iniciar la aplicación, no necesitas instalar nada en tu máquina local. Todo corre directamente en Docker.
+El ecosistema corre aislado de forma limpia usando variables del entorno configuradas en `.env`:
 
-### 🟢 Modo Desarrollo (Con Hot Reload & Volúmenes Compartidos)
-Monta los archivos de código fuente localmente para reflejar cambios instantáneamente:
+### 🟢 Modo de Desarrollo (Con Hot-Reload)
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
-*   **Web App**: [http://localhost:3000](http://localhost:3000)
-*   **Studio / pgAdmin**: [http://localhost:5050](http://localhost:5050)
+*   **App / PWA**: [http://localhost:3000](http://localhost:3000)
+*   **TV Airport Display**: [http://localhost:3000/tv](http://localhost:3000/tv)
+*   **Consola de Datos (pgAdmin)**: [http://localhost:5050](http://localhost:5050) *(admin@mundial.com / admin123)*
 
-### 🔴 Modo Producción (Compilación Multi-Stage Altamente Optimizada)
-Genera una build reducida y segura optimizada para entornos reales:
+### 🔴 Modo de Producción (Optimizado en segundo plano)
 ```bash
 docker compose up -d --build
 ```
-*   **Detener contenedores**: `docker compose down` o `docker compose -f docker-compose.dev.yml down`
 
 ---
 
-## ⚽ Cuentas de Demostración Iniciales
-
-La base de datos se autosemilla en su primer arranque con varios perfiles ya listos para pruebas de apuestas y clasificaciones:
+## ⚽ Acceso Rápido y Semillas
+La base de datos viene sembrada con 5 perfiles para pruebas inmediatas de clasificaciones, tendencias de podio (▲ / ▼) y validación de roles:
 
 *   **Administrador**: `admin@mundial.com`
-*   **Usuario Estándar 1**: `diego@mundial.com`
-*   **Usuario Estándar 2**: `juan@mundial.com`
-*   **Usuario Estándar 3**: `maria@mundial.com`
-*   **Usuario Estándar 4**: `pedro@mundial.com`
-*   **Contraseña para todos**: `mundial2026`
-
----
-
-## 📋 Reglas de Puntuación de Apuestas
-*   **3 Puntos**: Acierto exacto del marcador (ej: Pronóstico 2-1, Marcador real 2-1).
-*   **1 Punto**: Acierto del ganador o del empate pero no de los goles exactos (ej: Pronóstico 3-1, Marcador real 1-0).
-*   **0 Puntos**: Fallo total en la predicción.
-
----
-
-## 📺 Pantalla de Aeropuerto / Modo TV (`/tv`)
-Disponible en la ruta `/tv`. Diseñada para pantallas grandes de visualización pasiva (legible a 5+ metros). Cicla automáticamente cada 10 segundos entre:
-1.  **Tabla de posiciones (Top 20)** con animaciones mecánicas de tipo tablero flap-board para cambios de datos.
-2.  **Partidos en Juego** en vivo (Livescores).
-3.  **Próximos Encuentros**.
-4.  Incluye reloj interno y banner emergente con ráfaga de gol si hay anotaciones reales.
-
----
-
-## 📈 Tecnologías del Stack
-*   **Next.js 15 (App Router)** & React 19.
-*   **TailwindCSS v4** (Estética deportiva oscura de alto contraste).
-*   **PostgreSQL 16** (Con disparadores PL/pgSQL y procedimientos automáticos de clasificación).
-*   **Realtime**: Server-Sent Events (SSE) nativos de alto rendimiento integrados en Next.js.
-*   **PWA**: Service Worker personalizado con caché inteligente offline y manifest de aplicación instalable.
+*   **Diego Messi**: `diego@mundial.com`
+*   **Juan Neymar**: `juan@mundial.com`
+*   **María Mbappé**: `maria@mundial.com`
+*   **Pedro Haaland**: `pedro@mundial.com`
+*   **Contraseña de Acceso**: `mundial2026`

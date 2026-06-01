@@ -2539,12 +2539,14 @@ export default function PWAAppPage() {
 
         {/* --- POPUP 3: MATCH SUMMARY & STATISTICS OVERLAY --- */}
         {summaryModalMatch && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md">
-            <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-3xl w-full max-w-2xl shadow-2xl animate-slide-in-up flex flex-col max-h-[94vh] sm:max-h-[90vh] sm:my-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
+            <div
+              className="bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-3xl w-full max-w-2xl shadow-2xl animate-slide-in-up flex flex-col"
+              style={{ maxHeight: '92vh' }}
+            >
 
-              {/* Sticky Modal Header — always visible */}
-              <div className="flex justify-between items-center border-b border-zinc-800 px-6 py-4 flex-shrink-0 sticky top-0 bg-zinc-900 rounded-t-3xl z-10">
+              {/* Header — no scrollea, siempre visible */}
+              <div className="flex justify-between items-center border-b border-zinc-800 px-6 py-4 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-yellow-500" />
                   <h3 className="text-sm font-black uppercase text-zinc-100">Resumen del Partido</h3>
@@ -2564,37 +2566,79 @@ export default function PWAAppPage() {
               <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6 overscroll-contain">
 
               {/* Banner Head */}
-              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 text-center space-y-3">
-                <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">
-                  {summaryModalMatch.fase} - GRUPO {summaryModalMatch.grupo}
+              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
+
+                {/* Fase + estado */}
+                <div className="flex justify-between items-center px-4 pt-4 pb-2">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono font-bold">
+                    {summaryModalMatch.fase}{summaryModalMatch.grupo ? ` · Grupo ${summaryModalMatch.grupo}` : ''}
+                  </span>
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${
+                    summaryModalMatch.estado === 'live' ? 'bg-red-500/15 text-red-400 border border-red-500/30' :
+                    summaryModalMatch.estado === 'finished' ? 'bg-zinc-800 text-zinc-500' :
+                    'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                  }`}>
+                    {summaryModalMatch.estado === 'live' ? '🔴 En juego' : summaryModalMatch.estado === 'finished' ? '⚫ Finalizado' : '🔵 Próximamente'}
+                  </span>
                 </div>
-                
-                <div className="flex justify-between items-center">
-                  <div className="flex flex-col items-center w-1/3 gap-1">
+
+                {/* Teams + score */}
+                <div className="flex justify-between items-center px-6 py-4">
+                  <div className="flex flex-col items-center w-[38%] gap-1 text-center">
                     <span className="text-4xl">{getTeamFlag(summaryModalMatch.local)}</span>
-                    <span className="text-xs font-black text-zinc-200 uppercase truncate w-full">{summaryModalMatch.local}</span>
+                    <span className="text-xs font-black text-zinc-200 uppercase leading-tight">{summaryModalMatch.local}</span>
                   </div>
 
-                  <div className="flex flex-col items-center justify-center w-1/3">
+                  <div className="flex flex-col items-center justify-center w-[24%] gap-1">
                     {summaryModalMatch.estado !== 'upcoming' ? (
                       <span className="font-mono text-3xl font-black text-yellow-500 tracking-wider">
-                        {summaryModalMatch.goles_local} - {summaryModalMatch.goles_visitante}
+                        {summaryModalMatch.goles_local}–{summaryModalMatch.goles_visitante}
                       </span>
                     ) : (
-                      <span className="text-zinc-650 font-extrabold text-sm uppercase">vs</span>
+                      <span className="text-zinc-500 font-black text-lg tracking-widest">VS</span>
                     )}
-                    <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded mt-2 ${
-                      summaryModalMatch.estado === 'live' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
-                      summaryModalMatch.estado === 'finished' ? 'bg-zinc-800 text-zinc-500' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                    }`}>
-                      {summaryModalMatch.estado === 'live' ? '🔴 En juego' : summaryModalMatch.estado === 'finished' ? 'Finalizado' : 'Próximamente'}
+                  </div>
+
+                  <div className="flex flex-col items-center w-[38%] gap-1 text-center">
+                    <span className="text-4xl">{getTeamFlag(summaryModalMatch.visitante)}</span>
+                    <span className="text-xs font-black text-zinc-200 uppercase leading-tight">{summaryModalMatch.visitante}</span>
+                  </div>
+                </div>
+
+                {/* Fecha + hora + estadio + mapa */}
+                <div className="border-t border-zinc-800/60 px-4 py-3 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs text-zinc-400">
+                    <span className="text-base">📅</span>
+                    <span className="font-bold">
+                      {new Date(summaryModalMatch.fecha).toLocaleDateString('es-ES', {
+                        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                      })}
+                    </span>
+                    <span className="text-zinc-600">·</span>
+                    <span className="font-mono font-bold text-yellow-500">
+                      {new Date(summaryModalMatch.fecha).toLocaleTimeString('es-ES', {
+                        hour: '2-digit', minute: '2-digit'
+                      })} (hora local)
                     </span>
                   </div>
 
-                  <div className="flex flex-col items-center w-1/3 gap-1">
-                    <span className="text-4xl">{getTeamFlag(summaryModalMatch.visitante)}</span>
-                    <span className="text-xs font-black text-zinc-200 uppercase truncate w-full">{summaryModalMatch.visitante}</span>
-                  </div>
+                  {summaryModalMatch.estadio && (
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-xs text-zinc-400">
+                        <span className="text-base">🏟️</span>
+                        <span className="font-bold text-zinc-300">{summaryModalMatch.estadio}</span>
+                      </div>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(summaryModalMatch.estadio)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 text-[10px] font-bold px-2 py-1 rounded-lg transition flex-shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        📍 Ver mapa
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2778,7 +2822,6 @@ export default function PWAAppPage() {
                 </button>
               </div>
 
-            </div>
             </div>
           </div>
         </div>

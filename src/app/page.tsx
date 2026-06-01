@@ -122,9 +122,6 @@ export default function PWAAppPage() {
   // Group remaining matches toggle
   const [groupRemaining, setGroupRemaining] = useState(false);
 
-  // View Mode: Cards or Excel Planilla
-  const [viewMode, setViewMode] = useState<'cards' | 'excel'>('cards');
-
   // Application Data States
   const [matches, setMatches] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
@@ -135,9 +132,6 @@ export default function PWAAppPage() {
   const [syncLoading, setSyncLoading] = useState(false);
   const [myStats, setMyStats] = useState<any>(null);
 
-  // Excel Spreadsheet changes state
-  const [excelScores, setExcelScores] = useState<{ [key: string]: { local: number; visitante: number } }>({});
-  const [excelSubmitting, setExcelSubmitting] = useState(false);
 
   // Live Goal Overlay & Success Notifications
   const [goalAlert, setGoalAlert] = useState<any | null>(null);
@@ -212,13 +206,6 @@ export default function PWAAppPage() {
       if (pRes.ok) {
         const pData = await pRes.json();
         setPredictions(pData);
-        
-        // Populate Excel Scores Map
-        const scoresMap: { [key: string]: { local: number; visitante: number } } = {};
-        pData.forEach((p: any) => {
-          scoresMap[p.match_id] = { local: p.pred_local, visitante: p.pred_visitante };
-        });
-        setExcelScores(scoresMap);
       }
 
       // Fetch Leaderboard
@@ -512,7 +499,6 @@ export default function PWAAppPage() {
       setPredictions([]);
       setLeaderboard([]);
       setAdminUsers([]);
-      setExcelScores({});
     } catch (e) {
       console.error('Logout failed:', e);
     }
@@ -554,11 +540,6 @@ export default function PWAAppPage() {
         });
 
         // Update Excel scores state to keep in sync
-        setExcelScores((prev) => ({
-          ...prev,
-          [betModalMatch.id]: { local: betPredLocal, visitante: betPredVisitante }
-        }));
-
         setBetModalMatch(null);
         showToast('🏆 ¡Pronóstico guardado con éxito!');
       } else {
@@ -568,62 +549,6 @@ export default function PWAAppPage() {
       setBetError('Error al conectar con el servidor');
     } finally {
       setBetSubmitting(false);
-    }
-  };
-
-  // Batch Save Excel Planilla
-  const handleSaveExcelPlanilla = async () => {
-    // Generate the array of modified predictions to submit
-    const batchPayload: any[] = [];
-    
-    // We only submit upcoming matches that have differences compared to original predictions
-    matches.forEach((m) => {
-      const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
-      if (isClosed) return; // skip closed games
-
-      const origPred = predictions.find((p) => p.match_id === m.id);
-      const currentExcelVal = excelScores[m.id];
-
-      // If user typed values in Excel
-      if (currentExcelVal) {
-        const hasOrigVal = origPred !== undefined;
-        const diffLocal = !hasOrigVal || origPred.pred_local !== currentExcelVal.local;
-        const diffVisitante = !hasOrigVal || origPred.pred_visitante !== currentExcelVal.visitante;
-
-        // If score is different, add to payload
-        if (diffLocal || diffVisitante) {
-          batchPayload.push({
-            matchId: m.id,
-            predLocal: currentExcelVal.local,
-            predVisitante: currentExcelVal.visitante
-          });
-        }
-      }
-    });
-
-    if (batchPayload.length === 0) {
-      showToast('No hay cambios pendientes para guardar');
-      return;
-    }
-
-    setExcelSubmitting(true);
-    try {
-      const res = await fetch('/api/predictions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(batchPayload)
-      });
-
-      if (res.ok) {
-        showToast('📈 ¡Planilla guardada con éxito!');
-        fetchAppData(); // reload original predictions to reset diff state
-      } else {
-        showToast('Error al guardar la planilla');
-      }
-    } catch (e) {
-      showToast('Error de red');
-    } finally {
-      setExcelSubmitting(false);
     }
   };
 
@@ -696,31 +621,6 @@ export default function PWAAppPage() {
       showToast('Error de red');
     }
   };
-
-  // Count pending unsaved Excel changes
-  const getPendingExcelCount = (): number => {
-    let count = 0;
-    matches.forEach((m) => {
-      const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
-      if (isClosed) return;
-
-      const origPred = predictions.find((p) => p.match_id === m.id);
-      const currentExcelVal = excelScores[m.id];
-
-      if (currentExcelVal) {
-        const hasOrigVal = origPred !== undefined;
-        const diffLocal = !hasOrigVal || origPred.pred_local !== currentExcelVal.local;
-        const diffVisitante = !hasOrigVal || origPred.pred_visitante !== currentExcelVal.visitante;
-
-        if (diffLocal || diffVisitante) {
-          count++;
-        }
-      }
-    });
-    return count;
-  };
-
-  const pendingExcelCount = getPendingExcelCount();
 
   // Rendering Helpers
   if (!authChecked) {
@@ -1030,36 +930,6 @@ export default function PWAAppPage() {
           </div>
         )}
 
-        {/* Floating Excel Saver Panel */}
-        {activeTab === 'partidos' && viewMode === 'excel' && pendingExcelCount > 0 && (
-          <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-40 animate-slide-in-up">
-            <div className="glass-card border border-yellow-500/30 p-4 rounded-xl flex flex-col gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.7)]">
-              <div className="flex justify-between items-center text-xs font-bold">
-                <span className="text-zinc-400">Planilla de Cambios</span>
-                <span className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded text-[10px] font-black">
-                  {pendingExcelCount} Modificados
-                </span>
-              </div>
-              <button
-                onClick={handleSaveExcelPlanilla}
-                disabled={excelSubmitting}
-                className="w-full btn-primary-stitch py-2.5 text-xs flex items-center justify-center gap-2 active:scale-95 shadow-md"
-              >
-                {excelSubmitting ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Guardando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Guardar Planilla</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Internal Notification Toast */}
         {toastMessage && !goalAlert && (
@@ -1101,107 +971,53 @@ export default function PWAAppPage() {
           {activeTab === 'partidos' && (
             <section className="space-y-6">
               
-              {/* Stage, Group Filters & Layout Toggles */}
-              <div className="flex flex-col gap-4 bg-zinc-900/40 border border-zinc-900/60 p-4 rounded-2xl md:p-6 md:rounded-3xl">
-                <div className="flex justify-between items-center text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                  <span>Filtros de Cartelera</span>
-                  
-                  {/* View Toggles (Cards / Excel) */}
-                  <div className="flex gap-1.5 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+              {/* Filtros pill — Fases */}
+              <div className="space-y-3">
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                  {[
+                    { v: 'ALL', l: 'Todos' },
+                    { v: 'Fase de Grupos', l: 'Grupos' },
+                    { v: 'Ronda de 32', l: 'R32' },
+                    { v: 'Octavos de Final', l: 'Octavos' },
+                    { v: 'Cuartos de Final', l: 'Cuartos' },
+                    { v: 'Semifinal', l: 'Semis' },
+                    { v: 'Tercer Puesto', l: '3er Puesto' },
+                    { v: 'Final', l: 'Final' },
+                  ].map(({ v, l }) => (
                     <button
-                      onClick={() => setViewMode('cards')}
-                      className={`px-3 py-1.5 rounded-md text-[10px] uppercase font-black transition ${
-                        viewMode === 'cards' 
-                          ? 'bg-yellow-500 text-zinc-950' 
-                          : 'text-zinc-500 hover:text-zinc-300'
+                      key={v}
+                      onClick={() => { setFilterFase(v); if (v !== 'Fase de Grupos') setGroupRemaining(false); }}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition ${
+                        filterFase === v ? 'bg-yellow-500 text-zinc-950' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-yellow-500/40 hover:text-zinc-200'
                       }`}
-                    >
-                      Tarjetas
-                    </button>
+                    >{l}</button>
+                  ))}
+                </div>
+
+                {/* Filtros pill — Grupos (solo visibles en Fase de Grupos o Todos) */}
+                {(filterFase === 'ALL' || filterFase === 'Fase de Grupos') && (
+                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                    {['ALL', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].map(g => (
+                      <button
+                        key={g}
+                        onClick={() => { setFilterGrupo(g); if (g !== 'ALL') setGroupRemaining(false); }}
+                        disabled={groupRemaining}
+                        className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition disabled:opacity-40 ${
+                          filterGrupo === g ? 'bg-yellow-500 text-zinc-950' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-yellow-500/40 hover:text-zinc-200'
+                        }`}
+                      >{g === 'ALL' ? 'Grp' : g}</button>
+                    ))}
                     <button
-                      onClick={() => setViewMode('excel')}
-                      className={`px-3 py-1.5 rounded-md text-[10px] uppercase font-black transition flex items-center gap-1 ${
-                        viewMode === 'excel' 
-                          ? 'bg-yellow-500 text-zinc-950' 
-                          : 'text-zinc-500 hover:text-zinc-300'
+                      onClick={() => { const v = !groupRemaining; setGroupRemaining(v); if (v) { setFilterFase('Fase de Grupos'); setFilterGrupo('ALL'); } }}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition border ${
+                        groupRemaining ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:border-yellow-500/30'
                       }`}
-                    >
-                      <Grid className="w-3 h-3" />
-                      <span>Planilla (Excel)</span>
-                    </button>
+                    >📂 Agrupar</button>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-4">
-                  <select
-                    value={filterFase}
-                    onChange={(e) => {
-                      setFilterFase(e.target.value);
-                      if (e.target.value !== 'Fase de Grupos') {
-                        setGroupRemaining(false);
-                      }
-                    }}
-                    className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-lg p-2 md:p-3 outline-none"
-                  >
-                    <option value="ALL">Todas las Fases</option>
-                    <option value="Fase de Grupos">Fase de Grupos</option>
-                    <option value="Ronda de 32">Ronda de 32</option>
-                    <option value="Octavos de Final">Octavos de Final</option>
-                    <option value="Cuartos de Final">Cuartos de Final</option>
-                    <option value="Semifinal">Semifinal</option>
-                    <option value="Tercer Puesto">Tercer Puesto</option>
-                    <option value="Final">Final</option>
-                  </select>
-
-                  <select
-                    value={filterGrupo}
-                    onChange={(e) => {
-                      setFilterGrupo(e.target.value);
-                      if (e.target.value !== 'ALL') {
-                        setGroupRemaining(false);
-                      }
-                    }}
-                    className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-lg p-2 md:p-3 outline-none"
-                    disabled={groupRemaining}
-                  >
-                    <option value="ALL">Todos los Grupos</option>
-                    <option value="A">Grupo A</option>
-                    <option value="B">Grupo B</option>
-                    <option value="C">Grupo C</option>
-                    <option value="D">Grupo D</option>
-                    <option value="E">Grupo E</option>
-                    <option value="F">Grupo F</option>
-                    <option value="G">Grupo G</option>
-                    <option value="H">Grupo H</option>
-                    <option value="I">Grupo I</option>
-                    <option value="J">Grupo J</option>
-                    <option value="K">Grupo K</option>
-                    <option value="L">Grupo L</option>
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newVal = !groupRemaining;
-                      setGroupRemaining(newVal);
-                      if (newVal) {
-                        setFilterFase('Fase de Grupos');
-                        setFilterGrupo('ALL');
-                        setViewMode('cards');
-                      }
-                    }}
-                    className={`text-xs font-bold p-2 md:p-3 rounded-lg border transition col-span-2 md:col-span-1 cursor-pointer select-none ${
-                      groupRemaining
-                        ? 'bg-yellow-500 text-zinc-950 border-yellow-600 shadow-[0_0_12px_rgba(255,209,101,0.25)]'
-                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-zinc-200'
-                    }`}
-                  >
-                    <span>{groupRemaining ? '📂 Restantes por Grupo' : '📂 Agrupar por Grupo'}</span>
-                  </button>
-                </div>
+                )}
               </div>
-              {/* VIEW MODE A: TRADITIONAL CARDS LAYOUT */}
-              {viewMode === 'cards' && !groupRemaining && (
+              {/* Cards de partidos */}
+              {!groupRemaining && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {matches
                     .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
@@ -1337,7 +1153,7 @@ export default function PWAAppPage() {
                 </div>
               )}
 
-              {viewMode === 'cards' && groupRemaining && (
+              {groupRemaining && (
                 <div className="space-y-8">
                   {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
                     .filter((grp) => {
@@ -1450,128 +1266,6 @@ export default function PWAAppPage() {
                 </div>
               )}
 
-              {/* VIEW MODE B: INTERACTIVE EXCEL PLANILLA SPREADSHEET */}
-              {viewMode === 'excel' && (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
-                  
-                  {/* Excel Sheet Container Scrollable */}
-                  <div className="overflow-x-auto no-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[600px]">
-                      <thead>
-                        <tr className="bg-zinc-950 border-b border-zinc-800 text-[10px] font-black text-zinc-500 uppercase tracking-widest text-center">
-                          <th className="py-4 px-4 text-left w-24">GRUPO</th>
-                          <th className="py-4 px-2 text-right">LOCAL</th>
-                          <th className="py-4 w-20">PRONÓSTICO</th>
-                          <th className="py-4 px-2 text-left">VISITANTE</th>
-                          <th className="py-4 w-24">ESTADO</th>
-                        </tr>
-</thead>
-                      <tbody className="divide-y divide-zinc-900 text-xs">
-                        {matches
-                          .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
-                          .filter((m) => filterFase === 'ALL' || m.fase === filterFase)
-                          .map((m) => {
-                            const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
-                            const origPred = predictions.find((p) => p.match_id === m.id);
-                            const hasOrigVal = origPred !== undefined;
-                            const currentScore = excelScores[m.id] || { local: 0, visitante: 0 };
-
-                            return (
-                              <tr 
-                                key={m.id} 
-                                className="hover:bg-zinc-950/30 transition text-center align-middle cursor-pointer"
-                                onClick={() => {
-                                  setSummaryModalMatch(m);
-                                  fetchCommunityBets(m.id);
-                                }}
-                              >
-                                {/* Group/Stage Cell */}
-                                <td className="py-3 px-4 text-left font-mono font-bold text-zinc-500 uppercase tracking-wide">
-                                  GRP {m.grupo}
-                                </td>
-
-                                {/* Local Country Cell */}
-                                <td className="py-3 px-2 text-right font-extrabold text-zinc-200 uppercase tracking-wide">
-                                  <span className="mr-2 text-base">{getTeamFlag(m.local)}</span>
-                                  <span>{m.local}</span>
-                                </td>
-
-                                {/* Input Prediction cells (Spreadsheet style!) */}
-                                <td className="py-3" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex items-center gap-1 justify-center bg-zinc-950/80 border border-zinc-800 rounded-xl p-1 max-w-[90px] mx-auto">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      disabled={isClosed || hasOrigVal}
-                                      value={currentScore.local}
-                                      onChange={(e) => {
-                                        const val = Math.max(0, parseInt(e.target.value) || 0);
-                                        setExcelScores((prev) => ({
-                                          ...prev,
-                                          [m.id]: { ...prev[m.id], local: val }
-                                        }));
-                                      }}
-                                      className="w-7 bg-zinc-900 text-center font-mono font-black text-xs py-1 rounded text-yellow-500 disabled:text-zinc-600 outline-none border border-transparent focus:border-yellow-500/20 disabled:bg-transparent"
-                                    />
-                                    <span className="text-zinc-700 font-bold">:</span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      disabled={isClosed || hasOrigVal}
-                                      value={currentScore.visitante}
-                                      onChange={(e) => {
-                                        const val = Math.max(0, parseInt(e.target.value) || 0);
-                                        setExcelScores((prev) => ({
-                                          ...prev,
-                                          [m.id]: { ...prev[m.id], visitante: val }
-                                        }));
-                                      }}
-                                      className="w-7 bg-zinc-900 text-center font-mono font-black text-xs py-1 rounded text-yellow-500 disabled:text-zinc-600 outline-none border border-transparent focus:border-yellow-500/20 disabled:bg-transparent"
-                                    />
-                                  </div>
-                                </td>
-
-                                {/* Visitante Country Cell */}
-                                <td className="py-3 px-2 text-left font-extrabold text-zinc-200 uppercase tracking-wide">
-                                  <span>{m.visitante}</span>
-                                  <span className="ml-2 text-base">{getTeamFlag(m.visitante)}</span>
-                                </td>
-
-                                {/* Status Cell */}
-                                <td className="py-3 text-center">
-                                  {isClosed ? (
-                                    <span className="text-zinc-650 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1">
-                                      <Lock className="w-3 h-3 flex-shrink-0" />
-                                      <span>Cerrado</span>
-                                    </span>
-                                  ) : hasOrigVal ? (
-                                    <span className="text-emerald-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg max-w-[100px] mx-auto">
-                                      <Check className="w-3.5 h-3.5" />
-                                      <span>Confirmado</span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-yellow-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1">
-                                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse"></span>
-                                      <span>Abierto</span>
-                                    </span>
-                                  )}
-                                </td>
-
-                              </tr>
-                            );
-                          })}
-
-                        {matches.length === 0 && (
-                          <tr>
-                            <td colSpan={5} className="py-12 text-center text-zinc-600 italic">No hay partidos disponibles</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                </div>
-              )}
 
             </section>
           )}
@@ -1687,6 +1381,20 @@ export default function PWAAppPage() {
                   {leaderboard.length} Jugadores
                 </span>
               </div>
+
+              {/* Pozo Acumulado */}
+              {leaderboard.length > 0 && (
+                <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
+                  <div>
+                    <div className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Pozo Acumulado</div>
+                    <div className="text-2xl font-black text-yellow-500 font-mono mt-0.5">
+                      Bs. {(leaderboard.length * 150).toLocaleString('es-BO')}
+                    </div>
+                    <div className="text-[10px] text-zinc-500 mt-0.5">{leaderboard.length} participantes × Bs. 150</div>
+                  </div>
+                  <div className="text-4xl">🏆</div>
+                </div>
+              )}
 
               {/* Medals Podium Pods */}
               <div className="grid grid-cols-3 gap-4 pt-2 max-w-xl mx-auto">
@@ -2295,7 +2003,7 @@ export default function PWAAppPage() {
         </main>
 
         {/* BOTTOM MOBILE APP NAVIGATION (Hidden on Desktop) */}
-        <nav className="fixed bottom-0 left-4 right-4 z-30 max-w-lg mx-auto bottom-nav-glass rounded-2xl shadow-[0_-5px_30px_rgba(0,0,0,0.5)] mb-3 flex items-center justify-around py-3 md:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bottom-nav-glass shadow-[0_-2px_24px_rgba(0,0,0,0.6)] flex items-center justify-around py-3 px-2 md:hidden" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
           
           {/* Tab Partidos */}
           <button

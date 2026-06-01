@@ -307,6 +307,14 @@ body {
   scrollbar-width: none;  /* Firefox */
 }
 
+/* Mobile bottom navigation — 70% opacity glass */
+.bottom-nav-glass {
+  background: rgba(9, 9, 11, 0.70);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(39, 39, 42, 0.6);
+}
+
 /* Responsive bottom-inset support for iPhone home-indicator bars */
 .pb-safe {
   padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);

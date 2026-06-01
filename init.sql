@@ -137,56 +137,16 @@ $$ LANGUAGE plpgsql;
 -- Password hash for 'mundial2026' (standard bcrypt hash)
 -- Hash: $2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi
 INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo) VALUES
-('Daniel Admin', 'admin@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true),
-('Diego Messi', 'diego@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'interno', 'https://api.dicebear.com/7.x/adventurer/svg?seed=diego', true),
-('Juan Neymar', 'juan@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'interno', 'https://api.dicebear.com/7.x/adventurer/svg?seed=juan', true),
-('María Mbappé', 'maria@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'externo', 'https://api.dicebear.com/7.x/adventurer/svg?seed=maria', true),
-('Pedro Haaland', 'pedro@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'externo', 'https://api.dicebear.com/7.x/adventurer/svg?seed=pedro', true);
+('Daniel Admin', 'admin@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true);
 
--- 7. SEED MATCHES
+-- 7. SEED MATCHES (Upcoming matches in the future so all users can participate!)
 INSERT INTO matches (fecha, local, visitante, logo_local, logo_visitante, estado, goles_local, goles_visitante, fase, grupo) VALUES
-(CURRENT_TIMESTAMP - INTERVAL '2 days', 'Argentina', 'Arabia Saudita', '/uploads/flags/arg.png', '/uploads/flags/ksa.png', 'finished', 1, 2, 'Fase de Grupos', 'C'),
-(CURRENT_TIMESTAMP - INTERVAL '1 day', 'Francia', 'Australia', '/uploads/flags/fra.png', '/uploads/flags/aus.png', 'finished', 4, 1, 'Fase de Grupos', 'D'),
-(CURRENT_TIMESTAMP - INTERVAL '12 hours', 'España', 'Costa Rica', '/uploads/flags/esp.png', '/uploads/flags/crc.png', 'finished', 7, 0, 'Fase de Grupos', 'E'),
-(CURRENT_TIMESTAMP - INTERVAL '5 minutes', 'Estados Unidos', 'México', '/uploads/flags/usa.png', '/uploads/flags/mex.png', 'live', 1, 1, 'Fase de Grupos', 'B'),
-(CURRENT_TIMESTAMP + INTERVAL '1 day', 'Brasil', 'Camerún', '/uploads/flags/bra.png', '/uploads/flags/cmr.png', 'upcoming', 0, 0, 'Fase de Grupos', 'G'),
-(CURRENT_TIMESTAMP + INTERVAL '2 days', 'Alemania', 'Japón', '/uploads/flags/ger.png', '/uploads/flags/jpn.png', 'upcoming', 0, 0, 'Fase de Grupos', 'E');
+(CURRENT_TIMESTAMP + INTERVAL '1 day', 'Argentina', 'Arabia Saudita', '/uploads/flags/arg.png', '/uploads/flags/ksa.png', 'upcoming', 0, 0, 'Fase de Grupos', 'C'),
+(CURRENT_TIMESTAMP + INTERVAL '2 days', 'Francia', 'Australia', '/uploads/flags/fra.png', '/uploads/flags/aus.png', 'upcoming', 0, 0, 'Fase de Grupos', 'D'),
+(CURRENT_TIMESTAMP + INTERVAL '3 days', 'España', 'Costa Rica', '/uploads/flags/esp.png', '/uploads/flags/crc.png', 'upcoming', 0, 0, 'Fase de Grupos', 'E'),
+(CURRENT_TIMESTAMP + INTERVAL '4 days', 'Estados Unidos', 'México', '/uploads/flags/usa.png', '/uploads/flags/mex.png', 'upcoming', 0, 0, 'Fase de Grupos', 'B'),
+(CURRENT_TIMESTAMP + INTERVAL '5 days', 'Brasil', 'Camerún', '/uploads/flags/bra.png', '/uploads/flags/cmr.png', 'upcoming', 0, 0, 'Fase de Grupos', 'G'),
+(CURRENT_TIMESTAMP + INTERVAL '6 days', 'Alemania', 'Japón', '/uploads/flags/ger.png', '/uploads/flags/jpn.png', 'upcoming', 0, 0, 'Fase de Grupos', 'E');
 
--- 8. SEED PREDICTIONS
--- Diego's Predictions
-INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante) VALUES
-(2, 1, 2, 1), -- ARG vs KSA (Finished 1-2) -> Correct: None (0 pts)
-(2, 2, 3, 1), -- FRA vs AUS (Finished 4-1) -> Correct: Winner (1 pt)
-(2, 3, 2, 0), -- ESP vs CRC (Finished 7-0) -> Correct: Winner (1 pt)
-(2, 4, 2, 1); -- USA vs MEX (Live 1-1) -> Points pending
-
--- Juan's Predictions
-INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante) VALUES
-(3, 1, 1, 2), -- ARG vs KSA (Finished 1-2) -> Correct: Exact! (3 pts)
-(3, 2, 4, 1), -- FRA vs AUS (Finished 4-1) -> Correct: Exact! (3 pts)
-(3, 3, 3, 0), -- ESP vs CRC (Finished 7-0) -> Correct: Winner (1 pt)
-(3, 4, 1, 1); -- USA vs MEX (Live 1-1) -> Points pending
-
--- María's Predictions
-INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante) VALUES
-(4, 1, 1, 1), -- ARG vs KSA (Finished 1-2) -> Correct: None (0 pts)
-(4, 2, 2, 0), -- FRA vs AUS (Finished 4-1) -> Correct: Winner (1 pt)
-(4, 3, 7, 0), -- ESP vs CRC (Finished 7-0) -> Correct: Exact! (3 pts)
-(4, 4, 0, 2); -- USA vs MEX (Live 1-1) -> Points pending
-
--- Pedro's Predictions
-INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante) VALUES
-(5, 1, 2, 0), -- ARG vs KSA (Finished 1-2) -> Correct: None (0 pts)
-(5, 2, 4, 1), -- FRA vs AUS (Finished 4-1) -> Correct: Exact! (3 pts)
-(5, 3, 4, 0), -- ESP vs CRC (Finished 7-0) -> Correct: Winner (1 pt)
-(5, 4, 1, 2); -- USA vs MEX (Live 1-1) -> Points pending
-
--- Admin Predictions
-INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante) VALUES
-(1, 1, 3, 1), -- ARG vs KSA -> 0 pts
-(1, 2, 5, 0), -- FRA vs AUS -> 1 pt
-(1, 3, 3, 0), -- ESP vs CRC -> 1 pt
-(1, 4, 2, 2); -- USA vs MEX -> Points pending
-
--- 9. EXECUTE INITIAL LEADERBOARD CALCULATION
+-- 8. EXECUTE INITIAL LEADERBOARD CALCULATION
 SELECT recalculate_leaderboard();

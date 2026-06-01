@@ -2539,25 +2539,29 @@ export default function PWAAppPage() {
 
         {/* --- POPUP 3: MATCH SUMMARY & STATISTICS OVERLAY --- */}
         {summaryModalMatch && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-2xl p-6 shadow-2xl space-y-6 my-8 animate-slide-in-up">
-              
-              {/* Modal Header */}
-              <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md">
+            <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-3xl w-full max-w-2xl shadow-2xl animate-slide-in-up flex flex-col max-h-[94vh] sm:max-h-[90vh] sm:my-4">
+
+              {/* Sticky Modal Header — always visible */}
+              <div className="flex justify-between items-center border-b border-zinc-800 px-6 py-4 flex-shrink-0 sticky top-0 bg-zinc-900 rounded-t-3xl z-10">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-yellow-500" />
-                  <h3 className="text-sm font-black uppercase text-zinc-100">Resumen y Previa del Partido</h3>
+                  <h3 className="text-sm font-black uppercase text-zinc-100">Resumen del Partido</h3>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     setSummaryModalMatch(null);
                     setCommunityBets([]);
                   }}
-                  className="bg-zinc-950 hover:bg-zinc-800 text-zinc-400 p-2 rounded-full border border-zinc-800 transition"
+                  className="bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 p-2.5 rounded-full border border-zinc-800 transition flex-shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* Scrollable body */}
+              <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6 overscroll-contain">
 
               {/* Banner Head */}
               <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 text-center space-y-3">
@@ -2761,8 +2765,23 @@ export default function PWAAppPage() {
                 )}
               </div>
 
+              {/* Close button repeated at bottom for convenience on long content */}
+              <div className="flex-shrink-0 border-t border-zinc-800 px-6 py-4">
+                <button
+                  onClick={() => {
+                    setSummaryModalMatch(null);
+                    setCommunityBets([]);
+                  }}
+                  className="w-full bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 py-2.5 rounded-xl border border-zinc-800 transition text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+                >
+                  <X className="w-3.5 h-3.5" /> Cerrar
+                </button>
+              </div>
+
+            </div>
             </div>
           </div>
+        </div>
         )}
 
       </div>

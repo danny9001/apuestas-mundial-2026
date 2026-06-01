@@ -20,7 +20,9 @@ import {
   Play,
   X,
   UserCheck,
-  UserX
+  UserX,
+  ChevronRight,
+  BarChart3
 } from 'lucide-react';
 
 // Team flags helper map
@@ -82,6 +84,11 @@ export default function PWAAppPage() {
   const [adminEstado, setAdminEstado] = useState<'upcoming' | 'live' | 'finished'>('upcoming');
   const [adminSubmitting, setAdminSubmitting] = useState(false);
 
+  // Match Summary & Statistics Modal
+  const [summaryModalMatch, setSummaryModalMatch] = useState<any | null>(null);
+  const [communityBets, setCommunityBets] = useState<any[]>([]);
+  const [loadingSummaryBets, setLoadingSummaryBets] = useState(false);
+
   // Filters for Matches
   const [filterGrupo, setFilterGrupo] = useState<string>('ALL');
   const [filterFase, setFilterFase] = useState<string>('ALL');
@@ -142,6 +149,22 @@ export default function PWAAppPage() {
     }
   };
 
+  // Fetch Community Bets for Match Summary
+  const fetchCommunityBets = async (matchId: number) => {
+    setLoadingSummaryBets(true);
+    try {
+      const res = await fetch(`/api/predictions?matchId=${matchId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCommunityBets(data);
+      }
+    } catch (e) {
+      console.error('Error fetching community bets:', e);
+    } finally {
+      setLoadingSummaryBets(false);
+    }
+  };
+
   useEffect(() => {
     checkSession();
   }, []);
@@ -163,6 +186,12 @@ export default function PWAAppPage() {
               prev.map((m) => (m.id === payload.data.id ? { ...m, ...payload.data } : m))
             );
             showToast(`Partido actualizado: ${payload.data.local} vs ${payload.data.visitante}`);
+            
+            // Re-fetch community bets if this match is currently opened in summary
+            if (summaryModalMatch && summaryModalMatch.id === payload.data.id) {
+              setSummaryModalMatch(payload.data);
+              fetchCommunityBets(payload.data.id);
+            }
           } else if (payload.type === 'leaderboard') {
             // Refetch leaderboard
             fetch('/api/leaderboard')
@@ -183,7 +212,7 @@ export default function PWAAppPage() {
         sse.close();
       };
     }
-  }, [user]);
+  }, [user, summaryModalMatch]);
 
   // Actions
   const handleLogin = async (e: React.FormEvent) => {
@@ -390,7 +419,7 @@ export default function PWAAppPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Contraseña de prueba"
+                placeholder="Contraseña de acceso"
                 className="w-full bg-zinc-950 border border-zinc-800 focus:border-yellow-500 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-700 outline-none transition"
               />
             </div>
@@ -411,16 +440,6 @@ export default function PWAAppPage() {
             </button>
           </form>
 
-          {/* Built-in credentials helper details */}
-          <div className="mt-8 pt-6 border-t border-zinc-800/60 text-xs text-zinc-500">
-            <div className="font-bold text-zinc-400 uppercase tracking-widest text-[10px] mb-2">Cuentas de demostración:</div>
-            <div className="space-y-1.5 font-mono bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/40">
-              <div>👨‍💼 <span className="text-zinc-300">Admin</span>: admin@mundial.com</div>
-              <div>⚽ <span className="text-zinc-300">Usuario</span>: diego@mundial.com</div>
-              <div>🔑 <span className="text-zinc-300">Clave para todos</span>: mundial2026</div>
-            </div>
-          </div>
-
         </div>
       </main>
     );
@@ -428,699 +447,965 @@ export default function PWAAppPage() {
 
   // --- APP LAYOUT (AUTHENTICATED) ---
   return (
-    <div className="min-h-full flex flex-col justify-between max-w-lg mx-auto bg-zinc-950 border-x border-zinc-900 pb-safe">
+    <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row max-w-7xl mx-auto border-x border-zinc-900/60 pb-safe">
       
-      {/* ESPN Livescore goal alert widget */}
-      {goalAlert && (
-        <div className="fixed top-4 left-4 right-4 z-50 animate-bounce">
-          <div className="bg-yellow-500 text-zinc-950 p-4 rounded-2xl flex items-center justify-between shadow-[0_4px_30px_rgba(234,179,8,0.5)] border-2 border-zinc-950 goal-effect">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">⚽</span>
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-widest text-zinc-800">¡GOL EN VIVO!</div>
-                <div className="text-sm font-bold tracking-tight">
-                  {goalAlert.local} <span className="font-black">{goalAlert.goles_local} - {goalAlert.goles_visitante}</span> {goalAlert.visitante}
-                </div>
-              </div>
-            </div>
+      {/* 💻 DESKTOP LAYOUT LEFT SIDEBAR NAVIGATION */}
+      <aside className="hidden md:flex md:w-64 bg-zinc-900/40 border-r border-zinc-900/60 flex-col justify-between p-6">
+        <div className="space-y-8">
+          {/* Logo */}
+          <div className="flex items-center gap-2 px-2">
+            <span className="text-2xl">🏆</span>
+            <span className="font-black tracking-wider text-sm uppercase text-zinc-100">MUNDIAL 2026</span>
           </div>
-        </div>
-      )}
 
-      {/* Internal Notification Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 animate-fade-in-up pointer-events-none">
-          <div className="bg-zinc-900 text-zinc-100 px-4 py-3 rounded-xl border border-zinc-800 text-xs flex items-center gap-2 shadow-2xl justify-center">
-            <Trophy className="w-4 h-4 text-yellow-500 animate-pulse" />
-            <span>{toastMessage}</span>
-          </div>
-        </div>
-      )}
+          {/* Navigation Links */}
+          <nav className="flex flex-col gap-2">
+            <button
+              onClick={() => setActiveTab('partidos')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                activeTab === 'partidos' 
+                  ? 'bg-yellow-500 text-zinc-950 shadow-md' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Partidos</span>
+            </button>
 
-      {/* HEADER BAR */}
-      <header className="sticky top-0 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900/60 px-4 py-4 flex justify-between items-center z-30 pt-safe">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🏆</span>
-          <span className="font-black tracking-wider text-sm uppercase text-zinc-100">MUNDIAL 2026</span>
+            <button
+              onClick={() => setActiveTab('ranking')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                activeTab === 'ranking' 
+                  ? 'bg-yellow-500 text-zinc-950 shadow-md' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
+              <span>Ranking</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('perfil')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                activeTab === 'perfil' 
+                  ? 'bg-yellow-500 text-zinc-950 shadow-md' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>Mi Perfil</span>
+            </button>
+
+            {user.tipo === 'admin' && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                  activeTab === 'admin' 
+                    ? 'bg-yellow-500 text-zinc-950 shadow-md' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                <span>Administrador</span>
+              </button>
+            )}
+          </nav>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Direct link for TV screen */}
+
+        {/* Desktop Sidebar Footer */}
+        <div className="space-y-4">
           <a
             href="/tv"
             target="_blank"
-            className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-yellow-500 p-2 rounded-lg border border-zinc-800 transition flex items-center justify-center"
-            title="Ver Modo TV Airport"
+            className="w-full bg-zinc-950 border border-zinc-800 hover:border-yellow-500/40 text-zinc-400 hover:text-yellow-500 py-3 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
           >
-            📺
+            <span>📺 Pantalla TV Airport</span>
           </a>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-full px-3 py-1 flex items-center gap-1.5 text-xs text-zinc-300">
-            <img src={user.avatar} className="w-4 h-4 rounded-full" alt="avatar" />
-            <span className="font-bold max-w-[80px] truncate">{user.nombre.split(' ')[0]}</span>
+          
+          <div className="bg-zinc-950/60 border border-zinc-850 p-3 rounded-xl flex items-center gap-3">
+            <img src={user.avatar} className="w-8 h-8 rounded-full border border-zinc-800 bg-zinc-900" alt="avatar" />
+            <div className="truncate flex-1">
+              <div className="text-xs font-bold text-zinc-300 truncate">{user.nombre}</div>
+              <div className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">{user.tipo}</div>
+            </div>
+            <button 
+              onClick={handleLogout}
+              className="text-zinc-500 hover:text-red-400 p-1.5 transition"
+              title="Cerrar Sesión"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
-      </header>
+      </aside>
 
-      {/* MAIN VIEW CONTROLLER */}
-      <main className="flex-1 px-4 py-6 overflow-y-auto pb-24">
+      {/* RIGHT SIDE MAIN CONTAINER FOR PAGES */}
+      <div className="flex-1 flex flex-col justify-between min-h-screen relative">
         
-        {/* --- VIEW 1: PARTIDOS (MATCHES & BETTING CARDS) --- */}
-        {activeTab === 'partidos' && (
-          <section className="space-y-6">
-            
-            {/* Stage and Group Filters */}
-            <div className="flex flex-col gap-3 bg-zinc-900/40 border border-zinc-900/60 p-4 rounded-2xl">
-              <div className="flex justify-between items-center text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                <span>Filtros Rápidos</span>
-                <span className="text-yellow-500 font-black">Fútbol en vivo</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={filterFase}
-                  onChange={(e) => setFilterFase(e.target.value)}
-                  className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-lg p-2 outline-none"
-                >
-                  <option value="ALL">Todas las Fases</option>
-                  <option value="Fase de Grupos">Fase de Grupos</option>
-                  <option value="Octavos">Octavos de Final</option>
-                  <option value="Semifinal">Semifinal</option>
-                  <option value="Final">Final</option>
-                </select>
-
-                <select
-                  value={filterGrupo}
-                  onChange={(e) => setFilterGrupo(e.target.value)}
-                  className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-lg p-2 outline-none"
-                >
-                  <option value="ALL">Todos los Grupos</option>
-                  <option value="A">Grupo A</option>
-                  <option value="B">Grupo B</option>
-                  <option value="C">Grupo C</option>
-                  <option value="D">Grupo D</option>
-                  <option value="E">Grupo E</option>
-                  <option value="G">Grupo G</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Match Cards List */}
-            <div className="space-y-4">
-              {matches
-                .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
-                .filter((m) => filterFase === 'ALL' || m.fase === filterFase)
-                .map((m) => {
-                  const myPred = predictions.find((p) => p.match_id === m.id);
-                  const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
-
-                  return (
-                    <div 
-                      key={m.id} 
-                      className={`bg-zinc-900 border ${
-                        m.estado === 'live' ? 'border-red-950 bg-red-950/5' : 'border-zinc-800/80'
-                      } rounded-2xl p-5 shadow-lg transition flex flex-col justify-between gap-4`}
-                    >
-                      {/* Top Header Card */}
-                      <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3 text-[11px] font-bold tracking-wider text-zinc-400">
-                        <span>{m.fase.toUpperCase()} - GRP {m.grupo}</span>
-                        
-                        {m.estado === 'live' && (
-                          <span className="text-red-500 font-extrabold flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span> EN VIVO
-                          </span>
-                        )}
-
-                        {m.estado === 'finished' && (
-                          <span className="text-zinc-500 font-semibold uppercase">FINALIZADO</span>
-                        )}
-
-                        {m.estado === 'upcoming' && (
-                          <span className="text-zinc-500 font-semibold">
-                            {new Date(m.fecha).toLocaleDateString('es-ES', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Scores and Country Details */}
-                      <div className="flex justify-between items-center py-2 px-1">
-                        {/* Local Team */}
-                        <div className="flex items-center gap-3 w-[40%]">
-                          <span className="text-3xl">{getTeamFlag(m.local)}</span>
-                          <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.local}</span>
-                        </div>
-
-                        {/* Scores displays */}
-                        <div className="flex items-center justify-center bg-zinc-950/70 border border-zinc-800 rounded-xl px-4 py-2 font-mono font-black text-lg gap-2.5 min-w-[70px]">
-                          {m.estado !== 'upcoming' ? (
-                            <>
-                              <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_local}</span>
-                              <span className="text-zinc-700">:</span>
-                              <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_visitante}</span>
-                            </>
-                          ) : (
-                            <span className="text-zinc-600 text-xs tracking-wider uppercase">VS</span>
-                          )}
-                        </div>
-
-                        {/* Visitante Team */}
-                        <div className="flex items-center justify-end gap-3 w-[40%] text-right">
-                          <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.visitante}</span>
-                          <span className="text-3xl">{getTeamFlag(m.visitante)}</span>
-                        </div>
-                      </div>
-
-                      {/* User's Prediction Footer Card */}
-                      <div className="bg-zinc-950/40 rounded-xl border border-zinc-800/40 p-3 mt-1 flex justify-between items-center text-xs">
-                        <div>
-                          <span className="text-zinc-500">Mi apuesta: </span>
-                          {myPred ? (
-                            <span className="font-bold text-zinc-200">
-                              {myPred.pred_local} - {myPred.pred_visitante}
-                            </span>
-                          ) : (
-                            <span className="text-zinc-600 italic">Sin pronóstico</span>
-                          )}
-                        </div>
-
-                        {/* Bet Action Trigger button */}
-                        {isClosed ? (
-                          <div className="flex items-center gap-1.5">
-                            {myPred && myPred.puntos !== null && (
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                                myPred.puntos === 3 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                                myPred.puntos === 1 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                                'bg-zinc-800 text-zinc-400'
-                              }`}>
-                                +{myPred.puntos} PTS
-                              </span>
-                            )}
-                            <span className="text-zinc-600 text-[10px] uppercase font-bold flex items-center gap-1">
-                              <Lock className="w-3 h-3" /> Apuestas Cerradas
-                            </span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setBetModalMatch(m);
-                              setBetPredLocal(myPred ? myPred.pred_local : 0);
-                              setBetPredVisitante(myPred ? myPred.pred_visitante : 0);
-                            }}
-                            className="bg-yellow-500 hover:bg-yellow-600 active:scale-95 text-zinc-950 font-bold px-3 py-1.5 rounded-lg text-[10.5px] transition tracking-wider uppercase"
-                          >
-                            {myPred ? 'Modificar' : 'Pronosticar'}
-                          </button>
-                        )}
-                      </div>
-
-                    </div>
-                  );
-                })}
-
-              {matches.length === 0 && (
-                <div className="py-20 text-center text-zinc-500">
-                  <p>Cargando lista de partidos...</p>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* --- VIEW 2: LEADERBOARD RANKINGS --- */}
-        {activeTab === 'ranking' && (
-          <section className="space-y-6">
-            
-            {/* Top Leaderboard Title */}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-yellow-500" />
-                <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Clasificación General</h2>
-              </div>
-              <span className="bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs px-2.5 py-1 rounded-lg font-mono">
-                {leaderboard.length} Jugadores
-              </span>
-            </div>
-
-            {/* Medals Podium Pods */}
-            <div className="grid grid-cols-3 gap-3 pt-2">
-              {/* 2nd place */}
-              {leaderboard[1] && (
-                <div className="bg-zinc-900/35 border border-zinc-800/80 rounded-2xl p-3 text-center flex flex-col items-center justify-between order-1">
-                  <div className="text-2xl">🥈</div>
-                  <div className="text-xs font-bold text-zinc-300 truncate w-full mt-1">{leaderboard[1].nombre.split(' ')[0]}</div>
-                  <div className="text-amber-500 font-extrabold text-sm font-mono mt-1">{leaderboard[1].puntos_totales} pts</div>
-                  <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{leaderboard[1].exactos} exactos</div>
-                </div>
-              )}
-
-              {/* 1st place */}
-              {leaderboard[0] && (
-                <div className="bg-zinc-900 border-2 border-yellow-500/40 rounded-2xl p-4 text-center flex flex-col items-center justify-between order-2 relative shadow-[0_0_20px_rgba(234,179,8,0.15)] scale-105">
-                  <span className="absolute top-[-10px] bg-yellow-500 text-zinc-950 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    Líder
-                  </span>
-                  <div className="text-3xl">🥇</div>
-                  <div className="text-sm font-black text-zinc-100 truncate w-full mt-1.5">{leaderboard[0].nombre.split(' ')[0]}</div>
-                  <div className="text-yellow-500 font-black text-base font-mono mt-1">{leaderboard[0].puntos_totales} pts</div>
-                  <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{leaderboard[0].exactos} exactos</div>
-                </div>
-              )}
-
-              {/* 3rd place */}
-              {leaderboard[2] && (
-                <div className="bg-zinc-900/35 border border-zinc-800/80 rounded-2xl p-3 text-center flex flex-col items-center justify-between order-3">
-                  <div className="text-2xl">🥉</div>
-                  <div className="text-xs font-bold text-zinc-300 truncate w-full mt-1">{leaderboard[2].nombre.split(' ')[0]}</div>
-                  <div className="text-amber-700 font-extrabold text-sm font-mono mt-1">{leaderboard[2].puntos_totales} pts</div>
-                  <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{leaderboard[2].exactos} exactos</div>
-                </div>
-              )}
-            </div>
-
-            {/* Ranking list table */}
-            <div className="bg-zinc-900/30 border border-zinc-900 rounded-2xl overflow-hidden mt-2">
-              <div className="divide-y divide-zinc-900 text-sm">
-                {leaderboard.map((row, index) => {
-                  const isMe = row.user_id === user.id;
-
-                  return (
-                    <div 
-                      key={row.user_id} 
-                      className={`flex items-center justify-between p-4 transition ${
-                        isMe ? 'bg-yellow-500/5 border-l-4 border-yellow-500 font-bold' : ''
-                      }`}
-                    >
-                      {/* Left Block Position & Name */}
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-zinc-400 w-6 font-mono text-center">#{index + 1}</span>
-                        <div className="flex items-center gap-2">
-                          <img src={row.avatar} className="w-8 h-8 rounded-full border border-zinc-800 bg-zinc-950" alt="avatar" />
-                          <div>
-                            <div className="text-zinc-200 text-sm flex items-center gap-1.5">
-                              <span>{row.nombre}</span>
-                              {isMe && <span className="bg-yellow-500 text-zinc-950 font-black text-[9px] px-1 rounded uppercase">Yo</span>}
-                            </div>
-                            <div className="text-[10px] text-zinc-500 tracking-wider uppercase font-mono">{row.tipo}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Block Points and Trends */}
-                      <div className="flex items-center gap-6">
-                        <div className="text-right">
-                          <div className="font-extrabold text-sm text-zinc-100 font-mono">{row.puntos_totales} pts</div>
-                          <div className="text-[10px] text-zinc-500 font-mono">{row.exactos} exactos</div>
-                        </div>
-
-                        {/* Trend arrows */}
-                        <div className="w-12 flex justify-center">
-                          {row.tendencia === 'up' && (
-                            <span className="flex items-center gap-0.5 text-green-500 text-xs font-black">
-                              <ArrowUp className="w-3.5 h-3.5" /> ▲
-                            </span>
-                          )}
-                          {row.tendencia === 'down' && (
-                            <span className="flex items-center gap-0.5 text-red-500 text-xs font-black animate-pulse">
-                              <ArrowDown className="w-3.5 h-3.5" /> ▼
-                            </span>
-                          )}
-                          {row.tendencia === 'same' && (
-                            <span className="text-zinc-600 text-[10px]">
-                              <Circle className="w-2.5 h-2.5" />
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* --- VIEW 3: PROFILE --- */}
-        {activeTab === 'perfil' && (
-          <section className="space-y-6">
-            
-            <div className="flex items-center gap-2 mb-4">
-              <User className="w-5 h-5 text-yellow-500" />
-              <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Mi Cuenta</h2>
-            </div>
-
-            {/* Profile Info Details card */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex flex-col items-center text-center shadow-xl">
-              <img 
-                src={user.avatar} 
-                className="w-24 h-24 rounded-full border-2 border-yellow-500/35 bg-zinc-950 p-1 shadow-lg mb-4" 
-                alt="avatar" 
-              />
-              <h3 className="text-xl font-extrabold text-zinc-100">{user.nombre}</h3>
-              <p className="text-zinc-400 text-sm">{user.email}</p>
-
-              <div className="flex gap-2 mt-4">
-                <span className="bg-zinc-950 border border-zinc-800 text-[10px] text-zinc-400 font-mono tracking-widest px-3 py-1 rounded-full uppercase">
-                  Rol: {user.tipo}
-                </span>
-                <span className="bg-green-500/10 border border-green-500/20 text-[10px] text-green-400 font-mono px-3 py-1 rounded-full uppercase">
-                  Activo
-                </span>
-              </div>
-            </div>
-
-            {/* Logout actions */}
-            <div className="bg-zinc-900/30 border border-zinc-900 p-4 rounded-2xl">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold py-3.5 rounded-xl text-sm border border-red-900/20 transition active:scale-[0.98]"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Cerrar Sesión</span>
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* --- VIEW 4: ADMIN PANEL --- */}
-        {activeTab === 'admin' && user.tipo === 'admin' && (
-          <section className="space-y-6">
-            
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-yellow-500" />
-                <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Panel de Control</h2>
-              </div>
-              <button
-                onClick={handleRecalculateLeaderboard}
-                className="bg-yellow-500 hover:bg-yellow-600 text-zinc-950 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition active:scale-95"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Recalcular</span>
-              </button>
-            </div>
-
-            {/* Admin match live updater list */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Marcadores en tiempo real</h3>
-              
-              <div className="space-y-3">
-                {matches.map((m) => (
-                  <div key={m.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex justify-between items-center text-xs">
-                    <div className="flex flex-col gap-1 w-[60%]">
-                      <div className="flex items-center gap-2 text-zinc-200 font-bold">
-                        <span>{m.local} {m.goles_local} - {m.goles_visitante} {m.visitante}</span>
-                      </div>
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-wide">
-                        {m.estado === 'live' ? '🔴 En vivo' : m.estado === 'finished' ? '⚫ Finalizado' : '⚪ Programado'}
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setAdminMatchModal(m);
-                        setAdminGolesLocal(m.goles_local);
-                        setAdminGolesVisitante(m.goles_visitante);
-                        setAdminEstado(m.estado);
-                      }}
-                      className="bg-zinc-850 hover:bg-zinc-800 text-zinc-300 font-semibold px-3 py-1.5 border border-zinc-700/80 rounded-lg transition"
-                    >
-                      Editar Marcador
-                    </button>
+        {/* ESPN Livescore goal alert widget */}
+        {goalAlert && (
+          <div className="fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 animate-bounce">
+            <div className="bg-yellow-500 text-zinc-950 p-4 rounded-2xl flex items-center justify-between shadow-[0_4px_30px_rgba(234,179,8,0.5)] border-2 border-zinc-950 goal-effect">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⚽</span>
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-zinc-800">¡GOL EN VIVO!</div>
+                  <div className="text-sm font-bold tracking-tight">
+                    {goalAlert.local} <span className="font-black">{goalAlert.goles_local} - {goalAlert.goles_visitante}</span> {goalAlert.visitante}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
+          </div>
+        )}
 
-            {/* Admin User Activation Manager list */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Gestión de Usuarios</h3>
+        {/* Internal Notification Toast */}
+        {toastMessage && (
+          <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-40 animate-fade-in-up pointer-events-none">
+            <div className="bg-zinc-900 text-zinc-100 px-4 py-3 rounded-xl border border-zinc-800 text-xs flex items-center gap-2 shadow-2xl justify-center">
+              <Trophy className="w-4 h-4 text-yellow-500 animate-pulse" />
+              <span>{toastMessage}</span>
+            </div>
+          </div>
+        )}
 
-              <div className="bg-zinc-900/40 border border-zinc-900 divide-y divide-zinc-900 rounded-xl overflow-hidden">
-                {adminUsers.map((u) => (
-                  <div key={u.id} className="flex justify-between items-center p-3 text-xs">
-                    <div className="flex items-center gap-2">
-                      <img src={u.avatar} className="w-8 h-8 rounded-full bg-zinc-950 border border-zinc-800" alt="avatar" />
-                      <div>
-                        <div className="font-bold text-zinc-200">{u.nombre}</div>
-                        <div className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase">{u.tipo}</div>
+        {/* HEADER BAR FOR MOBILE (Hidden on desktop) */}
+        <header className="sticky top-0 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900/60 px-4 py-4 flex justify-between items-center z-30 pt-safe md:hidden">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🏆</span>
+            <span className="font-black tracking-wider text-sm uppercase text-zinc-100">MUNDIAL 2026</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Direct link for TV screen */}
+            <a
+              href="/tv"
+              target="_blank"
+              className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-yellow-500 p-2 rounded-lg border border-zinc-800 transition flex items-center justify-center"
+              title="Ver Modo TV Airport"
+            >
+              📺
+            </a>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-full px-3 py-1 flex items-center gap-1.5 text-xs text-zinc-300">
+              <img src={user.avatar} className="w-4 h-4 rounded-full" alt="avatar" />
+              <span className="font-bold max-w-[80px] truncate">{user.nombre.split(' ')[0]}</span>
+            </div>
+          </div>
+        </header>
+
+        {/* MAIN VIEW CONTROLLER */}
+        <main className="flex-1 px-4 py-6 md:px-8 md:py-8 overflow-y-auto pb-24 md:pb-8">
+          
+          {/* --- VIEW 1: PARTIDOS (MATCHES & BETTING CARDS) --- */}
+          {activeTab === 'partidos' && (
+            <section className="space-y-6">
+              
+              {/* Stage and Group Filters */}
+              <div className="flex flex-col gap-3 bg-zinc-900/40 border border-zinc-900/60 p-4 rounded-2xl md:p-6 md:rounded-3xl">
+                <div className="flex justify-between items-center text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                  <span>Filtros de Cartelera</span>
+                  <span className="text-yellow-500 font-black">Fútbol en vivo</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
+                  <select
+                    value={filterFase}
+                    onChange={(e) => setFilterFase(e.target.value)}
+                    className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-lg p-2 md:p-3 outline-none"
+                  >
+                    <option value="ALL">Todas las Fases</option>
+                    <option value="Fase de Grupos">Fase de Grupos</option>
+                    <option value="Octavos">Octavos de Final</option>
+                    <option value="Semifinal">Semifinal</option>
+                    <option value="Final">Final</option>
+                  </select>
+
+                  <select
+                    value={filterGrupo}
+                    onChange={(e) => setFilterGrupo(e.target.value)}
+                    className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-lg p-2 md:p-3 outline-none"
+                  >
+                    <option value="ALL">Todos los Grupos</option>
+                    <option value="A">Grupo A</option>
+                    <option value="B">Grupo B</option>
+                    <option value="C">Grupo C</option>
+                    <option value="D">Grupo D</option>
+                    <option value="E">Grupo E</option>
+                    <option value="G">Grupo G</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Match Cards List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {matches
+                  .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
+                  .filter((m) => filterFase === 'ALL' || m.fase === filterFase)
+                  .map((m) => {
+                    const myPred = predictions.find((p) => p.match_id === m.id);
+                    const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+
+                    return (
+                      <div 
+                        key={m.id} 
+                        className={`bg-zinc-900 border ${
+                          m.estado === 'live' ? 'border-red-950 bg-red-950/5' : 'border-zinc-800/80 hover:border-zinc-700/80'
+                        } rounded-2xl p-5 shadow-lg transition flex flex-col justify-between gap-4 cursor-pointer relative`}
+                        onClick={() => {
+                          setSummaryModalMatch(m);
+                          fetchCommunityBets(m.id);
+                        }}
+                      >
+                        {/* Top Header Card */}
+                        <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3 text-[11px] font-bold tracking-wider text-zinc-400" onClick={(e) => e.stopPropagation()}>
+                          <span>{m.fase.toUpperCase()} - GRP {m.grupo}</span>
+                          
+                          {m.estado === 'live' && (
+                            <span className="text-red-500 font-extrabold flex items-center gap-1">
+                              <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span> EN VIVO
+                            </span>
+                          )}
+
+                          {m.estado === 'finished' && (
+                            <span className="text-zinc-500 font-semibold uppercase">FINALIZADO</span>
+                          )}
+
+                          {m.estado === 'upcoming' && (
+                            <span className="text-zinc-500 font-semibold">
+                              {new Date(m.fecha).toLocaleDateString('es-ES', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Scores and Country Details */}
+                        <div className="flex justify-between items-center py-2 px-1">
+                          {/* Local Team */}
+                          <div className="flex items-center gap-3 w-[40%]">
+                            <span className="text-3xl">{getTeamFlag(m.local)}</span>
+                            <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.local}</span>
+                          </div>
+
+                          {/* Scores displays */}
+                          <div className="flex items-center justify-center bg-zinc-950/70 border border-zinc-800 rounded-xl px-4 py-2 font-mono font-black text-lg gap-2.5 min-w-[70px]">
+                            {m.estado !== 'upcoming' ? (
+                              <>
+                                <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_local}</span>
+                                <span className="text-zinc-700">:</span>
+                                <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_visitante}</span>
+                              </>
+                            ) : (
+                              <span className="text-zinc-600 text-xs tracking-wider uppercase">VS</span>
+                            )}
+                          </div>
+
+                          {/* Visitante Team */}
+                          <div className="flex items-center justify-end gap-3 w-[40%] text-right">
+                            <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.visitante}</span>
+                            <span className="text-3xl">{getTeamFlag(m.visitante)}</span>
+                          </div>
+                        </div>
+
+                        {/* User's Prediction Footer Card */}
+                        <div className="bg-zinc-950/40 rounded-xl border border-zinc-800/40 p-3 mt-1 flex justify-between items-center text-xs" onClick={(e) => e.stopPropagation()}>
+                          <div>
+                            <span className="text-zinc-500">Mi apuesta: </span>
+                            {myPred ? (
+                              <span className="font-bold text-zinc-200">
+                                {myPred.pred_local} - {myPred.pred_visitante}
+                              </span>
+                            ) : (
+                              <span className="text-zinc-600 italic">Sin pronóstico</span>
+                            )}
+                          </div>
+
+                          {/* Bet Action Trigger button */}
+                          {isClosed ? (
+                            <div className="flex items-center gap-1.5">
+                              {myPred && myPred.puntos !== null && (
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                                  myPred.puntos === 3 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                                  myPred.puntos === 1 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                  'bg-zinc-800 text-zinc-400'
+                                }`}>
+                                  +{myPred.puntos} PTS
+                                </span>
+                              )}
+                              <span className="text-zinc-600 text-[10px] uppercase font-bold flex items-center gap-1">
+                                <Lock className="w-3 h-3" /> Cerrado
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setBetModalMatch(m);
+                                setBetPredLocal(myPred ? myPred.pred_local : 0);
+                                setBetPredVisitante(myPred ? myPred.pred_visitante : 0);
+                              }}
+                              className="bg-yellow-500 hover:bg-yellow-600 active:scale-95 text-zinc-950 font-bold px-3 py-1.5 rounded-lg text-[10.5px] transition tracking-wider uppercase z-10"
+                            >
+                              {myPred ? 'Modificar' : 'Pronosticar'}
+                            </button>
+                          )}
+                        </div>
+
                       </div>
-                    </div>
+                    );
+                  })}
 
-                    {u.id !== user.id ? (
-                      <button
-                        onClick={() => handleToggleUserStatus(u.id, u.activo)}
-                        className={`font-bold py-1 px-3.5 rounded-lg flex items-center gap-1 transition ${
-                          u.activo 
-                            ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' 
-                            : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'
+                {matches.length === 0 && (
+                  <div className="py-20 text-center text-zinc-500 col-span-2">
+                    <p>Cargando lista de partidos...</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* --- VIEW 2: LEADERBOARD RANKINGS --- */}
+          {activeTab === 'ranking' && (
+            <section className="space-y-6">
+              
+              {/* Top Leaderboard Title */}
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-yellow-500" />
+                  <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Clasificación General</h2>
+                </div>
+                <span className="bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs px-2.5 py-1 rounded-lg font-mono">
+                  {leaderboard.length} Jugadores
+                </span>
+              </div>
+
+              {/* Medals Podium Pods */}
+              <div className="grid grid-cols-3 gap-4 pt-2 max-w-xl mx-auto">
+                {/* 2nd place */}
+                {leaderboard[1] && (
+                  <div className="bg-zinc-900/35 border border-zinc-800/80 rounded-2xl p-4 text-center flex flex-col items-center justify-between order-1 shadow-md">
+                    <div className="text-3xl">🥈</div>
+                    <div className="text-xs font-bold text-zinc-300 truncate w-full mt-2">{leaderboard[1].nombre}</div>
+                    <div className="text-amber-500 font-extrabold text-base font-mono mt-1">{leaderboard[1].puntos_totales} pts</div>
+                    <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{leaderboard[1].exactos} exactos</div>
+                  </div>
+                )}
+
+                {/* 1st place */}
+                {leaderboard[0] && (
+                  <div className="bg-zinc-900 border-2 border-yellow-500/40 rounded-2xl p-5 text-center flex flex-col items-center justify-between order-2 relative shadow-[0_0_30px_rgba(234,179,8,0.2)] scale-105">
+                    <span className="absolute top-[-10px] bg-yellow-50 text-zinc-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow">
+                      Líder
+                    </span>
+                    <div className="text-4xl animate-bounce">🥇</div>
+                    <div className="text-sm font-black text-zinc-100 truncate w-full mt-2">{leaderboard[0].nombre}</div>
+                    <div className="text-yellow-500 font-black text-lg font-mono mt-1">{leaderboard[0].puntos_totales} pts</div>
+                    <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{leaderboard[0].exactos} exactos</div>
+                  </div>
+                )}
+
+                {/* 3rd place */}
+                {leaderboard[2] && (
+                  <div className="bg-zinc-900/35 border border-zinc-800/80 rounded-2xl p-4 text-center flex flex-col items-center justify-between order-3 shadow-md">
+                    <div className="text-3xl">🥉</div>
+                    <div className="text-xs font-bold text-zinc-300 truncate w-full mt-2">{leaderboard[2].nombre}</div>
+                    <div className="text-amber-700 font-extrabold text-base font-mono mt-1">{leaderboard[2].puntos_totales} pts</div>
+                    <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{leaderboard[2].exactos} exactos</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Ranking list table */}
+              <div className="bg-zinc-900/30 border border-zinc-900 rounded-3xl overflow-hidden mt-6 max-w-3xl mx-auto shadow-2xl">
+                <div className="divide-y divide-zinc-900 text-sm">
+                  {leaderboard.map((row, index) => {
+                    const isMe = row.user_id === user.id;
+
+                    return (
+                      <div 
+                        key={row.user_id} 
+                        className={`flex items-center justify-between p-5 transition ${
+                          isMe ? 'bg-yellow-500/5 border-l-4 border-yellow-500 font-bold' : 'hover:bg-zinc-900/20'
                         }`}
                       >
-                        {u.activo ? (
-                          <>
-                            <UserX className="w-3.5 h-3.5" /> Desactivar
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="w-3.5 h-3.5" /> Activar
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest italic pr-2">Yo</span>
-                    )}
-                  </div>
-                ))}
+                        {/* Left Block Position & Name */}
+                        <div className="flex items-center gap-4">
+                          <span className="font-bold text-zinc-400 w-6 font-mono text-center">#{index + 1}</span>
+                          <div className="flex items-center gap-3">
+                            <img src={row.avatar} className="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-950 shadow" alt="avatar" />
+                            <div>
+                              <div className="text-zinc-200 text-sm flex items-center gap-2">
+                                <span>{row.nombre}</span>
+                                {isMe && <span className="bg-yellow-500 text-zinc-950 font-black text-[9px] px-1 rounded uppercase">Yo</span>}
+                              </div>
+                              <div className="text-[10px] text-zinc-500 tracking-wider uppercase font-mono">{row.tipo}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Block Points and Trends */}
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <div className="font-extrabold text-sm text-zinc-100 font-mono">{row.puntos_totales} pts</div>
+                            <div className="text-[10px] text-zinc-500 font-mono">{row.exactos} exactos</div>
+                          </div>
+
+                          {/* Trend arrows */}
+                          <div className="w-12 flex justify-center">
+                            {row.tendencia === 'up' && (
+                              <span className="flex items-center gap-0.5 text-green-500 text-xs font-black">
+                                <ArrowUp className="w-3.5 h-3.5" /> ▲
+                              </span>
+                            )}
+                            {row.tendencia === 'down' && (
+                              <span className="flex items-center gap-0.5 text-red-500 text-xs font-black animate-pulse">
+                                <ArrowDown className="w-3.5 h-3.5" /> ▼
+                              </span>
+                            )}
+                            {row.tendencia === 'same' && (
+                              <span className="text-zinc-600 text-[10px]">
+                                <Circle className="w-2.5 h-2.5" />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            </section>
+          )}
 
-          </section>
-        )}
+          {/* --- VIEW 3: PROFILE --- */}
+          {activeTab === 'perfil' && (
+            <section className="space-y-6 max-w-xl mx-auto">
+              
+              <div className="flex items-center gap-2 mb-4">
+                <User className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Mi Cuenta</h2>
+              </div>
 
-      </main>
+              {/* Profile Info Details card */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 flex flex-col items-center text-center shadow-xl">
+                <img 
+                  src={user.avatar} 
+                  className="w-28 h-28 rounded-full border-2 border-yellow-500/35 bg-zinc-950 p-1 shadow-lg mb-4" 
+                  alt="avatar" 
+                />
+                <h3 className="text-2xl font-extrabold text-zinc-100">{user.nombre}</h3>
+                <p className="text-zinc-400 text-sm mt-1">{user.email}</p>
 
-      {/* BOTTOM MOBILE APP NAVIGATION */}
-      <nav className="fixed bottom-0 left-4 right-4 z-30 max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-md border border-zinc-800 rounded-2xl shadow-[0_-5px_30px_rgba(0,0,0,0.5)] mb-3 flex items-center justify-around py-2.5">
-        
-        {/* Tab Partidos */}
-        <button
-          onClick={() => setActiveTab('partidos')}
-          className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
-            activeTab === 'partidos' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <Calendar className="w-5 h-5" />
-          <span className="text-[10px] font-bold tracking-wide uppercase">Partidos</span>
-        </button>
+                <div className="flex gap-2 mt-5">
+                  <span className="bg-zinc-950 border border-zinc-800 text-[10px] text-zinc-400 font-mono tracking-widest px-3.5 py-1.5 rounded-full uppercase font-bold">
+                    Rol: {user.tipo}
+                  </span>
+                  <span className="bg-green-500/10 border border-green-500/20 text-[10px] text-green-400 font-mono px-3.5 py-1.5 rounded-full uppercase font-bold">
+                    Cuenta Activa
+                  </span>
+                </div>
+              </div>
 
-        {/* Tab Leaderboard */}
-        <button
-          onClick={() => setActiveTab('ranking')}
-          className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
-            activeTab === 'ranking' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <Trophy className="w-5 h-5" />
-          <span className="text-[10px] font-bold tracking-wide uppercase">Ranking</span>
-        </button>
+              {/* Logout actions */}
+              <div className="bg-zinc-900/30 border border-zinc-900 p-4 rounded-2xl md:hidden">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-center gap-2 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold py-3.5 rounded-xl text-sm border border-red-900/20 transition active:scale-[0.98]"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Cerrar Sesión</span>
+                </button>
+              </div>
+            </section>
+          )}
 
-        {/* Tab Perfil */}
-        <button
-          onClick={() => setActiveTab('perfil')}
-          className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
-            activeTab === 'perfil' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <User className="w-5 h-5" />
-          <span className="text-[10px] font-bold tracking-wide uppercase">Mi Perfil</span>
-        </button>
+          {/* --- VIEW 4: ADMIN PANEL --- */}
+          {activeTab === 'admin' && user.tipo === 'admin' && (
+            <section className="space-y-6">
+              
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-yellow-500" />
+                  <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Panel de Control</h2>
+                </div>
+                <button
+                  onClick={handleRecalculateLeaderboard}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Recalcular Clasificación</span>
+                </button>
+              </div>
 
-        {/* Tab Admin (Visible to admin only!) */}
-        {user.tipo === 'admin' && (
+              {/* Admin match live updater list */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Marcadores en vivo</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {matches.map((m) => (
+                    <div key={m.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl flex justify-between items-center text-xs shadow-md">
+                      <div className="flex flex-col gap-1 w-[60%]">
+                        <div className="flex items-center gap-2 text-sm text-zinc-200 font-black">
+                          <span>{m.local} {m.goles_local} - {m.goles_visitante} {m.visitante}</span>
+                        </div>
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
+                          {m.estado === 'live' ? '🔴 En juego' : m.estado === 'finished' ? '⚫ Finalizado' : '⚪ Programado'}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setAdminMatchModal(m);
+                          setAdminGolesLocal(m.goles_local);
+                          setAdminGolesVisitante(m.goles_visitante);
+                          setAdminEstado(m.estado);
+                        }}
+                        className="bg-zinc-950 hover:bg-zinc-800 text-zinc-300 font-bold px-4 py-2 border border-zinc-800 hover:border-yellow-500/25 rounded-xl transition"
+                      >
+                        Editar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Admin User Activation Manager list */}
+              <div className="space-y-4 max-w-2xl">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Gestión de Usuarios</h3>
+
+                <div className="bg-zinc-900/40 border border-zinc-900 divide-y divide-zinc-900 rounded-2xl overflow-hidden shadow-lg">
+                  {adminUsers.map((u) => (
+                    <div key={u.id} className="flex justify-between items-center p-4 text-xs">
+                      <div className="flex items-center gap-3">
+                        <img src={u.avatar} className="w-10 h-10 rounded-full bg-zinc-950 border border-zinc-850" alt="avatar" />
+                        <div>
+                          <div className="font-bold text-sm text-zinc-200">{u.nombre}</div>
+                          <div className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase">{u.tipo}</div>
+                        </div>
+                      </div>
+
+                      {u.id !== user.id ? (
+                        <button
+                          onClick={() => handleToggleUserStatus(u.id, u.activo)}
+                          className={`font-bold py-2 px-4 rounded-xl flex items-center gap-1.5 transition ${
+                            u.activo 
+                              ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' 
+                              : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'
+                          }`}
+                        >
+                          {u.activo ? (
+                            <>
+                              <UserX className="w-4 h-4" /> Desactivar
+                            </>
+                          ) : (
+                            <>
+                              <UserCheck className="w-4 h-4" /> Activar
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest italic pr-4">Tú (Admin)</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </section>
+          )}
+
+        </main>
+
+        {/* BOTTOM MOBILE APP NAVIGATION (Hidden on Desktop) */}
+        <nav className="fixed bottom-0 left-4 right-4 z-30 max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-md border border-zinc-800 rounded-2xl shadow-[0_-5px_30px_rgba(0,0,0,0.5)] mb-3 flex items-center justify-around py-2.5 md:hidden">
+          
+          {/* Tab Partidos */}
           <button
-            onClick={() => setActiveTab('admin')}
+            onClick={() => setActiveTab('partidos')}
             className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
-              activeTab === 'admin' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
+              activeTab === 'partidos' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <Settings className="w-5 h-5" />
-            <span className="text-[10px] font-bold tracking-wide uppercase">Admin</span>
+            <Calendar className="w-5 h-5" />
+            <span className="text-[10px] font-bold tracking-wide uppercase">Partidos</span>
           </button>
+
+          {/* Tab Leaderboard */}
+          <button
+            onClick={() => setActiveTab('ranking')}
+            className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
+              activeTab === 'ranking' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Trophy className="w-5 h-5" />
+            <span className="text-[10px] font-bold tracking-wide uppercase">Ranking</span>
+          </button>
+
+          {/* Tab Perfil */}
+          <button
+            onClick={() => setActiveTab('perfil')}
+            className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
+              activeTab === 'perfil' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <User className="w-5 h-5" />
+            <span className="text-[10px] font-bold tracking-wide uppercase">Mi Perfil</span>
+          </button>
+
+          {/* Tab Admin (Visible to admin only!) */}
+          {user.tipo === 'admin' && (
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
+                activeTab === 'admin' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Settings className="w-5 h-5" />
+              <span className="text-[10px] font-bold tracking-wide uppercase">Admin</span>
+            </button>
+          )}
+        </nav>
+
+        {/* --- POPUP 1: BETTING / CHRONO PROG FORM MODAL --- */}
+        {betModalMatch && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
+              
+              {/* Modal Header */}
+              <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <div>
+                  <h3 className="text-sm font-black uppercase text-zinc-100">Hacer Pronóstico</h3>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Apuestas Cerradas al inicio del partido</span>
+                </div>
+                <button 
+                  onClick={() => setBetModalMatch(null)}
+                  className="bg-zinc-950 hover:bg-zinc-800 text-zinc-400 p-2 rounded-full border border-zinc-800 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Score Selector Controls */}
+              <div className="flex justify-between items-center py-4 bg-zinc-950 border border-zinc-800/80 rounded-2xl px-6">
+                
+                {/* Local Input Selector */}
+                <div className="flex flex-col items-center gap-2 w-1/3">
+                  <span className="text-3xl">{getTeamFlag(betModalMatch.local)}</span>
+                  <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{betModalMatch.local}</span>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <button 
+                      onClick={() => setBetPredLocal(Math.max(0, betPredLocal - 1))}
+                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
+                    >
+                      -
+                    </button>
+                    <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredLocal}</span>
+                    <button 
+                      onClick={() => setBetPredLocal(betPredLocal + 1)}
+                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Colon Separator */}
+                <span className="text-2xl text-zinc-700 font-extrabold font-mono">:</span>
+
+                {/* Visitante Input Selector */}
+                <div className="flex flex-col items-center gap-2 w-1/3">
+                  <span className="text-3xl">{getTeamFlag(betModalMatch.visitante)}</span>
+                  <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{betModalMatch.visitante}</span>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <button 
+                      onClick={() => setBetPredVisitante(Math.max(0, betPredVisitante - 1))}
+                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
+                    >
+                      -
+                    </button>
+                    <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredVisitante}</span>
+                    <button 
+                      onClick={() => setBetPredVisitante(betPredVisitante + 1)}
+                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+              {betError && (
+                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-xl">
+                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                  <span>{betError}</span>
+                </div>
+              )}
+
+              {/* Confirm Submit action button */}
+              <button
+                onClick={handleSavePrediction}
+                disabled={betSubmitting}
+                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-zinc-950 font-bold py-3.5 rounded-xl text-sm transition tracking-wider uppercase flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                <Check className="w-4 h-4" />
+                <span>{betSubmitting ? 'Confirmando...' : 'Confirmar Apuesta'}</span>
+              </button>
+
+            </div>
+          </div>
         )}
-      </nav>
 
-      {/* --- POPUP 1: BETTING / CHRONO PROG FORM MODAL --- */}
-      {betModalMatch && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
-            
-            {/* Modal Header */}
-            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
-              <div>
-                <h3 className="text-sm font-black uppercase text-zinc-100">Hacer Pronóstico</h3>
-                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Apuestas Cerradas al inicio del partido</span>
-              </div>
-              <button 
-                onClick={() => setBetModalMatch(null)}
-                className="bg-zinc-950 hover:bg-zinc-800 text-zinc-400 p-2 rounded-full border border-zinc-800 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Score Selector Controls */}
-            <div className="flex justify-between items-center py-4 bg-zinc-950 border border-zinc-800/80 rounded-2xl px-6">
+        {/* --- POPUP 2: ADMIN MATCH SCORES UPDATE MODAL --- */}
+        {adminMatchModal && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
               
-              {/* Local Input Selector */}
-              <div className="flex flex-col items-center gap-2 w-1/3">
-                <span className="text-3xl">{getTeamFlag(betModalMatch.local)}</span>
-                <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{betModalMatch.local}</span>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <button 
-                    onClick={() => setBetPredLocal(Math.max(0, betPredLocal - 1))}
-                    className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
-                  >
-                    -
-                  </button>
-                  <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredLocal}</span>
-                  <button 
-                    onClick={() => setBetPredLocal(betPredLocal + 1)}
-                    className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
-                  >
-                    +
-                  </button>
+              <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <div>
+                  <h3 className="text-sm font-black uppercase text-zinc-100">Actualizar Marcador</h3>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Modo Administrador</span>
+                </div>
+                <button 
+                  onClick={() => setAdminMatchModal(null)}
+                  className="bg-zinc-950 hover:bg-zinc-800 text-zinc-400 p-2 rounded-full border border-zinc-800 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Score inputs */}
+              <div className="flex justify-between items-center py-4 bg-zinc-950 border border-zinc-800/80 rounded-2xl px-6">
+                
+                {/* Local Input Selector */}
+                <div className="flex flex-col items-center gap-2 w-1/3">
+                  <span className="text-3xl">{getTeamFlag(adminMatchModal.local)}</span>
+                  <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{adminMatchModal.local}</span>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={adminGolesLocal}
+                    onChange={(e) => setAdminGolesLocal(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-16 bg-zinc-900 border border-zinc-800 text-center py-2 text-yellow-500 font-mono font-black text-lg rounded-lg outline-none mt-2"
+                  />
+                </div>
+
+                {/* Colon Separator */}
+                <span className="text-2xl text-zinc-700 font-extrabold font-mono">:</span>
+
+                {/* Visitante Input Selector */}
+                <div className="flex flex-col items-center gap-2 w-1/3">
+                  <span className="text-3xl">{getTeamFlag(adminMatchModal.visitante)}</span>
+                  <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{adminMatchModal.visitante}</span>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={adminGolesVisitante}
+                    onChange={(e) => setAdminGolesVisitante(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-16 bg-zinc-900 border border-zinc-800 text-center py-2 text-yellow-500 font-mono font-black text-lg rounded-lg outline-none mt-2"
+                  />
+                </div>
+
+              </div>
+
+              {/* Match State Selector */}
+              <div>
+                <label className="block text-zinc-400 text-xs font-bold uppercase tracking-wide mb-2">Estado del Partido</label>
+                <select
+                  value={adminEstado}
+                  onChange={(e) => setAdminEstado(e.target.value as any)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 outline-none transition"
+                >
+                  <option value="upcoming">Programado (upcoming)</option>
+                  <option value="live">En Juego (live)</option>
+                  <option value="finished">Finalizado (finished)</option>
+                </select>
+              </div>
+
+              {/* Save action button */}
+              <button
+                onClick={handleAdminUpdateMatch}
+                disabled={adminSubmitting}
+                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-zinc-950 font-bold py-3.5 rounded-xl text-sm transition tracking-wider uppercase flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                <Check className="w-4 h-4" />
+                <span>{adminSubmitting ? 'Guardando Marcador...' : 'Guardar Marcador'}</span>
+              </button>
+
+            </div>
+          </div>
+        )}
+
+        {/* --- POPUP 3: MATCH SUMMARY & STATISTICS OVERLAY --- */}
+        {summaryModalMatch && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-xl p-6 shadow-2xl space-y-6 my-8 animate-slide-in-up">
+              
+              {/* Modal Header */}
+              <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-yellow-500" />
+                  <h3 className="text-sm font-black uppercase text-zinc-100">Resumen del Partido</h3>
+                </div>
+                <button 
+                  onClick={() => {
+                    setSummaryModalMatch(null);
+                    setCommunityBets([]);
+                  }}
+                  className="bg-zinc-950 hover:bg-zinc-800 text-zinc-400 p-2 rounded-full border border-zinc-800 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Banner Head */}
+              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 text-center space-y-3">
+                <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">
+                  {summaryModalMatch.fase} - GRUPO {summaryModalMatch.grupo}
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <div className="flex flex-col items-center w-1/3 gap-1">
+                    <span className="text-4xl">{getTeamFlag(summaryModalMatch.local)}</span>
+                    <span className="text-xs font-black text-zinc-200 uppercase truncate w-full">{summaryModalMatch.local}</span>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center w-1/3">
+                    {summaryModalMatch.estado !== 'upcoming' ? (
+                      <span className="font-mono text-3xl font-black text-yellow-500 tracking-wider">
+                        {summaryModalMatch.goles_local} - {summaryModalMatch.goles_visitante}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-600 font-extrabold text-sm uppercase">vs</span>
+                    )}
+                    <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded mt-2 ${
+                      summaryModalMatch.estado === 'live' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
+                      summaryModalMatch.estado === 'finished' ? 'bg-zinc-800 text-zinc-500' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                    }`}>
+                      {summaryModalMatch.estado === 'live' ? '🔴 En juego' : summaryModalMatch.estado === 'finished' ? 'Finalizado' : 'Próximamente'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-center w-1/3 gap-1">
+                    <span className="text-4xl">{getTeamFlag(summaryModalMatch.visitante)}</span>
+                    <span className="text-xs font-black text-zinc-200 uppercase truncate w-full">{summaryModalMatch.visitante}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Colon Separator */}
-              <span className="text-2xl text-zinc-700 font-extrabold font-mono">:</span>
+              {/* Match Statistics (ESPN Progress Bars style) */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-1.5">Estadísticas del Encuentro</h4>
+                
+                {/* Stat 1: Possession */}
+                {(() => {
+                  const posLocal = 45 + (summaryModalMatch.id % 3 === 0 ? 10 : summaryModalMatch.id % 2 === 0 ? -5 : 2);
+                  const posVisitante = 100 - posLocal;
+                  return (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs font-mono font-bold">
+                        <span className="text-zinc-400">{posLocal}%</span>
+                        <span className="text-zinc-500 uppercase tracking-wider text-[10px]">Posesión de Balón</span>
+                        <span className="text-zinc-400">{posVisitante}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-zinc-950 rounded-full flex overflow-hidden border border-zinc-800">
+                        <div className="h-full bg-yellow-500" style={{ width: `${posLocal}%` }}></div>
+                        <div className="h-full bg-zinc-800" style={{ width: `${posVisitante}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
-              {/* Visitante Input Selector */}
-              <div className="flex flex-col items-center gap-2 w-1/3">
-                <span className="text-3xl">{getTeamFlag(betModalMatch.visitante)}</span>
-                <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{betModalMatch.visitante}</span>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <button 
-                    onClick={() => setBetPredVisitante(Math.max(0, betPredVisitante - 1))}
-                    className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
-                  >
-                    -
-                  </button>
-                  <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredVisitante}</span>
-                  <button 
-                    onClick={() => setBetPredVisitante(betPredVisitante + 1)}
-                    className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
-                  >
-                    +
-                  </button>
+                {/* Stat 2: Shots */}
+                {(() => {
+                  const shotsLocal = 8 + (summaryModalMatch.id % 5);
+                  const shotsVisitante = 6 + (summaryModalMatch.id % 7);
+                  const totalShots = shotsLocal + shotsVisitante;
+                  const localPercent = (shotsLocal / totalShots) * 100;
+                  return (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs font-mono font-bold">
+                        <span className="text-zinc-400">{shotsLocal}</span>
+                        <span className="text-zinc-500 uppercase tracking-wider text-[10px]">Remates Totales</span>
+                        <span className="text-zinc-400">{shotsVisitante}</span>
+                      </div>
+                      <div className="h-2 w-full bg-zinc-950 rounded-full flex overflow-hidden border border-zinc-800">
+                        <div className="h-full bg-yellow-500" style={{ width: `${localPercent}%` }}></div>
+                        <div className="h-full bg-zinc-800" style={{ width: `${100 - localPercent}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Stat 3: Fouls */}
+                {(() => {
+                  const foulsLocal = 10 + (summaryModalMatch.id % 4);
+                  const foulsVisitante = 9 + (summaryModalMatch.id % 6);
+                  const totalFouls = foulsLocal + foulsVisitante;
+                  const localPercent = (foulsLocal / totalFouls) * 100;
+                  return (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs font-mono font-bold">
+                        <span className="text-zinc-400">{foulsLocal}</span>
+                        <span className="text-zinc-500 uppercase tracking-wider text-[10px]">Faltas Cometidas</span>
+                        <span className="text-zinc-400">{foulsVisitante}</span>
+                      </div>
+                      <div className="h-2 w-full bg-zinc-950 rounded-full flex overflow-hidden border border-zinc-800">
+                        <div className="h-full bg-yellow-500" style={{ width: `${localPercent}%` }}></div>
+                        <div className="h-full bg-zinc-800" style={{ width: `${100 - localPercent}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Community Predictions list */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center border-b border-zinc-800 pb-1.5">
+                  <h4 className="text-xs font-black text-zinc-400 uppercase tracking-widest">Apuestas de la Comunidad</h4>
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Pronósticos realizados</span>
                 </div>
+
+                {loadingSummaryBets ? (
+                  <div className="py-4 text-center text-xs text-zinc-500">Cargando pronósticos...</div>
+                ) : (
+                  <div className="bg-zinc-950 border border-zinc-850 rounded-2xl divide-y divide-zinc-900 max-h-48 overflow-y-auto">
+                    {communityBets.map((bet) => (
+                      <div key={bet.id} className="flex justify-between items-center p-3 text-xs">
+                        <div className="flex items-center gap-2">
+                          <img src={bet.avatar} className="w-7 h-7 rounded-full bg-zinc-900 border border-zinc-800" alt="avatar" />
+                          <div>
+                            <span className="font-bold text-zinc-300">{bet.nombre}</span>
+                            <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest ml-1">{bet.tipo}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-black text-zinc-200 font-mono">{bet.pred_local} - {bet.pred_visitante}</span>
+                          {bet.puntos !== null && (
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black ${
+                              bet.puntos === 3 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                              bet.puntos === 1 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                              'bg-zinc-900 text-zinc-500 border border-zinc-800/40'
+                            }`}>
+                              +{bet.puntos} PTS
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {communityBets.length === 0 && (
+                      <div className="py-6 text-center text-xs text-zinc-600 italic">Nadie ha realizado pronósticos para este partido aún</div>
+                    )}
+                  </div>
+                )}
               </div>
 
             </div>
-
-            {betError && (
-              <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-xl">
-                <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                <span>{betError}</span>
-              </div>
-            )}
-
-            {/* Confirm Submit action button */}
-            <button
-              onClick={handleSavePrediction}
-              disabled={betSubmitting}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-zinc-950 font-bold py-3.5 rounded-xl text-sm transition tracking-wider uppercase flex items-center justify-center gap-2 active:scale-[0.98]"
-            >
-              <Check className="w-4 h-4" />
-              <span>{betSubmitting ? 'Confirmando...' : 'Confirmar Apuesta'}</span>
-            </button>
-
           </div>
-        </div>
-      )}
+        )}
 
-      {/* --- POPUP 2: ADMIN MATCH SCORES UPDATE MODAL --- */}
-      {adminMatchModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
-            
-            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
-              <div>
-                <h3 className="text-sm font-black uppercase text-zinc-100">Actualizar Marcador</h3>
-                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Modo Administrador</span>
-              </div>
-              <button 
-                onClick={() => setAdminMatchModal(null)}
-                className="bg-zinc-950 hover:bg-zinc-800 text-zinc-400 p-2 rounded-full border border-zinc-800 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Score inputs */}
-            <div className="flex justify-between items-center py-4 bg-zinc-950 border border-zinc-800/80 rounded-2xl px-6">
-              
-              {/* Local Input Selector */}
-              <div className="flex flex-col items-center gap-2 w-1/3">
-                <span className="text-3xl">{getTeamFlag(adminMatchModal.local)}</span>
-                <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{adminMatchModal.local}</span>
-                <input 
-                  type="number"
-                  min="0"
-                  value={adminGolesLocal}
-                  onChange={(e) => setAdminGolesLocal(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-16 bg-zinc-900 border border-zinc-800 text-center py-2 text-yellow-500 font-mono font-black text-lg rounded-lg outline-none mt-2"
-                />
-              </div>
-
-              {/* Colon Separator */}
-              <span className="text-2xl text-zinc-700 font-extrabold font-mono">:</span>
-
-              {/* Visitante Input Selector */}
-              <div className="flex flex-col items-center gap-2 w-1/3">
-                <span className="text-3xl">{getTeamFlag(adminMatchModal.visitante)}</span>
-                <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{adminMatchModal.visitante}</span>
-                <input 
-                  type="number"
-                  min="0"
-                  value={adminGolesVisitante}
-                  onChange={(e) => setAdminGolesVisitante(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-16 bg-zinc-900 border border-zinc-800 text-center py-2 text-yellow-500 font-mono font-black text-lg rounded-lg outline-none mt-2"
-                />
-              </div>
-
-            </div>
-
-            {/* Match State Selector */}
-            <div>
-              <label className="block text-zinc-400 text-xs font-bold uppercase tracking-wide mb-2">Estado del Partido</label>
-              <select
-                value={adminEstado}
-                onChange={(e) => setAdminEstado(e.target.value as any)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 outline-none transition"
-              >
-                <option value="upcoming">Programado (upcoming)</option>
-                <option value="live">En Juego (live)</option>
-                <option value="finished">Finalizado (finished)</option>
-              </select>
-            </div>
-
-            {/* Save action button */}
-            <button
-              onClick={handleAdminUpdateMatch}
-              disabled={adminSubmitting}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-zinc-950 font-bold py-3.5 rounded-xl text-sm transition tracking-wider uppercase flex items-center justify-center gap-2 active:scale-[0.98]"
-            >
-              <Check className="w-4 h-4" />
-              <span>{adminSubmitting ? 'Guardando Marcador...' : 'Guardar Marcador'}</span>
-            </button>
-
-          </div>
-        </div>
-      )}
-
+      </div>
     </div>
   );
 }

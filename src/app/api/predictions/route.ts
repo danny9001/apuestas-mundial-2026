@@ -4,15 +4,31 @@ import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// GET: fetch predictions for the current user
-export async function GET() {
+// GET: fetch predictions
+export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Retrieve user predictions joined with match information
+    const { searchParams } = new URL(req.url);
+    const matchId = searchParams.get('matchId');
+
+    if (matchId) {
+      // Fetch all predictions for this specific match (community review)
+      const res = await pool.query(
+        `SELECT p.*, u.nombre, u.avatar, u.tipo
+         FROM predictions p
+         JOIN users u ON p.user_id = u.id
+         WHERE p.match_id = $1
+         ORDER BY p.puntos DESC, u.nombre ASC`,
+        [parseInt(matchId)]
+      );
+      return NextResponse.json(res.rows);
+    }
+
+    // Retrieve current user predictions joined with match information
     const res = await pool.query(
       `SELECT p.*, m.local, m.visitante, m.fecha, m.estado, m.goles_local, m.goles_visitante, m.fase, m.grupo
        FROM predictions p

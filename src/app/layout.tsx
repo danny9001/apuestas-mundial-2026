@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: "#131315",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -62,9 +62,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} h-full bg-zinc-950 text-zinc-100 antialiased overflow-x-hidden`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} h-full bg-zinc-950 text-zinc-100 antialiased overflow-x-hidden`}>
         {children}
       </body>
     </html>
   );
 }
+

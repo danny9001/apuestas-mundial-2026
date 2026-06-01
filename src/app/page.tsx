@@ -505,31 +505,31 @@ export default function PWAAppPage() {
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-zinc-400 text-xs font-bold uppercase tracking-wide mb-2">Correo Electrónico</label>
+              <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-2">Correo Electrónico</label>
               <input 
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="ej: diego@mundial.com"
-                className="w-full bg-zinc-950 border border-zinc-800 focus:border-yellow-500 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-700 outline-none transition"
+                className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
               />
             </div>
 
             <div>
-              <label className="block text-zinc-400 text-xs font-bold uppercase tracking-wide mb-2">Contraseña</label>
+              <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-2">Contraseña</label>
               <input 
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Contraseña de acceso"
-                className="w-full bg-zinc-950 border border-zinc-800 focus:border-yellow-500 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-700 outline-none transition"
+                className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
               />
             </div>
 
             {loginError && (
-              <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-xl">
+              <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
                 <ShieldAlert className="w-4 h-4 flex-shrink-0" />
                 <span>{loginError}</span>
               </div>
@@ -538,7 +538,7 @@ export default function PWAAppPage() {
             <button
               type="submit"
               disabled={loginLoading}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-zinc-950 font-bold py-3.5 rounded-xl text-sm transition tracking-wider uppercase active:scale-[0.98]"
+              className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
             >
               {loginLoading ? 'Iniciando Sesión...' : 'Entrar a la Quiniela'}
             </button>
@@ -566,10 +566,10 @@ export default function PWAAppPage() {
           <nav className="flex flex-col gap-2">
             <button
               onClick={() => setActiveTab('partidos')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
                 activeTab === 'partidos' 
-                  ? 'bg-yellow-500 text-zinc-950 shadow-md' 
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                  ? 'btn-primary-stitch shadow-md' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent rounded-lg'
               }`}
             >
               <Calendar className="w-4 h-4" />
@@ -578,10 +578,10 @@ export default function PWAAppPage() {
 
             <button
               onClick={() => setActiveTab('ranking')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
                 activeTab === 'ranking' 
-                  ? 'bg-yellow-500 text-zinc-950 shadow-md' 
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                  ? 'btn-primary-stitch shadow-md' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent rounded-lg'
               }`}
             >
               <Trophy className="w-4 h-4" />
@@ -590,10 +590,10 @@ export default function PWAAppPage() {
 
             <button
               onClick={() => setActiveTab('perfil')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
                 activeTab === 'perfil' 
-                  ? 'bg-yellow-500 text-zinc-950 shadow-md' 
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                  ? 'btn-primary-stitch shadow-md' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent rounded-lg'
               }`}
             >
               <User className="w-4 h-4" />
@@ -603,10 +603,10 @@ export default function PWAAppPage() {
             {user.tipo === 'admin' && (
               <button
                 onClick={() => setActiveTab('admin')}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
                   activeTab === 'admin' 
-                    ? 'bg-yellow-500 text-zinc-950 shadow-md' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                    ? 'btn-primary-stitch shadow-md' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent rounded-lg'
                 }`}
               >
                 <Settings className="w-4 h-4" />
@@ -621,7 +621,7 @@ export default function PWAAppPage() {
           <a
             href="/tv"
             target="_blank"
-            className="w-full bg-zinc-950 border border-zinc-800 hover:border-yellow-500/40 text-zinc-400 hover:text-yellow-500 py-3 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
+            className="w-full btn-secondary-stitch py-3 px-4 text-xs font-bold flex items-center justify-center gap-2"
           >
             <span>📺 Pantalla TV Airport</span>
           </a>
@@ -666,7 +666,7 @@ export default function PWAAppPage() {
         {/* Floating Excel Saver Panel */}
         {activeTab === 'partidos' && viewMode === 'excel' && pendingExcelCount > 0 && (
           <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-40 animate-slide-in-up">
-            <div className="bg-zinc-900 border border-yellow-500/30 p-4 rounded-2xl flex flex-col gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.7)]">
+            <div className="glass-card border border-yellow-500/30 p-4 rounded-xl flex flex-col gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.7)]">
               <div className="flex justify-between items-center text-xs font-bold">
                 <span className="text-zinc-400">Planilla de Cambios</span>
                 <span className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded text-[10px] font-black">
@@ -676,7 +676,7 @@ export default function PWAAppPage() {
               <button
                 onClick={handleSaveExcelPlanilla}
                 disabled={excelSubmitting}
-                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-zinc-950 font-bold py-2.5 rounded-xl text-xs transition uppercase flex items-center justify-center gap-2 active:scale-95 shadow-md"
+                className="w-full btn-primary-stitch py-2.5 text-xs flex items-center justify-center gap-2 active:scale-95 shadow-md"
               >
                 {excelSubmitting ? (
                   <>
@@ -697,7 +697,7 @@ export default function PWAAppPage() {
         {/* Internal Notification Toast */}
         {toastMessage && !goalAlert && (
           <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-40 animate-fade-in-up pointer-events-none">
-            <div className="bg-zinc-900 text-zinc-100 px-4 py-3 rounded-xl border border-zinc-800 text-xs flex items-center gap-2 shadow-2xl justify-center">
+            <div className="glass-card text-zinc-100 px-4 py-3 rounded-lg border border-zinc-800/80 text-xs flex items-center gap-2 shadow-2xl justify-center">
               <Trophy className="w-4 h-4 text-yellow-500 animate-pulse" />
               <span>{toastMessage}</span>
             </div>
@@ -793,7 +793,6 @@ export default function PWAAppPage() {
                   </select>
                 </div>
               </div>
-
               {/* VIEW MODE A: TRADITIONAL CARDS LAYOUT */}
               {viewMode === 'cards' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -803,13 +802,14 @@ export default function PWAAppPage() {
                     .map((m) => {
                       const myPred = predictions.find((p) => p.match_id === m.id);
                       const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
-
                       return (
                         <div 
                           key={m.id} 
-                          className={`bg-zinc-900 border ${
-                            m.estado === 'live' ? 'border-red-950 bg-red-950/5' : 'border-zinc-800/80 hover:border-zinc-700/80'
-                          } rounded-2xl p-5 shadow-lg transition flex flex-col justify-between gap-4 cursor-pointer relative`}
+                          className={`match-card-stitch p-5 shadow-lg flex flex-col justify-between gap-4 cursor-pointer relative ${
+                            m.estado === 'live' 
+                              ? 'match-card-live-stitch shadow-[0_0_18px_rgba(239,68,68,0.15)]' 
+                              : ''
+                          }`}
                           onClick={() => {
                             setSummaryModalMatch(m);
                             fetchCommunityBets(m.id);
@@ -820,17 +820,17 @@ export default function PWAAppPage() {
                             <span>{m.fase.toUpperCase()} - GRP {m.grupo}</span>
                             
                             {m.estado === 'live' && (
-                              <span className="text-red-500 font-extrabold flex items-center gap-1">
+                              <span className="text-red-500 font-extrabold flex items-center gap-1 text-[10px]">
                                 <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span> EN VIVO
                               </span>
                             )}
 
                             {m.estado === 'finished' && (
-                              <span className="text-zinc-500 font-semibold uppercase">FINALIZADO</span>
+                              <span className="text-zinc-500 font-semibold uppercase text-[10px]">FINALIZADO</span>
                             )}
 
                             {m.estado === 'upcoming' && (
-                              <span className="text-zinc-500 font-semibold">
+                              <span className="text-zinc-550 font-semibold text-[10px]">
                                 {new Date(m.fecha).toLocaleDateString('es-ES', {
                                   day: '2-digit',
                                   month: 'short',
@@ -845,27 +845,31 @@ export default function PWAAppPage() {
                           <div className="flex justify-between items-center py-2 px-1">
                             {/* Local Team */}
                             <div className="flex items-center gap-3 w-[40%]">
-                              <span className="text-3xl">{getTeamFlag(m.local)}</span>
-                              <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.local}</span>
+                              <div className="w-9 h-9 rounded-full bg-zinc-950/80 border border-zinc-800 flex items-center justify-center text-xl shadow-inner select-none flex-shrink-0">
+                                {getTeamFlag(m.local)}
+                              </div>
+                              <span className="font-extrabold text-xs text-zinc-200 uppercase truncate">{m.local}</span>
                             </div>
 
                             {/* Scores displays */}
-                            <div className="flex items-center justify-center bg-zinc-950/70 border border-zinc-800 rounded-xl px-4 py-2 font-mono font-black text-lg gap-2.5 min-w-[70px]">
+                            <div className="flex items-center justify-center bg-zinc-950/70 border border-zinc-800 rounded-lg px-3 py-1.5 font-mono font-black text-lg gap-2 min-w-[70px] shadow-inner select-none">
                               {m.estado !== 'upcoming' ? (
                                 <>
-                                  <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_local}</span>
-                                  <span className="text-zinc-700">:</span>
-                                  <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_visitante}</span>
+                                  <span className={m.estado === 'live' ? 'text-red-500 animate-pulse' : 'text-zinc-200'}>{m.goles_local}</span>
+                                  <span className="text-zinc-700 font-mono">:</span>
+                                  <span className={m.estado === 'live' ? 'text-red-500 animate-pulse' : 'text-zinc-200'}>{m.goles_visitante}</span>
                                 </>
                               ) : (
-                                <span className="text-zinc-600 text-xs tracking-wider uppercase">VS</span>
+                                <span className="text-zinc-650 text-[10px] tracking-widest uppercase font-mono font-bold">VS</span>
                               )}
                             </div>
 
                             {/* Visitante Team */}
                             <div className="flex items-center justify-end gap-3 w-[40%] text-right">
-                              <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.visitante}</span>
-                              <span className="text-3xl">{getTeamFlag(m.visitante)}</span>
+                              <span className="font-extrabold text-xs text-zinc-200 uppercase truncate">{m.visitante}</span>
+                              <div className="w-9 h-9 rounded-full bg-zinc-950/80 border border-zinc-800 flex items-center justify-center text-xl shadow-inner select-none flex-shrink-0">
+                                {getTeamFlag(m.visitante)}
+                              </div>
                             </div>
                           </div>
 
@@ -874,11 +878,11 @@ export default function PWAAppPage() {
                             <div>
                               <span className="text-zinc-500">Mi apuesta: </span>
                               {myPred ? (
-                                <span className="font-bold text-zinc-200">
+                                <span className="font-bold text-zinc-200 font-mono">
                                   {myPred.pred_local} - {myPred.pred_visitante}
                                 </span>
                               ) : (
-                                <span className="text-zinc-600 italic">Sin pronóstico</span>
+                                <span className="text-zinc-650 italic">Sin pronóstico</span>
                               )}
                             </div>
 
@@ -905,17 +909,15 @@ export default function PWAAppPage() {
                                   setBetPredLocal(myPred ? myPred.pred_local : 0);
                                   setBetPredVisitante(myPred ? myPred.pred_visitante : 0);
                                 }}
-                                className="bg-yellow-500 hover:bg-yellow-600 active:scale-95 text-zinc-950 font-bold px-3 py-1.5 rounded-lg text-[10.5px] transition tracking-wider uppercase z-10"
+                                className="btn-primary-stitch px-3 py-1.5 text-[10px] tracking-wider uppercase z-10"
                               >
                                 {myPred ? 'Modificar' : 'Pronosticar'}
                               </button>
                             )}
                           </div>
-
                         </div>
                       );
                     })}
-
                   {matches.length === 0 && (
                     <div className="py-20 text-center text-zinc-500 col-span-2">
                       <p>Cargando lista de partidos...</p>
@@ -1062,7 +1064,7 @@ export default function PWAAppPage() {
               <div className="grid grid-cols-3 gap-4 pt-2 max-w-xl mx-auto">
                 {/* 2nd place */}
                 {leaderboard[1] && (
-                  <div className="bg-zinc-900/35 border border-zinc-800/80 rounded-2xl p-4 text-center flex flex-col items-center justify-between order-1 shadow-md">
+                  <div className="glass-card rounded-xl p-4 text-center flex flex-col items-center justify-between order-1 shadow-md">
                     <div className="text-3xl">🥈</div>
                     <div className="text-xs font-bold text-zinc-300 truncate w-full mt-2">{leaderboard[1].nombre}</div>
                     <div className="text-amber-500 font-extrabold text-base font-mono mt-1">{leaderboard[1].puntos_totales} pts</div>
@@ -1072,8 +1074,8 @@ export default function PWAAppPage() {
 
                 {/* 1st place */}
                 {leaderboard[0] && (
-                  <div className="bg-zinc-900 border-2 border-yellow-500/40 rounded-2xl p-5 text-center flex flex-col items-center justify-between order-2 relative shadow-[0_0_30px_rgba(234,179,8,0.2)] scale-105">
-                    <span className="absolute top-[-10px] bg-yellow-50 text-zinc-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow">
+                  <div className="glass-card border-2 border-yellow-500/50 rounded-xl p-5 text-center flex flex-col items-center justify-between order-2 relative shadow-[0_0_24px_rgba(255,209,101,0.2)] scale-105">
+                    <span className="absolute top-[-10px] bg-yellow-500 text-zinc-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow">
                       Líder
                     </span>
                     <div className="text-4xl animate-bounce">🥇</div>
@@ -1085,7 +1087,7 @@ export default function PWAAppPage() {
 
                 {/* 3rd place */}
                 {leaderboard[2] && (
-                  <div className="bg-zinc-900/35 border border-zinc-800/80 rounded-2xl p-4 text-center flex flex-col items-center justify-between order-3 shadow-md">
+                  <div className="glass-card rounded-xl p-4 text-center flex flex-col items-center justify-between order-3 shadow-md">
                     <div className="text-3xl">🥉</div>
                     <div className="text-xs font-bold text-zinc-300 truncate w-full mt-2">{leaderboard[2].nombre}</div>
                     <div className="text-amber-700 font-extrabold text-base font-mono mt-1">{leaderboard[2].puntos_totales} pts</div>
@@ -1095,7 +1097,7 @@ export default function PWAAppPage() {
               </div>
 
               {/* Ranking list table */}
-              <div className="bg-zinc-900/30 border border-zinc-900 rounded-3xl overflow-hidden mt-6 max-w-3xl mx-auto shadow-2xl">
+              <div className="glass-card border border-zinc-800/40 rounded-xl overflow-hidden mt-6 max-w-3xl mx-auto shadow-2xl">
                 <div className="divide-y divide-zinc-900 text-sm">
                   {leaderboard.map((row, index) => {
                     const isMe = row.user_id === user.id;
@@ -1167,7 +1169,7 @@ export default function PWAAppPage() {
               </div>
 
               {/* Profile Info Details card */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 flex flex-col items-center text-center shadow-xl">
+              <div className="glass-card rounded-xl p-8 flex flex-col items-center text-center shadow-xl">
                 <img 
                   src={user.avatar} 
                   className="w-28 h-28 rounded-full border-2 border-yellow-500/35 bg-zinc-950 p-1 shadow-lg mb-4" 
@@ -1187,10 +1189,10 @@ export default function PWAAppPage() {
               </div>
 
               {/* Logout actions */}
-              <div className="bg-zinc-900/30 border border-zinc-900 p-4 rounded-2xl md:hidden">
+              <div className="glass-card border border-zinc-800/40 p-4 rounded-xl md:hidden">
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold py-3.5 rounded-xl text-sm border border-red-900/20 transition active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold py-3.5 rounded-lg text-sm border border-red-900/30 transition active:scale-[0.98]"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Cerrar Sesión</span>
@@ -1297,39 +1299,39 @@ export default function PWAAppPage() {
         </main>
 
         {/* BOTTOM MOBILE APP NAVIGATION (Hidden on Desktop) */}
-        <nav className="fixed bottom-0 left-4 right-4 z-30 max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-md border border-zinc-800 rounded-2xl shadow-[0_-5px_30px_rgba(0,0,0,0.5)] mb-3 flex items-center justify-around py-2.5 md:hidden">
+        <nav className="fixed bottom-0 left-4 right-4 z-30 max-w-lg mx-auto bottom-nav-glass rounded-2xl shadow-[0_-5px_30px_rgba(0,0,0,0.5)] mb-3 flex items-center justify-around py-3 md:hidden">
           
           {/* Tab Partidos */}
           <button
             onClick={() => setActiveTab('partidos')}
             className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
-              activeTab === 'partidos' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
+              activeTab === 'partidos' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
             <Calendar className="w-5 h-5" />
-            <span className="text-[10px] font-bold tracking-wide uppercase">Partidos</span>
+            <span className="text-[9px] font-bold tracking-wide uppercase">Partidos</span>
           </button>
 
           {/* Tab Leaderboard */}
           <button
             onClick={() => setActiveTab('ranking')}
             className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
-              activeTab === 'ranking' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
+              activeTab === 'ranking' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
             <Trophy className="w-5 h-5" />
-            <span className="text-[10px] font-bold tracking-wide uppercase">Ranking</span>
+            <span className="text-[9px] font-bold tracking-wide uppercase">Ranking</span>
           </button>
 
           {/* Tab Perfil */}
           <button
             onClick={() => setActiveTab('perfil')}
             className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
-              activeTab === 'perfil' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
+              activeTab === 'perfil' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
             <User className="w-5 h-5" />
-            <span className="text-[10px] font-bold tracking-wide uppercase">Mi Perfil</span>
+            <span className="text-[9px] font-bold tracking-wide uppercase">Mi Perfil</span>
           </button>
 
           {/* Tab Admin (Visible to admin only!) */}
@@ -1337,52 +1339,54 @@ export default function PWAAppPage() {
             <button
               onClick={() => setActiveTab('admin')}
               className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
-                activeTab === 'admin' ? 'text-yellow-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'
+                activeTab === 'admin' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
               <Settings className="w-5 h-5" />
-              <span className="text-[10px] font-bold tracking-wide uppercase">Admin</span>
+              <span className="text-[9px] font-bold tracking-wide uppercase">Admin</span>
             </button>
           )}
         </nav>
 
         {/* --- POPUP 1: BETTING / CHRONO PROG FORM MODAL --- */}
         {betModalMatch && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm p-4">
+            <div className="glass-card border-t-2 border-t-yellow-500 border-x border-b border-zinc-800/80 rounded-xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
               
               {/* Modal Header */}
-              <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+              <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3">
                 <div>
                   <h3 className="text-sm font-black uppercase text-zinc-100">Hacer Pronóstico</h3>
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Apuestas Cerradas al inicio del partido</span>
+                  <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">Apuestas Cerradas al inicio del partido</span>
                 </div>
                 <button 
                   onClick={() => setBetModalMatch(null)}
-                  className="bg-zinc-950 hover:bg-zinc-800 text-zinc-400 p-2 rounded-full border border-zinc-800 transition"
+                  className="bg-zinc-950 hover:bg-zinc-800 text-zinc-400 p-2 rounded-full border border-zinc-850 transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Score Selector Controls */}
-              <div className="flex justify-between items-center py-4 bg-zinc-950 border border-zinc-800/80 rounded-2xl px-6">
+              <div className="flex justify-between items-center py-4 bg-zinc-950 border border-zinc-850 rounded-lg px-6 shadow-inner">
                 
                 {/* Local Input Selector */}
                 <div className="flex flex-col items-center gap-2 w-1/3">
-                  <span className="text-3xl">{getTeamFlag(betModalMatch.local)}</span>
-                  <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{betModalMatch.local}</span>
+                  <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-2xl shadow-inner select-none flex-shrink-0 animate-pulse">
+                    {getTeamFlag(betModalMatch.local)}
+                  </div>
+                  <span className="text-[10px] font-black text-zinc-300 uppercase truncate w-full text-center tracking-wider">{betModalMatch.local}</span>
                   <div className="flex items-center gap-1.5 mt-2">
                     <button 
                       onClick={() => setBetPredLocal(Math.max(0, betPredLocal - 1))}
-                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
+                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300 transition active:scale-90 hover:border-yellow-500/25"
                     >
                       -
                     </button>
                     <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredLocal}</span>
                     <button 
                       onClick={() => setBetPredLocal(betPredLocal + 1)}
-                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
+                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300 transition active:scale-90 hover:border-yellow-500/25"
                     >
                       +
                     </button>
@@ -1394,19 +1398,21 @@ export default function PWAAppPage() {
 
                 {/* Visitante Input Selector */}
                 <div className="flex flex-col items-center gap-2 w-1/3">
-                  <span className="text-3xl">{getTeamFlag(betModalMatch.visitante)}</span>
-                  <span className="text-xs font-bold text-zinc-200 uppercase truncate w-full text-center">{betModalMatch.visitante}</span>
+                  <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-2xl shadow-inner select-none flex-shrink-0 animate-pulse">
+                    {getTeamFlag(betModalMatch.visitante)}
+                  </div>
+                  <span className="text-[10px] font-black text-zinc-300 uppercase truncate w-full text-center tracking-wider">{betModalMatch.visitante}</span>
                   <div className="flex items-center gap-1.5 mt-2">
                     <button 
                       onClick={() => setBetPredVisitante(Math.max(0, betPredVisitante - 1))}
-                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
+                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300 transition active:scale-90 hover:border-yellow-500/25"
                     >
                       -
                     </button>
                     <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredVisitante}</span>
                     <button 
                       onClick={() => setBetPredVisitante(betPredVisitante + 1)}
-                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300"
+                      className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center font-bold text-sm bg-zinc-900 text-zinc-300 transition active:scale-90 hover:border-yellow-500/25"
                     >
                       +
                     </button>
@@ -1416,7 +1422,7 @@ export default function PWAAppPage() {
               </div>
 
               {betError && (
-                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-xl">
+                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
                   <ShieldAlert className="w-4 h-4 flex-shrink-0" />
                   <span>{betError}</span>
                 </div>
@@ -1426,7 +1432,7 @@ export default function PWAAppPage() {
               <button
                 onClick={handleSavePrediction}
                 disabled={betSubmitting}
-                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-zinc-950 font-bold py-3.5 rounded-xl text-sm transition tracking-wider uppercase flex items-center justify-center gap-2 active:scale-[0.98]"
+                className="w-full btn-primary-stitch py-3.5 text-sm uppercase flex items-center justify-center gap-2"
               >
                 <Check className="w-4 h-4" />
                 <span>{betSubmitting ? 'Confirmando...' : 'Confirmar Apuesta'}</span>

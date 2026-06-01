@@ -1,0 +1,187 @@
+{
+  "name": "projects/10339320150823770829",
+  "title": "Mundial 2026 Visual Overhaul",
+  "visibility": "PRIVATE",
+  "createTime": "2026-06-01T17:39:01.534789Z",
+  "updateTime": "2026-06-01T17:40:38.345427Z",
+  "projectType": "TEXT_TO_UI_PRO",
+  "thumbnailScreenshot": {
+    "name": "projects/10339320150823770829/files/2b4d55e55a9e4d3c938aecc6eab806b7",
+    "downloadUrl": "https://lh3.googleusercontent.com/aida/ADBb0uiFcjYyXV-Jlsm89KXP08eGqh11-Jx-DoWPRNA0kNeYfzqTx5CFMjARt7r7TtXkRzgo6l6sNRP50pMCg2mbB051LD_jv2djQtvu9NkAgTeLYuQ-TZ6EKQ_H0jaEm1LwC-pEupDbG7SwWzxZQZK2Fed3f_qGak0A8m0QGfxEwAnkl6NRnhHAXH6gRB_Y9MNVGbsXK-UaY2eVnS1T7ePZ03W044gBo1SJsqPesTZpWzimCPId-_bwry8VZVos"
+  },
+  "origin": "STITCH",
+  "deviceType": "MOBILE",
+  "designTheme": {
+    "colorMode": "DARK",
+    "font": "INTER",
+    "roundness": "ROUND_FOUR",
+    "customColor": "#eab308",
+    "headlineFont": "INTER",
+    "bodyFont": "INTER",
+    "labelFont": "JETBRAINS_MONO",
+    "namedColors": {
+      "background": "#131315",
+      "error": "#ffb4ab",
+      "error_container": "#93000a",
+      "inverse_on_surface": "#313032",
+      "inverse_primary": "#785a00",
+      "inverse_surface": "#e5e1e4",
+      "on_background": "#e5e1e4",
+      "on_error": "#690005",
+      "on_error_container": "#ffdad6",
+      "on_primary": "#3f2e00",
+      "on_primary_container": "#604700",
+      "on_primary_fixed": "#251a00",
+      "on_primary_fixed_variant": "#5a4300",
+      "on_secondary": "#2f3038",
+      "on_secondary_container": "#bcbbc5",
+      "on_secondary_fixed": "#1a1b22",
+      "on_secondary_fixed_variant": "#46464e",
+      "on_surface": "#e5e1e4",
+      "on_surface_variant": "#d3c5ac",
+      "on_tertiary": "#303033",
+      "on_tertiary_container": "#4b4a4e",
+      "on_tertiary_fixed": "#1b1b1e",
+      "on_tertiary_fixed_variant": "#47464a",
+      "outline": "#9b8f79",
+      "outline_variant": "#4f4633",
+      "primary": "#ffd165",
+      "primary_container": "#eab308",
+      "primary_fixed": "#ffdf9a",
+      "primary_fixed_dim": "#f7be1d",
+      "secondary": "#c6c5cf",
+      "secondary_container": "#4a4b53",
+      "secondary_fixed": "#e3e1ec",
+      "secondary_fixed_dim": "#c6c5cf",
+      "surface": "#131315",
+      "surface_bright": "#39393b",
+      "surface_container": "#201f22",
+      "surface_container_high": "#2a2a2c",
+      "surface_container_highest": "#353437",
+      "surface_container_low": "#1c1b1d",
+      "surface_container_lowest": "#0e0e10",
+      "surface_dim": "#131315",
+      "surface_tint": "#f7be1d",
+      "surface_variant": "#353437",
+      "tertiary": "#d9d6da",
+      "tertiary_container": "#bcbabe",
+      "tertiary_fixed": "#e4e1e6",
+      "tertiary_fixed_dim": "#c8c5ca"
+    },
+    "designMd": "---\nname: Apuestas Mundial 2026\ncolors:\n  surface: '#131315'\n  surface-dim: '#131315'\n  surface-bright: '#39393b'\n  surface-container-lowest: '#0e0e10'\n  surface-container-low: '#1c1b1d'\n  surface-container: '#201f22'\n  surface-container-high: '#2a2a2c'\n  surface-container-highest: '#353437'\n  on-surface: '#e5e1e4'\n  on-surface-variant: '#d3c5ac'\n  inverse-surface: '#e5e1e4'\n  inverse-on-surface: '#313032'\n  outline: '#9b8f79'\n  outline-variant: '#4f4633'\n  surface-tint: '#f7be1d'\n  primary: '#ffd165'\n  on-primary: '#3f2e00'\n  primary-container: '#eab308'\n  on-primary-container: '#604700'\n  inverse-primary: '#785a00'\n  secondary: '#c6c5cf'\n  on-secondary: '#2f3038'\n  secondary-container: '#4a4b53'\n  on-secondary-container: '#bcbbc5'\n  tertiary: '#d9d6da'\n  on-tertiary: '#303033'\n  tertiary-container: '#bcbabe'\n  on-tertiary-container: '#4b4a4e'\n  error: '#ffb4ab'\n  on-error: '#690005'\n  error-container: '#93000a'\n  on-error-container: '#ffdad6'\n  primary-fixed: '#ffdf9a'\n  primary-fixed-dim: '#f7be1d'\n  on-primary-fixed: '#251a00'\n  on-primary-fixed-variant: '#5a4300'\n  secondary-fixed: '#e3e1ec'\n  secondary-fixed-dim: '#c6c5cf'\n  on-secondary-fixed: '#1a1b22'\n  on-secondary-fixed-variant: '#46464e'\n  tertiary-fixed: '#e4e1e6'\n  tertiary-fixed-dim: '#c8c5ca'\n  on-tertiary-fixed: '#1b1b1e'\n  on-tertiary-fixed-variant: '#47464a'\n  background: '#131315'\n  on-background: '#e5e1e4'\n  surface-variant: '#353437'\ntypography:\n  display-lg:\n    fontFamily: Inter\n    fontSize: 48px\n    fontWeight: '900'\n    lineHeight: '1.1'\n    letterSpacing: -0.02em\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 32px\n    fontWeight: '800'\n    lineHeight: '1.2'\n  headline-lg-mobile:\n    fontFamily: Inter\n    fontSize: 24px\n    fontWeight: '800'\n    lineHeight: '1.2'\n  title-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '700'\n    lineHeight: '1.4'\n  body-base:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '400'\n    lineHeight: '1.6'\n  score-display:\n    fontFamily: JetBrains Mono\n    fontSize: 24px\n    fontWeight: '700'\n    lineHeight: '1'\n    letterSpacing: 0.05em\n  label-caps:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '600'\n    lineHeight: '1'\n    letterSpacing: 0.1em\nrounded:\n  sm: 0.125rem\n  DEFAULT: 0.25rem\n  md: 0.375rem\n  lg: 0.5rem\n  xl: 0.75rem\n  full: 9999px\nspacing:\n  base: 4px\n  xs: 8px\n  sm: 12px\n  md: 16px\n  lg: 24px\n  xl: 32px\n  gutter: 16px\n  margin-mobile: 16px\n  margin-desktop: 40px\n---\n\n## Brand & Style\nThe design system is engineered for a high-stakes, premium sports wagering environment. It blends the high-octane energy of a global sports broadcast with the precision and reliability of high-end fintech platforms. \n\nThe aesthetic is rooted in **Modern Dark Minimalism** with **Glassmorphism** overlays. It utilizes deep, obsidian-like surfaces to make gold accents and vibrant status indicators pop, creating a \"command center\" feel. The emotional response should be one of exclusivity, urgency (for live events), and absolute technical confidence.\n\n## Colors\nThis design system utilizes a high-contrast dark palette designed for readability under stadium lights or in low-light environments.\n\n- **Primary (Gold):** Used for CTA buttons, active states, and critical information like winning odds.\n- **Surface (Zinc-950/900):** The foundation of the UI. Zinc-950 serves as the global background, while Zinc-900 is used for elevated cards and navigation containers.\n- **Glassmorphism:** Surfaces use an 80% opacity fill with a 12px backdrop blur to maintain depth without sacrificing legibility.\n- **Status Indicators:** \n    - **Live/Pulse (Red):** Pulsating effects for active matches.\n    - **Success (Emerald):** Confirmed bets and settled wins.\n    - **Info (Blue):** Market analysis and betting tips.\n\n## Typography\nTypography is split into two functional roles:\n1. **Interface & Editorial (Inter):** High-weight headings (Bold/Black) provide an authoritative broadcast feel. Body text remains clean and highly legible.\n2. **Data & Metrics (JetBrains Mono):** All numerical data, including scores, odds, and leaderboard rankings, must use monospaced fonts. This ensures that changing numbers do not cause horizontal layout shifts (tabular figures) and maintains vertical alignment in odds tables.\n\n**Mobile Scaling:** Display and Headline sizes scale down significantly on mobile to maximize data density on the bet slip and match lists.\n\n## Layout & Spacing\nThe layout follows a **Fluid Grid** model optimized for PWA performance. \n\n- **Mobile:** A 4-column grid with 16px margins. Bottom-heavy navigation allows for one-handed operation.\n- **Desktop:** A 12-column grid with a max-width of 1440px. The sidebar is fixed for quick navigation between leagues.\n- **Spacing Rhythm:** Based on a 4px scale. Components (like odds buttons) use tight internal padding (8px x 12px) to maximize the amount of data visible on screen at once.\n\n## Elevation & Depth\nDepth is created through **Backdrop Blurs** and **Tonal Layering** rather than traditional heavy shadows.\n\n1. **Level 0 (Base):** Zinc-950 (#09090B).\n2. **Level 1 (Cards):** Zinc-900 (#18181B) with 80% opacity and a 1px border (#27272A).\n3. **Level 2 (Active/Live States):** Elements feature a subtle gold inner-glow and a diffuse outer-shadow (0px 8px 24px rgba(234, 179, 8, 0.15)).\n4. **Level 3 (Modals/Overlays):** 100% Zinc-900 with a golden top-border (2px) to signal premium status.\n\n## Shapes\nThe design system uses a **Soft (0.25rem)** roundedness approach to maintain a professional and technical edge. \n\n- **Small Components:** Checkboxes and small tags use 4px (rounded-sm).\n- **Standard Components:** Buttons and Input fields use 8px (rounded-lg).\n- **Large Components:** Main match cards and section containers use 12px (rounded-xl).\n- **Special Case:** The active indicator in the bottom navigation uses a pill-shape for high visual contrast against the geometric grid.\n\n## Components\n- **Buttons:** Primary buttons feature a subtle linear gradient (Gold to Amber) and a 1px gold \"shimmer\" border. On hover/active, they emit a soft golden glow.\n- **Match Cards:** Utilize glassmorphism. For \"Live\" matches, the card border pulses with a 1px Red/Gold gradient.\n- **Odds Buttons:** Compact, using JetBrains Mono for the price. When a price changes, a temporary background flash (Green for up, Red for down) indicates the movement.\n- **Input Fields:** Deep Zinc-950 fill with a 1px Zinc-800 border. Upon focus, the border transitions to Gold with a 4px blurred outer glow.\n- **Scoreboard:** Digital-style display using JetBrains Mono. Team flags are circular and inset into the card design.\n- **Bottom Navigation:** Fixed to the viewport bottom with a frosted glass background. The active state is a floating gold pill behind the icon.\n- **Table Headers:** Use a semi-transparent frost effect with `backdrop-filter: blur(16px)` to ensure they remain legible as users scroll through long lists of betting markets.",
+    "colorVariant": "FIDELITY",
+    "overridePrimaryColor": "#eab308",
+    "overrideSecondaryColor": "#71717a",
+    "overrideTertiaryColor": "#18181b",
+    "overrideNeutralColor": "#09090b",
+    "spacingScale": 2,
+    "typography": {
+      "body-base": {
+        "fontFamily": "Inter",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "lineHeight": "1.6"
+      },
+      "display-lg": {
+        "fontFamily": "Inter",
+        "fontSize": "48px",
+        "fontWeight": "900",
+        "lineHeight": "1.1",
+        "letterSpacing": "-0.02em"
+      },
+      "headline-lg": {
+        "fontFamily": "Inter",
+        "fontSize": "32px",
+        "fontWeight": "800",
+        "lineHeight": "1.2"
+      },
+      "headline-lg-mobile": {
+        "fontFamily": "Inter",
+        "fontSize": "24px",
+        "fontWeight": "800",
+        "lineHeight": "1.2"
+      },
+      "label-caps": {
+        "fontFamily": "Inter",
+        "fontSize": "12px",
+        "fontWeight": "600",
+        "lineHeight": "1",
+        "letterSpacing": "0.1em"
+      },
+      "score-display": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "24px",
+        "fontWeight": "700",
+        "lineHeight": "1",
+        "letterSpacing": "0.05em"
+      },
+      "title-md": {
+        "fontFamily": "Inter",
+        "fontSize": "20px",
+        "fontWeight": "700",
+        "lineHeight": "1.4"
+      }
+    },
+    "spacing": {
+      "base": "4px",
+      "gutter": "16px",
+      "lg": "24px",
+      "margin-desktop": "40px",
+      "margin-mobile": "16px",
+      "md": "16px",
+      "sm": "12px",
+      "xl": "32px",
+      "xs": "8px"
+    },
+    "headlineFontFamily": "Inter",
+    "bodyFontFamily": "Inter",
+    "labelFontFamily": "Jetbrains Mono"
+  },
+  "screenInstances": [
+    {
+      "id": "7441739a375d4ef18f96dc6aec6c7188",
+      "sourceScreen": "projects/10339320150823770829/screens/7441739a375d4ef18f96dc6aec6c7188",
+      "x": 2840,
+      "width": 390,
+      "height": 1357
+    },
+    {
+      "id": "838faf9965a9403fa8a89f018cec1ed0",
+      "sourceScreen": "projects/10339320150823770829/screens/838faf9965a9403fa8a89f018cec1ed0",
+      "x": 1932,
+      "width": 390,
+      "height": 957
+    },
+    {
+      "id": "9455ca433a604cd0a1a37f040bc16c5e",
+      "sourceScreen": "projects/10339320150823770829/screens/9455ca433a604cd0a1a37f040bc16c5e",
+      "x": 1478,
+      "width": 390,
+      "height": 390
+    },
+    {
+      "id": "a2ce3cf0c97e4f75b89267bf2d72e937",
+      "sourceScreen": "projects/10339320150823770829/screens/a2ce3cf0c97e4f75b89267bf2d72e937",
+      "x": 2386,
+      "width": 390,
+      "height": 884
+    },
+    {
+      "id": "afb305656ad64ca1a1d7cd5fa607e819",
+      "sourceScreen": "projects/10339320150823770829/screens/afb305656ad64ca1a1d7cd5fa607e819",
+      "x": 1024,
+      "width": 390,
+      "height": 390
+    },
+    {
+      "id": "assets-15b29dd2201944aca0337ea8c3885156-1780335558290",
+      "width": 960,
+      "height": 540,
+      "sourceAsset": "assets/15b29dd2201944aca0337ea8c3885156",
+      "type": "DESIGN_SYSTEM_INSTANCE"
+    }
+  ],
+  "metadata": {
+    "userRole": "OWNER"
+  }
+}

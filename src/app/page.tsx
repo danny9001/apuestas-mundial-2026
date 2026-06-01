@@ -39,7 +39,32 @@ const TEAM_FLAGS: { [key: string]: string } = {
   'Brasil': '🇧🇷',
   'Camerún': '🇨🇲',
   'Alemania': '🇩🇪',
-  'Japón': '🇯🇵'
+  'Japón': '🇯🇵',
+  'Canadá': '🇨🇦',
+  'Nigeria': '🇳🇬',
+  'Italia': '🇮🇹',
+  'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+  'Irán': '🇮🇷',
+  'Gales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+  'Polonia': '🇵🇱',
+  'Dinamarca': '🇩🇰',
+  'Túnez': '🇹🇳',
+  'Bélgica': '🇧🇪',
+  'Marruecos': '🇲🇦',
+  'Croacia': '🇭🇷',
+  'Suiza': '🇨🇭',
+  'Serbia': '🇷🇸',
+  'Portugal': '🇵🇹',
+  'Ghana': '🇬🇭',
+  'Uruguay': '🇺🇾',
+  'Corea del Sur': '🇰🇷',
+  'Países Bajos': '🇳🇱',
+  'Ecuador': '🇪🇨',
+  'Senegal': '🇸🇳',
+  'Qatar': '🇶🇦',
+  'Colombia': '🇨🇴',
+  'Suecia': '🇸🇪',
+  'Chile': '🇨🇱'
 };
 
 function getTeamFlag(name: string): string {
@@ -1058,7 +1083,13 @@ export default function PWAAppPage() {
                     <option value="C">Grupo C</option>
                     <option value="D">Grupo D</option>
                     <option value="E">Grupo E</option>
+                    <option value="F">Grupo F</option>
                     <option value="G">Grupo G</option>
+                    <option value="H">Grupo H</option>
+                    <option value="I">Grupo I</option>
+                    <option value="J">Grupo J</option>
+                    <option value="K">Grupo K</option>
+                    <option value="L">Grupo L</option>
                   </select>
 
                   <button

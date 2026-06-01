@@ -139,14 +139,32 @@ $$ LANGUAGE plpgsql;
 INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo) VALUES
 ('Daniel Admin', 'admin@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true);
 
--- 7. SEED MATCHES (Upcoming matches in the future so all users can participate!)
+-- 7. SEED MATCHES (Upcoming matches covering all groups A to L so all users can participate!)
 INSERT INTO matches (fecha, local, visitante, logo_local, logo_visitante, estado, goles_local, goles_visitante, fase, grupo) VALUES
-(CURRENT_TIMESTAMP + INTERVAL '1 day', 'Argentina', 'Arabia Saudita', '/uploads/flags/arg.png', '/uploads/flags/ksa.png', 'upcoming', 0, 0, 'Fase de Grupos', 'C'),
-(CURRENT_TIMESTAMP + INTERVAL '2 days', 'Francia', 'Australia', '/uploads/flags/fra.png', '/uploads/flags/aus.png', 'upcoming', 0, 0, 'Fase de Grupos', 'D'),
-(CURRENT_TIMESTAMP + INTERVAL '3 days', 'España', 'Costa Rica', '/uploads/flags/esp.png', '/uploads/flags/crc.png', 'upcoming', 0, 0, 'Fase de Grupos', 'E'),
-(CURRENT_TIMESTAMP + INTERVAL '4 days', 'Estados Unidos', 'México', '/uploads/flags/usa.png', '/uploads/flags/mex.png', 'upcoming', 0, 0, 'Fase de Grupos', 'B'),
-(CURRENT_TIMESTAMP + INTERVAL '5 days', 'Brasil', 'Camerún', '/uploads/flags/bra.png', '/uploads/flags/cmr.png', 'upcoming', 0, 0, 'Fase de Grupos', 'G'),
-(CURRENT_TIMESTAMP + INTERVAL '6 days', 'Alemania', 'Japón', '/uploads/flags/ger.png', '/uploads/flags/jpn.png', 'upcoming', 0, 0, 'Fase de Grupos', 'E');
+(CURRENT_TIMESTAMP + INTERVAL '1 day', 'México', 'Italia', '/uploads/flags/mex.png', '/uploads/flags/ita.png', 'upcoming', 0, 0, 'Fase de Grupos', 'A'),
+(CURRENT_TIMESTAMP + INTERVAL '1 day 4 hours', 'Canadá', 'Nigeria', '/uploads/flags/can.png', '/uploads/flags/nga.png', 'upcoming', 0, 0, 'Fase de Grupos', 'A'),
+(CURRENT_TIMESTAMP + INTERVAL '2 days', 'Inglaterra', 'Irán', '/uploads/flags/eng.png', '/uploads/flags/irn.png', 'upcoming', 0, 0, 'Fase de Grupos', 'B'),
+(CURRENT_TIMESTAMP + INTERVAL '2 days 4 hours', 'Estados Unidos', 'Gales', '/uploads/flags/usa.png', '/uploads/flags/wal.png', 'upcoming', 0, 0, 'Fase de Grupos', 'B'),
+(CURRENT_TIMESTAMP + INTERVAL '3 days', 'Argentina', 'Arabia Saudita', '/uploads/flags/arg.png', '/uploads/flags/ksa.png', 'upcoming', 0, 0, 'Fase de Grupos', 'C'),
+(CURRENT_TIMESTAMP + INTERVAL '3 days 4 hours', 'Polonia', 'México', '/uploads/flags/pol.png', '/uploads/flags/mex.png', 'upcoming', 0, 0, 'Fase de Grupos', 'C'),
+(CURRENT_TIMESTAMP + INTERVAL '4 days', 'Francia', 'Australia', '/uploads/flags/fra.png', '/uploads/flags/aus.png', 'upcoming', 0, 0, 'Fase de Grupos', 'D'),
+(CURRENT_TIMESTAMP + INTERVAL '4 days 4 hours', 'Dinamarca', 'Túnez', '/uploads/flags/den.png', '/uploads/flags/tun.png', 'upcoming', 0, 0, 'Fase de Grupos', 'D'),
+(CURRENT_TIMESTAMP + INTERVAL '5 days', 'España', 'Costa Rica', '/uploads/flags/esp.png', '/uploads/flags/crc.png', 'upcoming', 0, 0, 'Fase de Grupos', 'E'),
+(CURRENT_TIMESTAMP + INTERVAL '5 days 4 hours', 'Alemania', 'Japón', '/uploads/flags/ger.png', '/uploads/flags/jpn.png', 'upcoming', 0, 0, 'Fase de Grupos', 'E'),
+(CURRENT_TIMESTAMP + INTERVAL '6 days', 'Bélgica', 'Canadá', '/uploads/flags/bel.png', '/uploads/flags/can.png', 'upcoming', 0, 0, 'Fase de Grupos', 'F'),
+(CURRENT_TIMESTAMP + INTERVAL '6 days 4 hours', 'Marruecos', 'Croacia', '/uploads/flags/mar.png', '/uploads/flags/cro.png', 'upcoming', 0, 0, 'Fase de Grupos', 'F'),
+(CURRENT_TIMESTAMP + INTERVAL '7 days', 'Brasil', 'Camerún', '/uploads/flags/bra.png', '/uploads/flags/cmr.png', 'upcoming', 0, 0, 'Fase de Grupos', 'G'),
+(CURRENT_TIMESTAMP + INTERVAL '7 days 4 hours', 'Suiza', 'Serbia', '/uploads/flags/sui.png', '/uploads/flags/srb.png', 'upcoming', 0, 0, 'Fase de Grupos', 'G'),
+(CURRENT_TIMESTAMP + INTERVAL '8 days', 'Portugal', 'Ghana', '/uploads/flags/por.png', '/uploads/flags/gha.png', 'upcoming', 0, 0, 'Fase de Grupos', 'H'),
+(CURRENT_TIMESTAMP + INTERVAL '8 days 4 hours', 'Uruguay', 'Corea del Sur', '/uploads/flags/uru.png', '/uploads/flags/kor.png', 'upcoming', 0, 0, 'Fase de Grupos', 'H'),
+(CURRENT_TIMESTAMP + INTERVAL '9 days', 'Países Bajos', 'Ecuador', '/uploads/flags/ned.png', '/uploads/flags/ecu.png', 'upcoming', 0, 0, 'Fase de Grupos', 'I'),
+(CURRENT_TIMESTAMP + INTERVAL '9 days 4 hours', 'Senegal', 'Qatar', '/uploads/flags/sen.png', '/uploads/flags/qat.png', 'upcoming', 0, 0, 'Fase de Grupos', 'I'),
+(CURRENT_TIMESTAMP + INTERVAL '10 days', 'Colombia', 'Japón', '/uploads/flags/col.png', '/uploads/flags/jpn.png', 'upcoming', 0, 0, 'Fase de Grupos', 'J'),
+(CURRENT_TIMESTAMP + INTERVAL '10 days 4 hours', 'Senegal', 'Polonia', '/uploads/flags/sen.png', '/uploads/flags/pol.png', 'upcoming', 0, 0, 'Fase de Grupos', 'J'),
+(CURRENT_TIMESTAMP + INTERVAL '11 days', 'Italia', 'Suecia', '/uploads/flags/ita.png', '/uploads/flags/swe.png', 'upcoming', 0, 0, 'Fase de Grupos', 'K'),
+(CURRENT_TIMESTAMP + INTERVAL '11 days 4 hours', 'Chile', 'Nigeria', '/uploads/flags/chi.png', '/uploads/flags/nga.png', 'upcoming', 0, 0, 'Fase de Grupos', 'K'),
+(CURRENT_TIMESTAMP + INTERVAL '12 days', 'Uruguay', 'Ghana', '/uploads/flags/uru.png', '/uploads/flags/gha.png', 'upcoming', 0, 0, 'Fase de Grupos', 'L'),
+(CURRENT_TIMESTAMP + INTERVAL '12 days 4 hours', 'Portugal', 'Corea del Sur', '/uploads/flags/por.png', '/uploads/flags/kor.png', 'upcoming', 0, 0, 'Fase de Grupos', 'L');
 
 -- 8. EXECUTE INITIAL LEADERBOARD CALCULATION
 SELECT recalculate_leaderboard();

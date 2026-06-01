@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --primary: #eab308;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary-yellow: var(--primary);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* --- ESPN STYLE LIVE & GOAL ANIMATIONS --- */
+
+@keyframes live-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    transform: scale(1.15);
+    opacity: 0.9;
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.live-dot {
+  animation: live-pulse 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes goal-pulse {
+  0% {
+    background-color: rgba(234, 179, 8, 0.4);
+    box-shadow: inset 0 0 20px rgba(234, 179, 8, 0.6), 0 0 30px rgba(234, 179, 8, 0.8);
+  }
+  50% {
+    background-color: rgba(234, 179, 8, 0.1);
+    box-shadow: inset 0 0 5px rgba(234, 179, 8, 0.2), 0 0 10px rgba(234, 179, 8, 0.3);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.goal-effect {
+  animation: goal-pulse 2s ease-out;
+}
+
+/* --- AIRPORT SPLIT-FLAP METERS --- */
+
+@keyframes flap-turn {
+  0% {
+    transform: rotateX(0deg);
+  }
+  100% {
+    transform: rotateX(-180deg);
+  }
+}
+
+.split-flap-cell {
+  position: relative;
+  background: #0f0f12;
+  border: 1px solid #1f1f23;
+  border-radius: 4px;
+  font-family: var(--font-geist-mono), monospace;
+  font-weight: 700;
+  color: #f59e0b; /* Golden Orange */
+  text-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
+  box-shadow: inset 0 3px 6px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.8);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.split-flap-cell::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 10;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.split-flap-char {
+  animation: flap-turn 0.35s ease-in-out;
+  transform-origin: center center;
+}
+
+/* Hide scrollbars for full-screen immersive interfaces */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Responsive bottom-inset support for iPhone home-indicator bars */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}

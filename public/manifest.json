@@ -1,0 +1,25 @@
+{
+  "name": "Apuestas Mundial 2026",
+  "short_name": "Mundial 2026",
+  "description": "Plataforma de pronósticos y apuestas deportivas para el Mundial 2026",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#eab308",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/identicon/svg?seed=mundial2026",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/identicon/svg?seed=mundial2026",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "games"]
+}

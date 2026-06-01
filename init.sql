@@ -135,13 +135,13 @@ $$ LANGUAGE plpgsql;
 
 -- 6. SEED USERS
 -- Password hash for 'mundial2026' (standard bcrypt hash)
--- Hash: $2a$10$UoWp7664Q0Wd9mF5Q.hA/.oUa4rM7hP7.hQ7FhZ0WJ9vXy7vJ5V8G
+-- Hash: $2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi
 INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo) VALUES
-('Daniel Admin', 'admin@mundial.com', '$2a$10$UoWp7664Q0Wd9mF5Q.hA/.oUa4rM7hP7.hQ7FhZ0WJ9vXy7vJ5V8G', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true),
-('Diego Messi', 'diego@mundial.com', '$2a$10$UoWp7664Q0Wd9mF5Q.hA/.oUa4rM7hP7.hQ7FhZ0WJ9vXy7vJ5V8G', 'interno', 'https://api.dicebear.com/7.x/adventurer/svg?seed=diego', true),
-('Juan Neymar', 'juan@mundial.com', '$2a$10$UoWp7664Q0Wd9mF5Q.hA/.oUa4rM7hP7.hQ7FhZ0WJ9vXy7vJ5V8G', 'interno', 'https://api.dicebear.com/7.x/adventurer/svg?seed=juan', true),
-('María Mbappé', 'maria@mundial.com', '$2a$10$UoWp7664Q0Wd9mF5Q.hA/.oUa4rM7hP7.hQ7FhZ0WJ9vXy7vJ5V8G', 'externo', 'https://api.dicebear.com/7.x/adventurer/svg?seed=maria', true),
-('Pedro Haaland', 'pedro@mundial.com', '$2a$10$UoWp7664Q0Wd9mF5Q.hA/.oUa4rM7hP7.hQ7FhZ0WJ9vXy7vJ5V8G', 'externo', 'https://api.dicebear.com/7.x/adventurer/svg?seed=pedro', true);
+('Daniel Admin', 'admin@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true),
+('Diego Messi', 'diego@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'interno', 'https://api.dicebear.com/7.x/adventurer/svg?seed=diego', true),
+('Juan Neymar', 'juan@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'interno', 'https://api.dicebear.com/7.x/adventurer/svg?seed=juan', true),
+('María Mbappé', 'maria@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'externo', 'https://api.dicebear.com/7.x/adventurer/svg?seed=maria', true),
+('Pedro Haaland', 'pedro@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'externo', 'https://api.dicebear.com/7.x/adventurer/svg?seed=pedro', true);
 
 -- 7. SEED MATCHES
 INSERT INTO matches (fecha, local, visitante, logo_local, logo_visitante, estado, goles_local, goles_visitante, fase, grupo) VALUES

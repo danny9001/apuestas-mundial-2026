@@ -1787,135 +1787,138 @@ export default function PWAAppPage() {
             </section>
           )}
 
-          {/* --- VIEW 5: FIXTURE (WORLD CUP BRACKET) --- */}
+          {/* --- VIEW 5: FIXTURE — EMBUDO DE ELIMINATORIAS --- */}
           {activeTab === 'fixture' && (
-            <section className="space-y-8 select-none">
-              
-              <div className="flex justify-between items-center">
+            <section className="space-y-1 select-none pb-4">
+
+              {/* Header */}
+              <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-yellow-500 animate-pulse" />
-                  <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Fixture del Mundial</h2>
+                  <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Bracket Eliminatorias</h2>
                 </div>
                 <span className="text-[10px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider font-mono font-bold">
-                  Quiniela Oficial 2026
+                  FIFA 2026
                 </span>
               </div>
 
-              {/* Monospace info panel */}
-              <div className="glass-card border border-zinc-800 p-5 rounded-xl text-xs flex flex-col md:flex-row gap-4 items-center justify-between shadow-lg animate-fade-in">
-                <div className="space-y-1 text-center md:text-left">
-                  <h4 className="font-extrabold text-sm text-zinc-200">Bracket Interactivo de Eliminatorias</h4>
-                  <p className="text-zinc-500 max-w-lg leading-relaxed">
-                    Sigue de cerca las etapas decisivas del torneo. Los equipos se cargarán dinámicamente y fluirán hacia la Gran Final a medida que concluyan los partidos de grupo.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 bg-zinc-950 p-3 border border-zinc-850 rounded-lg">
-                  <span className="h-2 w-2 rounded-full bg-red-500 live-dot"></span>
-                  <span className="font-mono text-[9px] text-zinc-400 font-bold uppercase tracking-widest">Sincronización SSE Activa</span>
-                </div>
-              </div>
-
-              {/* Tournament bracket structure container */}
-              <div className="overflow-x-auto no-scrollbar pb-6 pt-4">
-                <div className="flex flex-col md:flex-row md:justify-between items-stretch gap-6 min-w-[950px] md:min-w-0">
-                  
-                  {/* ROUND OF 16 (Octavos de Final) */}
-                  <div className="flex-1 flex flex-col justify-around gap-6">
-                    <h3 className="text-center font-black text-[10px] tracking-widest text-zinc-500 uppercase border-b border-zinc-900 pb-2">OCTAVOS DE FINAL</h3>
-                    
-                    {/* Octavos Match 1 */}
-                    <div className="glass-card p-3 rounded-lg border border-zinc-800/80 space-y-2 relative shadow-md hover:border-yellow-500/20 transition">
-                      <span className="absolute top-[-8px] left-3 bg-zinc-950 text-zinc-500 border border-zinc-850 text-[8px] font-mono font-bold px-1.5 rounded uppercase">Match #49</span>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-zinc-300 font-extrabold flex items-center gap-2">🇦🇷 Argentina (1°C)</span>
-                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs border-t border-zinc-900/60 pt-1.5">
-                        <span className="text-zinc-400 font-semibold flex items-center gap-2">🇺🇸 EE.UU. (2°D)</span>
-                        <span className="font-mono font-black text-zinc-650 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
+              {/* FUNNEL — cada etapa más estrecha */}
+              {([
+                { fase: 'Ronda de 32',     label: 'RONDA DE 32',     cols: 4, border: 'border-zinc-700/60',        badge: 'text-zinc-500', pct: '100%' },
+                { fase: 'Octavos de Final',label: 'OCTAVOS DE FINAL',cols: 4, border: 'border-zinc-600/60',        badge: 'text-zinc-400', pct: '88%'  },
+                { fase: 'Cuartos de Final',label: 'CUARTOS DE FINAL',cols: 2, border: 'border-amber-600/40',       badge: 'text-amber-400', pct: '68%'  },
+                { fase: 'Semifinal',       label: 'SEMIFINAL',       cols: 2, border: 'border-orange-500/50',      badge: 'text-orange-400', pct: '50%'  },
+              ] as const).map(({ fase, label, cols, border, badge, pct }) => {
+                const faseMatches = matches.filter(m => m.fase === fase);
+                if (faseMatches.length === 0) return null;
+                return (
+                  <div key={fase} className="flex flex-col items-center gap-0">
+                    {/* Stage label pill */}
+                    <div className={`text-[9px] font-black uppercase tracking-widest ${badge} bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2 z-10`}>
+                      {label} · {faseMatches.length} partidos
+                    </div>
+                    {/* Match grid — width narrows to simulate funnel */}
+                    <div className="w-full transition-all duration-300" style={{ maxWidth: pct === '100%' ? '100%' : pct }}>
+                      <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${cols > 2 ? 2 : cols}, 1fr)` }}>
+                        {/* On md+ screens show all cols */}
+                        {faseMatches.map((m) => (
+                          <div
+                            key={m.id}
+                            onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
+                            className={`bg-zinc-900 border ${border} rounded-xl p-2.5 cursor-pointer hover:bg-zinc-800/80 transition group`}
+                          >
+                            {/* Team 1 */}
+                            <div className="flex items-center justify-between gap-1 text-[11px]">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
+                                <span className="font-bold text-zinc-300 truncate uppercase text-[10px]">{m.local}</span>
+                              </div>
+                              <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                                {m.estado !== 'upcoming' ? m.goles_local : '-'}
+                              </span>
+                            </div>
+                            {/* Team 2 */}
+                            <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                                <span className="font-bold text-zinc-400 truncate uppercase text-[10px]">{m.visitante}</span>
+                              </div>
+                              <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                                {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
+                              </span>
+                            </div>
+                            {/* Date + estado */}
+                            <div className="flex justify-between items-center mt-1.5 pt-1 border-t border-zinc-800/40">
+                              <span className="text-[8px] text-zinc-600 font-mono">
+                                {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                              </span>
+                              <span className={`text-[8px] font-black uppercase tracking-wider ${
+                                m.estado === 'live' ? 'text-red-400' : m.estado === 'finished' ? 'text-zinc-500' : 'text-zinc-600'
+                              }`}>
+                                {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FIN' : 'PRÓX'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-
-                    {/* Octavos Match 2 */}
-                    <div className="glass-card p-3 rounded-lg border border-zinc-800/80 space-y-2 relative shadow-md hover:border-yellow-500/20 transition">
-                      <span className="absolute top-[-8px] left-3 bg-zinc-950 text-zinc-500 border border-zinc-850 text-[8px] font-mono font-bold px-1.5 rounded uppercase">Match #50</span>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-zinc-300 font-extrabold flex items-center gap-2">🇫🇷 Francia (1°D)</span>
-                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs border-t border-zinc-900/60 pt-1.5">
-                        <span className="text-zinc-400 font-semibold flex items-center gap-2">🇸🇦 Ar. Saudita (2°C)</span>
-                        <span className="font-mono font-black text-zinc-650 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* CONNECTING LINE INDICATOR */}
-                  <div className="hidden md:flex flex-col justify-center items-center text-zinc-700 text-lg">➔</div>
-
-                  {/* QUARTER FINALS (Cuartos de Final) */}
-                  <div className="flex-1 flex flex-col justify-around gap-6 py-8">
-                    <h3 className="text-center font-black text-[10px] tracking-widest text-zinc-500 uppercase border-b border-zinc-900 pb-2">CUARTOS DE FINAL</h3>
-                    
-                    {/* Cuartos Match 1 */}
-                    <div className="glass-card p-4 rounded-lg border border-zinc-800/80 space-y-2 relative shadow-lg hover:border-yellow-500/20 transition">
-                      <span className="absolute top-[-8px] left-3 bg-zinc-950 text-zinc-550 border border-zinc-850 text-[8px] font-mono font-bold px-1.5 rounded uppercase">Match #57</span>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-zinc-400 font-semibold">Ganador Match #49</span>
-                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs border-t border-zinc-900/60 pt-2">
-                        <span className="text-zinc-400 font-semibold">Ganador Match #50</span>
-                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
-                      </div>
+                    {/* Funnel connector arrow */}
+                    <div className="flex flex-col items-center py-1 text-zinc-700">
+                      <div className="w-px h-3 bg-zinc-700"></div>
+                      <div className="text-zinc-600 text-xs">▼</div>
                     </div>
                   </div>
+                );
+              })}
 
-                  {/* CONNECTING LINE INDICATOR */}
-                  <div className="hidden md:flex flex-col justify-center items-center text-zinc-700 text-lg">➔</div>
+              {/* Bottom: 3er Puesto + Gran Final */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2">FINAL</div>
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ maxWidth: '42%' }}>
 
-                  {/* SEMI FINALS */}
-                  <div className="flex-1 flex flex-col justify-around gap-6 py-16">
-                    <h3 className="text-center font-black text-[10px] tracking-widest text-zinc-500 uppercase border-b border-zinc-900 pb-2">SEMIFINAL</h3>
-                    
-                    {/* Semis Match 1 */}
-                    <div className="glass-card p-4 rounded-lg border border-yellow-500/25 space-y-2 relative shadow-[0_0_15px_rgba(234,179,8,0.05)] hover:border-yellow-500/40 transition">
-                      <span className="absolute top-[-8px] left-3 bg-zinc-950 text-yellow-500 border border-yellow-500/20 text-[8px] font-mono font-bold px-1.5 rounded uppercase">Match #61</span>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-zinc-300 font-bold">Ganador Match #57</span>
-                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs border-t border-zinc-900/60 pt-2">
-                        <span className="text-zinc-300 font-bold">Ganador Match #58</span>
-                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-850/60 px-1.5 py-0.5 rounded">--</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* CONNECTING LINE INDICATOR */}
-                  <div className="hidden md:flex flex-col justify-center items-center text-zinc-700 text-lg">➔</div>
-
-                  {/* GRAN FINAL */}
-                  <div className="flex-1 flex flex-col justify-center gap-6 py-20">
-                    <h3 className="text-center font-black text-[10px] tracking-widest text-yellow-500 uppercase border-b border-yellow-500/10 pb-2">GRAN FINAL</h3>
-                    
-                    {/* Final Match Card */}
-                    <div className="glass-card p-5 border-2 border-yellow-500 rounded-xl space-y-3 relative shadow-[0_0_24px_rgba(255,209,101,0.15)] scale-105 transition hover:scale-[1.07]">
-                      <span className="absolute top-[-10px] left-3 bg-yellow-500 text-zinc-950 text-[9px] font-black px-2 rounded-full uppercase tracking-widest shadow shadow-yellow-500/20">ESTADIO METLIFE</span>
-                      <div className="flex justify-between items-center text-xs font-black">
-                        <span className="text-zinc-100 flex items-center gap-2">🏆 Ganador Semis #61</span>
-                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-800 px-1.5 py-0.5 rounded">--</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs font-black border-t border-zinc-800 pt-3">
-                        <span className="text-zinc-100 flex items-center gap-2">🏆 Ganador Semis #62</span>
-                        <span className="font-mono font-black text-yellow-500 bg-zinc-950 border border-zinc-800 px-1.5 py-0.5 rounded">--</span>
-                      </div>
-                      <div className="text-center text-[8px] text-zinc-500 font-bold uppercase tracking-widest pt-1">
-                        Nueva York / Nueva Jersey - 19 de Julio
+                  {/* Tercer Puesto */}
+                  {matches.filter(m => m.fase === 'Tercer Puesto').map(m => (
+                    <div
+                      key={m.id}
+                      onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
+                      className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-3 cursor-pointer hover:bg-zinc-800/80 transition"
+                    >
+                      <div className="text-[8px] text-zinc-500 font-black uppercase tracking-widest mb-2 text-center">🥉 Tercer Puesto · 18 Jul</div>
+                      <div className="flex items-center justify-between gap-1 text-[11px]">
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          <span className="text-base">{getTeamFlag(m.local)}</span>
+                          <span className="font-bold text-zinc-300 truncate uppercase text-[10px]">{m.local}</span>
+                        </div>
+                        <span className="font-black font-mono text-zinc-500">{m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}</span>
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                          <span className="font-bold text-zinc-300 truncate uppercase text-[10px] text-right">{m.visitante}</span>
+                          <span className="text-base">{getTeamFlag(m.visitante)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ))}
 
+                  {/* Gran Final */}
+                  {matches.filter(m => m.fase === 'Final').map(m => (
+                    <div
+                      key={m.id}
+                      onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
+                      className="bg-zinc-950 border-2 border-yellow-500 rounded-xl p-3 cursor-pointer hover:shadow-[0_0_20px_rgba(234,179,8,0.2)] transition relative"
+                    >
+                      <div className="text-[8px] text-yellow-500 font-black uppercase tracking-widest mb-2 text-center">🏆 GRAN FINAL · 19 Jul · MetLife Stadium</div>
+                      <div className="flex items-center justify-between gap-1 text-[11px]">
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          <span className="text-base">{getTeamFlag(m.local)}</span>
+                          <span className="font-bold text-zinc-100 truncate uppercase text-[10px]">{m.local}</span>
+                        </div>
+                        <span className="font-black font-mono text-yellow-500 text-sm">{m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}</span>
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                          <span className="font-bold text-zinc-100 truncate uppercase text-[10px] text-right">{m.visitante}</span>
+                          <span className="text-base">{getTeamFlag(m.visitante)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 

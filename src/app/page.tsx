@@ -109,6 +109,20 @@ export default function PWAAppPage() {
   const [communityBets, setCommunityBets] = useState<any[]>([]);
   const [loadingSummaryBets, setLoadingSummaryBets] = useState(false);
 
+  // Pre-match news and stats states
+  const [matchNews, setMatchNews] = useState<any[]>([]);
+  const [matchStatsInfo, setMatchStatsInfo] = useState<any>(null);
+  const [loadingNews, setLoadingNews] = useState(false);
+
+  // Profile edit states
+  const [profileNombre, setProfileNombre] = useState('');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profileAvatarFile, setProfileAvatarFile] = useState<File | null>(null);
+  const [profileAvatarPreview, setProfileAvatarPreview] = useState<string | null>(null);
+  const [profileSubmitting, setProfileSubmitting] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+
   // Filters for Matches
   const [filterGrupo, setFilterGrupo] = useState<string>('ALL');
   const [filterFase, setFilterFase] = useState<string>('ALL');
@@ -191,6 +205,90 @@ export default function PWAAppPage() {
       setLoadingSummaryBets(false);
     }
   };
+
+  // Fetch Pre-match News & Tactical Previews in Spanish from /api/news (backed by GVTF check)
+  const fetchPreMatchNews = async (local: string, visitante: string) => {
+    setLoadingNews(true);
+    setMatchNews([]);
+    setMatchStatsInfo(null);
+    try {
+      const res = await fetch(`/api/news?local=${encodeURIComponent(local)}&visitante=${encodeURIComponent(visitante)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMatchNews(data.news || []);
+        setMatchStatsInfo(data.matchInfo || null);
+      }
+    } catch (e) {
+      console.error('Error fetching pre-match news:', e);
+    } finally {
+      setLoadingNews(false);
+    }
+  };
+
+  // Handle Profile Update & Avatar Photo Upload
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileNombre.trim()) {
+      setProfileError('El nombre no puede estar vacío');
+      return;
+    }
+
+    setProfileSubmitting(true);
+    setProfileError('');
+    setProfileSuccess('');
+
+    try {
+      const formData = new FormData();
+      formData.append('nombre', profileNombre.trim());
+      if (profilePassword.trim()) {
+        formData.append('password', profilePassword);
+      }
+      if (profileAvatarFile) {
+        formData.append('avatarFile', profileAvatarFile);
+      }
+
+      const res = await fetch('/api/profile', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setProfileSuccess('¡Perfil actualizado con éxito!');
+        setUser(data.user);
+        setProfilePassword('');
+        setProfileAvatarFile(null);
+        setProfileAvatarPreview(null);
+        showToast('👤 ¡Perfil actualizado con éxito!');
+      } else {
+        setProfileError(data.error || 'Error al actualizar el perfil');
+      }
+    } catch (err) {
+      setProfileError('Error al conectar con el servidor');
+    } finally {
+      setProfileSubmitting(false);
+    }
+  };
+
+  // Auto-fetch bets and tactical news whenever match modal state transitions
+  useEffect(() => {
+    if (summaryModalMatch) {
+      fetchCommunityBets(summaryModalMatch.id);
+      fetchPreMatchNews(summaryModalMatch.local, summaryModalMatch.visitante);
+    } else {
+      setCommunityBets([]);
+      setMatchNews([]);
+      setMatchStatsInfo(null);
+    }
+  }, [summaryModalMatch]);
+
+  // Synchronize profile inputs with logged-in user session
+  useEffect(() => {
+    if (user) {
+      setProfileNombre(user.nombre);
+    }
+  }, [user]);
 
   useEffect(() => {
     checkSession();
@@ -699,7 +797,7 @@ export default function PWAAppPage() {
 
   // --- APP LAYOUT (AUTHENTICATED) ---
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row max-w-7xl mx-auto border-x border-zinc-900/60 pb-safe">
+    <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row w-full pb-safe">
       
       {/* 💻 DESKTOP LAYOUT LEFT SIDEBAR NAVIGATION */}
       <aside className="hidden md:flex md:w-64 bg-zinc-900/40 border-r border-zinc-900/60 flex-col justify-between p-6">
@@ -1611,31 +1709,145 @@ export default function PWAAppPage() {
 
           {/* --- VIEW 3: PROFILE --- */}
           {activeTab === 'perfil' && (
-            <section className="space-y-6 max-w-xl mx-auto">
+            <section className="space-y-6 max-w-4xl mx-auto">
               
               <div className="flex items-center gap-2 mb-4">
                 <User className="w-5 h-5 text-yellow-500" />
                 <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Mi Cuenta</h2>
               </div>
 
-              {/* Profile Info Details card */}
-              <div className="glass-card rounded-xl p-8 flex flex-col items-center text-center shadow-xl">
-                <img 
-                  src={user.avatar} 
-                  className="w-28 h-28 rounded-full border-2 border-yellow-500/35 bg-zinc-950 p-1 shadow-lg mb-4" 
-                  alt="avatar" 
-                />
-                <h3 className="text-2xl font-extrabold text-zinc-100">{user.nombre}</h3>
-                <p className="text-zinc-400 text-sm mt-1">{user.email}</p>
+              {/* Interactive Profile Editor Card */}
+              <div className="glass-card rounded-3xl p-6 md:p-8 shadow-2xl border border-zinc-800/80">
+                <form onSubmit={handleSaveProfile} className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8">
+                  
+                  {/* Avatar upload & preview section */}
+                  <div className="md:col-span-4 flex flex-col items-center gap-6 justify-center border-b md:border-b-0 md:border-r border-zinc-850 pb-6 md:pb-0 md:pr-8">
+                    <div className="relative group">
+                      <img 
+                        src={profileAvatarPreview || user.avatar} 
+                        className="w-32 h-32 rounded-full border-2 border-yellow-500/50 bg-zinc-950 p-1 shadow-2xl object-cover transition duration-300 group-hover:opacity-85" 
+                        alt="avatar" 
+                      />
+                      <label className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center text-[10px] text-zinc-350 font-extrabold uppercase opacity-0 group-hover:opacity-100 transition duration-300 cursor-pointer select-none">
+                        <span>Subir</span>
+                        <span>Foto</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setProfileAvatarFile(file);
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setProfileAvatarPreview(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
 
-                <div className="flex gap-2 mt-5">
-                  <span className="bg-zinc-950 border border-zinc-800 text-[10px] text-zinc-400 font-mono tracking-widest px-3.5 py-1.5 rounded-full uppercase font-bold">
-                    Rol: {user.tipo}
-                  </span>
-                  <span className="bg-green-500/10 border border-green-500/20 text-[10px] text-green-400 font-mono px-3.5 py-1.5 rounded-full uppercase font-bold">
-                    Cuenta Activa
-                  </span>
-                </div>
+                    <div className="text-center space-y-1">
+                      <h3 className="text-xl font-black text-zinc-100">{user.nombre}</h3>
+                      <p className="text-zinc-500 text-xs">{user.email}</p>
+                      
+                      <div className="flex justify-center gap-2 pt-2">
+                        <span className="bg-zinc-950 border border-zinc-800 text-[9px] text-zinc-400 font-mono tracking-widest px-2.5 py-1 rounded-full uppercase font-black">
+                          Rol: {user.tipo}
+                        </span>
+                        <span className="bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-mono px-2.5 py-1 rounded-full uppercase font-black">
+                          En línea
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Form fields & action area */}
+                  <div className="md:col-span-8 flex flex-col justify-between space-y-6">
+                    <div className="space-y-4">
+                      {profileSuccess && (
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3.5 rounded-xl text-xs font-bold text-center">
+                          {profileSuccess}
+                        </div>
+                      )}
+                      {profileError && (
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3.5 rounded-xl text-xs font-bold text-center">
+                          {profileError}
+                        </div>
+                      )}
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Nombre Completo</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={profileNombre}
+                          onChange={(e) => setProfileNombre(e.target.value)}
+                          placeholder="Ingresa tu nombre"
+                          className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-zinc-200 text-xs focus:border-yellow-500/35 outline-none transition font-semibold"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Nueva Contraseña (Opcional)</label>
+                        <input 
+                          type="password" 
+                          value={profilePassword}
+                          onChange={(e) => setProfilePassword(e.target.value)}
+                          placeholder="Dejar en blanco para no cambiar"
+                          className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-zinc-200 text-xs focus:border-yellow-500/35 outline-none transition font-semibold"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Subir foto de perfil</label>
+                        <div className="flex items-center gap-3">
+                          <label className="flex-1 bg-zinc-950 border border-zinc-850 hover:border-zinc-700/80 rounded-xl px-4 py-3 text-zinc-400 text-xs transition cursor-pointer font-bold text-center border-dashed">
+                            {profileAvatarFile ? `📸 Seleccionado: ${profileAvatarFile.name.substring(0, 20)}...` : '📂 Seleccionar archivo de imagen'}
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setProfileAvatarFile(file);
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setProfileAvatarPreview(reader.result as string);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <button
+                      type="submit"
+                      disabled={profileSubmitting}
+                      className="w-full btn-primary-stitch py-3.5 rounded-xl text-xs font-black tracking-widest uppercase flex items-center justify-center gap-2 active:scale-[0.99] transition duration-150 disabled:opacity-50"
+                    >
+                      {profileSubmitting ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Guardando Cambios...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Actualizar Perfil</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
 
               {/* Logout actions */}
@@ -1986,13 +2198,13 @@ export default function PWAAppPage() {
         {/* --- POPUP 3: MATCH SUMMARY & STATISTICS OVERLAY --- */}
         {summaryModalMatch && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-xl p-6 shadow-2xl space-y-6 my-8 animate-slide-in-up">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-2xl p-6 shadow-2xl space-y-6 my-8 animate-slide-in-up">
               
               {/* Modal Header */}
               <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-yellow-500" />
-                  <h3 className="text-sm font-black uppercase text-zinc-100">Resumen del Partido</h3>
+                  <h3 className="text-sm font-black uppercase text-zinc-100">Resumen y Previa del Partido</h3>
                 </div>
                 <button 
                   onClick={() => {
@@ -2023,7 +2235,7 @@ export default function PWAAppPage() {
                         {summaryModalMatch.goles_local} - {summaryModalMatch.goles_visitante}
                       </span>
                     ) : (
-                      <span className="text-zinc-600 font-extrabold text-sm uppercase">vs</span>
+                      <span className="text-zinc-650 font-extrabold text-sm uppercase">vs</span>
                     )}
                     <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded mt-2 ${
                       summaryModalMatch.estado === 'live' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
@@ -2038,6 +2250,66 @@ export default function PWAAppPage() {
                     <span className="text-xs font-black text-zinc-200 uppercase truncate w-full">{summaryModalMatch.visitante}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Tactical News and Stadium Info Block in Spanish (Give Voice to Football API) */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-zinc-800 pb-1.5">
+                  <h4 className="text-xs font-black text-zinc-400 uppercase tracking-widest">Información & Previa (GVTF API)</h4>
+                  {matchStatsInfo && (
+                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded uppercase font-bold tracking-wider font-mono">
+                      Conexión GVTF Activa
+                    </span>
+                  )}
+                </div>
+
+                {loadingNews ? (
+                  <div className="py-6 text-center text-xs text-zinc-500 flex items-center justify-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-yellow-500" />
+                    <span>Cargando noticias y análisis táctico...</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Stadium & short preview metadata */}
+                    {matchStatsInfo && (
+                      <div className="bg-zinc-950/60 p-4 border border-zinc-850 rounded-2xl text-xs space-y-2">
+                        <div className="grid grid-cols-2 gap-3 text-[11px]">
+                          <div>
+                            <span className="text-zinc-500 block">🏟️ Estadio</span>
+                            <span className="font-extrabold text-zinc-300">{matchStatsInfo.estadio}</span>
+                          </div>
+                          <div>
+                            <span className="text-zinc-500 block">⛅ Clima / Árbitro</span>
+                            <span className="font-extrabold text-zinc-300">{matchStatsInfo.temperatura} | {matchStatsInfo.arbitro}</span>
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-zinc-900 text-zinc-400 leading-relaxed italic text-[11px]">
+                          {matchStatsInfo.historialCorto}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pre match news items in Spanish */}
+                    <div className="space-y-3">
+                      {matchNews.map((n) => (
+                        <div key={n.id} className="bg-zinc-950/45 p-3.5 border border-zinc-850 rounded-2xl space-y-1.5 hover:border-zinc-800 transition">
+                          <div className="flex justify-between items-center text-[9px] font-bold">
+                            <span className="text-yellow-500 font-black tracking-widest">{n.categoria}</span>
+                            <span className="text-zinc-500">{n.tiempo}</span>
+                          </div>
+                          <h5 className="font-extrabold text-[12px] text-zinc-200 leading-tight">{n.titulo}</h5>
+                          <p className="text-zinc-500 text-[11px] leading-relaxed">{n.cuerpo}</p>
+                          <div className="text-[8px] text-zinc-500 text-right uppercase tracking-wider font-semibold">
+                            Redactor: {n.autor}
+                          </div>
+                        </div>
+                      ))}
+                      {matchNews.length === 0 && (
+                        <div className="py-4 text-center text-xs text-zinc-600 italic">No hay noticias previas disponibles para este partido</div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Match Statistics (ESPN Progress Bars style) */}

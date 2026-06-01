@@ -109,6 +109,11 @@ export default function PWAAppPage() {
 
   // User Registration Form
   const [isRegistering, setIsRegistering] = useState(false);
+
+  // WebAuthn / Passkeys
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyError, setPasskeyError] = useState('');
+  const [passkeyRegistering, setPasskeyRegistering] = useState(false);
   const [registerNombre, setRegisterNombre] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
@@ -296,6 +301,87 @@ export default function PWAAppPage() {
       showToast('Error de red al sincronizar');
     } finally {
       setSyncLoading(false);
+    }
+  };
+
+  // WebAuthn: autenticar con passkey (login sin contraseña)
+  const handlePasskeyLogin = async () => {
+    setPasskeyLoading(true);
+    setPasskeyError('');
+    try {
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+      const optRes = await fetch('/api/auth/webauthn/authenticate?step=options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email || '' }),
+      });
+      if (!optRes.ok) {
+        const d = await optRes.json();
+        setPasskeyError(d.error || 'No se encontró passkey para este usuario');
+        return;
+      }
+      const options = await optRes.json();
+      const assertion = await startAuthentication({ optionsJSON: options });
+      const verRes = await fetch('/api/auth/webauthn/authenticate?step=verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...assertion, email: email || '' }),
+      });
+      const verData = await verRes.json();
+      if (verRes.ok && verData.verified) {
+        setUser(verData.user);
+      } else {
+        setPasskeyError(verData.error || 'Autenticación con passkey fallida');
+      }
+    } catch (e: any) {
+      if (e?.name === 'NotAllowedError') {
+        setPasskeyError('Autenticación cancelada o no permitida');
+      } else {
+        setPasskeyError(e?.message || 'Error al usar la llave FIDO');
+      }
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
+  // WebAuthn: registrar nueva passkey (desde perfil)
+  const handlePasskeyRegister = async () => {
+    setPasskeyRegistering(true);
+    setPasskeyError('');
+    try {
+      const { startRegistration } = await import('@simplewebauthn/browser');
+      const optRes = await fetch('/api/auth/webauthn/register?step=options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!optRes.ok) {
+        const d = await optRes.json();
+        setPasskeyError(d.error || 'Error al obtener opciones de registro');
+        return;
+      }
+      const options = await optRes.json();
+      const attestation = await startRegistration({ optionsJSON: options });
+      const verRes = await fetch('/api/auth/webauthn/register?step=verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(attestation),
+      });
+      const verData = await verRes.json();
+      if (verRes.ok && verData.verified) {
+        showToast('🔑 ¡Passkey registrada con éxito!');
+        setPasskeyError('');
+      } else {
+        setPasskeyError(verData.error || 'Error al registrar passkey');
+      }
+    } catch (e: any) {
+      if (e?.name === 'NotAllowedError') {
+        setPasskeyError('Registro cancelado o no permitido');
+      } else {
+        setPasskeyError(e?.message || 'Error al registrar la llave FIDO');
+      }
+    } finally {
+      setPasskeyRegistering(false);
     }
   };
 
@@ -693,13 +779,34 @@ export default function PWAAppPage() {
                 {loginLoading ? 'Iniciando Sesión...' : 'Entrar a la Quiniela'}
               </button>
 
-              <div className="text-center pt-2">
+              {/* Passkey login button */}
+              <div className="relative flex items-center gap-2 my-1">
+                <div className="flex-1 h-px bg-zinc-800"></div>
+                <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">o</span>
+                <div className="flex-1 h-px bg-zinc-800"></div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handlePasskeyLogin}
+                disabled={passkeyLoading}
+                className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-zinc-600 text-zinc-300 py-3 text-sm font-bold rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.99]"
+              >
+                <span className="text-lg">🔑</span>
+                <span>{passkeyLoading ? 'Verificando...' : 'Entrar con Llave FIDO / Passkey'}</span>
+              </button>
+
+              {passkeyError && (
+                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                  <span>{passkeyError}</span>
+                </div>
+              )}
+
+              <div className="text-center pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsRegistering(true);
-                    setLoginError('');
-                  }}
+                  onClick={() => { setIsRegistering(true); setLoginError(''); }}
                   className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
                 >
                   ¿No tienes cuenta? Regístrate aquí
@@ -1774,6 +1881,31 @@ export default function PWAAppPage() {
                     </button>
                   </div>
                 </form>
+              </div>
+
+              {/* Passkeys / FIDO card */}
+              <div className="glass-card border border-zinc-800/80 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                  <div>
+                    <div className="text-xs font-black text-zinc-300 uppercase tracking-wider">Llaves FIDO / Passkeys</div>
+                    <div className="text-[10px] text-zinc-500 mt-0.5">Inicia sesión con huella, Face ID o clave de seguridad</div>
+                  </div>
+                  <span className="text-2xl">🔑</span>
+                </div>
+                <button
+                  onClick={handlePasskeyRegister}
+                  disabled={passkeyRegistering}
+                  className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-yellow-500/40 text-zinc-300 hover:text-zinc-100 py-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.99] uppercase tracking-wider"
+                >
+                  <span className="text-base">➕</span>
+                  <span>{passkeyRegistering ? 'Registrando...' : 'Registrar nueva passkey / llave FIDO'}</span>
+                </button>
+                {passkeyError && (
+                  <div className="bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">{passkeyError}</div>
+                )}
+                <p className="text-[10px] text-zinc-600 leading-relaxed">
+                  Compatible con: Touch ID (Mac), Windows Hello, YubiKey, Face ID (iPhone/Android). Requiere HTTPS en producción.
+                </p>
               </div>
 
               {/* Personal Stats Card */}

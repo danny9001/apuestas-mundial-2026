@@ -60,7 +60,21 @@ CREATE TABLE leaderboard (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Create SYNC_LOG table
+-- 5. Create PASSKEYS table (WebAuthn / FIDO2)
+CREATE TABLE passkeys (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  credential_id TEXT UNIQUE NOT NULL,
+  public_key BYTEA NOT NULL,
+  counter BIGINT DEFAULT 0,
+  device_type VARCHAR(32) DEFAULT 'singleDevice',
+  backed_up BOOLEAN DEFAULT FALSE,
+  transports TEXT[],
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  last_used_at TIMESTAMP WITH TIME ZONE
+);
+
+-- 6. Create SYNC_LOG table
 CREATE TABLE sync_log (
   id SERIAL PRIMARY KEY,
   synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -150,7 +164,7 @@ $$ LANGUAGE plpgsql;
 
 -- 7. SEED USERS
 INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo) VALUES
-('Daniel Admin', 'admin@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true);
+('Daniel Admin', 'admin@mundial.com', '$2b$10$tS4j1b8mT9FZtZ/D8Cvr3eyJwGSAZTs327bkZfwrijzN5eZDEFGEi', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true);
 
 
 -- 8. SEED ALL 104 MATCHES (48 Group Stage + 56 Knockout Stage)

@@ -2413,10 +2413,11 @@ export default function PWAAppPage() {
                 )}
               </div>
 
-              {/* Match Statistics (ESPN Progress Bars style) */}
+              {/* Match Statistics — solo si el partido ya comenzó */}
+              {summaryModalMatch.estado !== 'upcoming' && (
               <div className="space-y-4">
                 <h4 className="text-xs font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-1.5">Estadísticas del Encuentro</h4>
-                
+
                 {/* Stat 1: Possession */}
                 {(() => {
                   const posLocal = 45 + (summaryModalMatch.id % 3 === 0 ? 10 : summaryModalMatch.id % 2 === 0 ? -5 : 2);
@@ -2478,6 +2479,7 @@ export default function PWAAppPage() {
                   );
                 })()}
               </div>
+              )}
 
               {/* Community Predictions list */}
               <div className="space-y-3">

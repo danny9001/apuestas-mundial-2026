@@ -22,7 +22,8 @@ import {
   UserCheck,
   UserX,
   ChevronRight,
-  BarChart3
+  BarChart3,
+  Grid
 } from 'lucide-react';
 
 // Team flags helper map
@@ -59,12 +60,19 @@ export default function PWAAppPage() {
   // Active Bottom Tab
   const [activeTab, setActiveTab] = useState<'partidos' | 'ranking' | 'perfil' | 'admin'>('partidos');
 
+  // View Mode: Cards or Excel Planilla
+  const [viewMode, setViewMode] = useState<'cards' | 'excel'>('cards');
+
   // Application Data States
   const [matches, setMatches] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
+
+  // Excel Spreadsheet changes state
+  const [excelScores, setExcelScores] = useState<{ [key: string]: { local: number; visitante: number } }>({});
+  const [excelSubmitting, setExcelSubmitting] = useState(false);
 
   // Live Goal Overlay & Success Notifications
   const [goalAlert, setGoalAlert] = useState<any | null>(null);
@@ -125,6 +133,13 @@ export default function PWAAppPage() {
       if (pRes.ok) {
         const pData = await pRes.json();
         setPredictions(pData);
+        
+        // Populate Excel Scores Map
+        const scoresMap: { [key: string]: { local: number; visitante: number } } = {};
+        pData.forEach((p: any) => {
+          scoresMap[p.match_id] = { local: p.pred_local, visitante: p.pred_visitante };
+        });
+        setExcelScores(scoresMap);
       }
 
       // Fetch Leaderboard
@@ -248,6 +263,7 @@ export default function PWAAppPage() {
       setPredictions([]);
       setLeaderboard([]);
       setAdminUsers([]);
+      setExcelScores({});
     } catch (e) {
       console.error('Logout failed:', e);
     }
@@ -287,6 +303,13 @@ export default function PWAAppPage() {
             return [...prev, { match_id: betModalMatch.id, pred_local: betPredLocal, pred_visitante: betPredVisitante }];
           }
         });
+
+        // Update Excel scores state to keep in sync
+        setExcelScores((prev) => ({
+          ...prev,
+          [betModalMatch.id]: { local: betPredLocal, visitante: betPredVisitante }
+        }));
+
         setBetModalMatch(null);
         showToast('🏆 ¡Pronóstico guardado con éxito!');
       } else {
@@ -296,6 +319,62 @@ export default function PWAAppPage() {
       setBetError('Error al conectar con el servidor');
     } finally {
       setBetSubmitting(false);
+    }
+  };
+
+  // Batch Save Excel Planilla
+  const handleSaveExcelPlanilla = async () => {
+    // Generate the array of modified predictions to submit
+    const batchPayload: any[] = [];
+    
+    // We only submit upcoming matches that have differences compared to original predictions
+    matches.forEach((m) => {
+      const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+      if (isClosed) return; // skip closed games
+
+      const origPred = predictions.find((p) => p.match_id === m.id);
+      const currentExcelVal = excelScores[m.id];
+
+      // If user typed values in Excel
+      if (currentExcelVal) {
+        const hasOrigVal = origPred !== undefined;
+        const diffLocal = !hasOrigVal || origPred.pred_local !== currentExcelVal.local;
+        const diffVisitante = !hasOrigVal || origPred.pred_visitante !== currentExcelVal.visitante;
+
+        // If score is different, add to payload
+        if (diffLocal || diffVisitante) {
+          batchPayload.push({
+            matchId: m.id,
+            predLocal: currentExcelVal.local,
+            predVisitante: currentExcelVal.visitante
+          });
+        }
+      }
+    });
+
+    if (batchPayload.length === 0) {
+      showToast('No hay cambios pendientes para guardar');
+      return;
+    }
+
+    setExcelSubmitting(true);
+    try {
+      const res = await fetch('/api/predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(batchPayload)
+      });
+
+      if (res.ok) {
+        showToast('📈 ¡Planilla guardada con éxito!');
+        fetchAppData(); // reload original predictions to reset diff state
+      } else {
+        showToast('Error al guardar la planilla');
+      }
+    } catch (e) {
+      showToast('Error de red');
+    } finally {
+      setExcelSubmitting(false);
     }
   };
 
@@ -368,6 +447,31 @@ export default function PWAAppPage() {
       showToast('Error de red');
     }
   };
+
+  // Count pending unsaved Excel changes
+  const getPendingExcelCount = (): number => {
+    let count = 0;
+    matches.forEach((m) => {
+      const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+      if (isClosed) return;
+
+      const origPred = predictions.find((p) => p.match_id === m.id);
+      const currentExcelVal = excelScores[m.id];
+
+      if (currentExcelVal) {
+        const hasOrigVal = origPred !== undefined;
+        const diffLocal = !hasOrigVal || origPred.pred_local !== currentExcelVal.local;
+        const diffVisitante = !hasOrigVal || origPred.pred_visitante !== currentExcelVal.visitante;
+
+        if (diffLocal || diffVisitante) {
+          count++;
+        }
+      }
+    });
+    return count;
+  };
+
+  const pendingExcelCount = getPendingExcelCount();
 
   // Rendering Helpers
   if (!authChecked) {
@@ -559,8 +663,39 @@ export default function PWAAppPage() {
           </div>
         )}
 
+        {/* Floating Excel Saver Panel */}
+        {activeTab === 'partidos' && viewMode === 'excel' && pendingExcelCount > 0 && (
+          <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-40 animate-slide-in-up">
+            <div className="bg-zinc-900 border border-yellow-500/30 p-4 rounded-2xl flex flex-col gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.7)]">
+              <div className="flex justify-between items-center text-xs font-bold">
+                <span className="text-zinc-400">Planilla de Cambios</span>
+                <span className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded text-[10px] font-black">
+                  {pendingExcelCount} Modificados
+                </span>
+              </div>
+              <button
+                onClick={handleSaveExcelPlanilla}
+                disabled={excelSubmitting}
+                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-zinc-950 font-bold py-2.5 rounded-xl text-xs transition uppercase flex items-center justify-center gap-2 active:scale-95 shadow-md"
+              >
+                {excelSubmitting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Guardando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Guardar Planilla</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Internal Notification Toast */}
-        {toastMessage && (
+        {toastMessage && !goalAlert && (
           <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-40 animate-fade-in-up pointer-events-none">
             <div className="bg-zinc-900 text-zinc-100 px-4 py-3 rounded-xl border border-zinc-800 text-xs flex items-center gap-2 shadow-2xl justify-center">
               <Trophy className="w-4 h-4 text-yellow-500 animate-pulse" />
@@ -599,12 +734,37 @@ export default function PWAAppPage() {
           {activeTab === 'partidos' && (
             <section className="space-y-6">
               
-              {/* Stage and Group Filters */}
-              <div className="flex flex-col gap-3 bg-zinc-900/40 border border-zinc-900/60 p-4 rounded-2xl md:p-6 md:rounded-3xl">
+              {/* Stage, Group Filters & Layout Toggles */}
+              <div className="flex flex-col gap-4 bg-zinc-900/40 border border-zinc-900/60 p-4 rounded-2xl md:p-6 md:rounded-3xl">
                 <div className="flex justify-between items-center text-xs font-bold text-zinc-400 uppercase tracking-widest">
                   <span>Filtros de Cartelera</span>
-                  <span className="text-yellow-500 font-black">Fútbol en vivo</span>
+                  
+                  {/* View Toggles (Cards / Excel) */}
+                  <div className="flex gap-1.5 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+                    <button
+                      onClick={() => setViewMode('cards')}
+                      className={`px-3 py-1.5 rounded-md text-[10px] uppercase font-black transition ${
+                        viewMode === 'cards' 
+                          ? 'bg-yellow-500 text-zinc-950' 
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      Tarjetas
+                    </button>
+                    <button
+                      onClick={() => setViewMode('excel')}
+                      className={`px-3 py-1.5 rounded-md text-[10px] uppercase font-black transition flex items-center gap-1 ${
+                        viewMode === 'excel' 
+                          ? 'bg-yellow-500 text-zinc-950' 
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      <Grid className="w-3 h-3" />
+                      <span>Planilla (Excel)</span>
+                    </button>
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
                   <select
                     value={filterFase}
@@ -634,133 +794,252 @@ export default function PWAAppPage() {
                 </div>
               </div>
 
-              {/* Match Cards List */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {matches
-                  .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
-                  .filter((m) => filterFase === 'ALL' || m.fase === filterFase)
-                  .map((m) => {
-                    const myPred = predictions.find((p) => p.match_id === m.id);
-                    const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+              {/* VIEW MODE A: TRADITIONAL CARDS LAYOUT */}
+              {viewMode === 'cards' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {matches
+                    .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
+                    .filter((m) => filterFase === 'ALL' || m.fase === filterFase)
+                    .map((m) => {
+                      const myPred = predictions.find((p) => p.match_id === m.id);
+                      const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
 
-                    return (
-                      <div 
-                        key={m.id} 
-                        className={`bg-zinc-900 border ${
-                          m.estado === 'live' ? 'border-red-950 bg-red-950/5' : 'border-zinc-800/80 hover:border-zinc-700/80'
-                        } rounded-2xl p-5 shadow-lg transition flex flex-col justify-between gap-4 cursor-pointer relative`}
-                        onClick={() => {
-                          setSummaryModalMatch(m);
-                          fetchCommunityBets(m.id);
-                        }}
-                      >
-                        {/* Top Header Card */}
-                        <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3 text-[11px] font-bold tracking-wider text-zinc-400" onClick={(e) => e.stopPropagation()}>
-                          <span>{m.fase.toUpperCase()} - GRP {m.grupo}</span>
-                          
-                          {m.estado === 'live' && (
-                            <span className="text-red-500 font-extrabold flex items-center gap-1">
-                              <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span> EN VIVO
-                            </span>
-                          )}
+                      return (
+                        <div 
+                          key={m.id} 
+                          className={`bg-zinc-900 border ${
+                            m.estado === 'live' ? 'border-red-950 bg-red-950/5' : 'border-zinc-800/80 hover:border-zinc-700/80'
+                          } rounded-2xl p-5 shadow-lg transition flex flex-col justify-between gap-4 cursor-pointer relative`}
+                          onClick={() => {
+                            setSummaryModalMatch(m);
+                            fetchCommunityBets(m.id);
+                          }}
+                        >
+                          {/* Top Header Card */}
+                          <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3 text-[11px] font-bold tracking-wider text-zinc-400" onClick={(e) => e.stopPropagation()}>
+                            <span>{m.fase.toUpperCase()} - GRP {m.grupo}</span>
+                            
+                            {m.estado === 'live' && (
+                              <span className="text-red-500 font-extrabold flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span> EN VIVO
+                              </span>
+                            )}
 
-                          {m.estado === 'finished' && (
-                            <span className="text-zinc-500 font-semibold uppercase">FINALIZADO</span>
-                          )}
+                            {m.estado === 'finished' && (
+                              <span className="text-zinc-500 font-semibold uppercase">FINALIZADO</span>
+                            )}
 
-                          {m.estado === 'upcoming' && (
-                            <span className="text-zinc-500 font-semibold">
-                              {new Date(m.fecha).toLocaleDateString('es-ES', {
-                                day: '2-digit',
-                                month: 'short',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Scores and Country Details */}
-                        <div className="flex justify-between items-center py-2 px-1">
-                          {/* Local Team */}
-                          <div className="flex items-center gap-3 w-[40%]">
-                            <span className="text-3xl">{getTeamFlag(m.local)}</span>
-                            <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.local}</span>
-                          </div>
-
-                          {/* Scores displays */}
-                          <div className="flex items-center justify-center bg-zinc-950/70 border border-zinc-800 rounded-xl px-4 py-2 font-mono font-black text-lg gap-2.5 min-w-[70px]">
-                            {m.estado !== 'upcoming' ? (
-                              <>
-                                <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_local}</span>
-                                <span className="text-zinc-700">:</span>
-                                <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_visitante}</span>
-                              </>
-                            ) : (
-                              <span className="text-zinc-600 text-xs tracking-wider uppercase">VS</span>
+                            {m.estado === 'upcoming' && (
+                              <span className="text-zinc-500 font-semibold">
+                                {new Date(m.fecha).toLocaleDateString('es-ES', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
                             )}
                           </div>
 
-                          {/* Visitante Team */}
-                          <div className="flex items-center justify-end gap-3 w-[40%] text-right">
-                            <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.visitante}</span>
-                            <span className="text-3xl">{getTeamFlag(m.visitante)}</span>
-                          </div>
-                        </div>
-
-                        {/* User's Prediction Footer Card */}
-                        <div className="bg-zinc-950/40 rounded-xl border border-zinc-800/40 p-3 mt-1 flex justify-between items-center text-xs" onClick={(e) => e.stopPropagation()}>
-                          <div>
-                            <span className="text-zinc-500">Mi apuesta: </span>
-                            {myPred ? (
-                              <span className="font-bold text-zinc-200">
-                                {myPred.pred_local} - {myPred.pred_visitante}
-                              </span>
-                            ) : (
-                              <span className="text-zinc-600 italic">Sin pronóstico</span>
-                            )}
-                          </div>
-
-                          {/* Bet Action Trigger button */}
-                          {isClosed ? (
-                            <div className="flex items-center gap-1.5">
-                              {myPred && myPred.puntos !== null && (
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                                  myPred.puntos === 3 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                                  myPred.puntos === 1 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                                  'bg-zinc-800 text-zinc-400'
-                                }`}>
-                                  +{myPred.puntos} PTS
-                                </span>
-                              )}
-                              <span className="text-zinc-600 text-[10px] uppercase font-bold flex items-center gap-1">
-                                <Lock className="w-3 h-3" /> Cerrado
-                              </span>
+                          {/* Scores and Country Details */}
+                          <div className="flex justify-between items-center py-2 px-1">
+                            {/* Local Team */}
+                            <div className="flex items-center gap-3 w-[40%]">
+                              <span className="text-3xl">{getTeamFlag(m.local)}</span>
+                              <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.local}</span>
                             </div>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setBetModalMatch(m);
-                                setBetPredLocal(myPred ? myPred.pred_local : 0);
-                                setBetPredVisitante(myPred ? myPred.pred_visitante : 0);
-                              }}
-                              className="bg-yellow-500 hover:bg-yellow-600 active:scale-95 text-zinc-950 font-bold px-3 py-1.5 rounded-lg text-[10.5px] transition tracking-wider uppercase z-10"
-                            >
-                              {myPred ? 'Modificar' : 'Pronosticar'}
-                            </button>
-                          )}
+
+                            {/* Scores displays */}
+                            <div className="flex items-center justify-center bg-zinc-950/70 border border-zinc-800 rounded-xl px-4 py-2 font-mono font-black text-lg gap-2.5 min-w-[70px]">
+                              {m.estado !== 'upcoming' ? (
+                                <>
+                                  <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_local}</span>
+                                  <span className="text-zinc-700">:</span>
+                                  <span className={m.estado === 'live' ? 'text-red-500' : 'text-zinc-200'}>{m.goles_visitante}</span>
+                                </>
+                              ) : (
+                                <span className="text-zinc-600 text-xs tracking-wider uppercase">VS</span>
+                              )}
+                            </div>
+
+                            {/* Visitante Team */}
+                            <div className="flex items-center justify-end gap-3 w-[40%] text-right">
+                              <span className="font-extrabold text-sm text-zinc-200 uppercase truncate">{m.visitante}</span>
+                              <span className="text-3xl">{getTeamFlag(m.visitante)}</span>
+                            </div>
+                          </div>
+
+                          {/* User's Prediction Footer Card */}
+                          <div className="bg-zinc-950/40 rounded-xl border border-zinc-800/40 p-3 mt-1 flex justify-between items-center text-xs" onClick={(e) => e.stopPropagation()}>
+                            <div>
+                              <span className="text-zinc-500">Mi apuesta: </span>
+                              {myPred ? (
+                                <span className="font-bold text-zinc-200">
+                                  {myPred.pred_local} - {myPred.pred_visitante}
+                                </span>
+                              ) : (
+                                <span className="text-zinc-600 italic">Sin pronóstico</span>
+                              )}
+                            </div>
+
+                            {/* Bet Action Trigger button */}
+                            {isClosed ? (
+                              <div className="flex items-center gap-1.5">
+                                {myPred && myPred.puntos !== null && (
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                                    myPred.puntos === 3 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                                    myPred.puntos === 1 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                    'bg-zinc-800 text-zinc-400'
+                                  }`}>
+                                    +{myPred.puntos} PTS
+                                  </span>
+                                )}
+                                <span className="text-zinc-600 text-[10px] uppercase font-bold flex items-center gap-1">
+                                  <Lock className="w-3 h-3" /> Cerrado
+                                </span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setBetModalMatch(m);
+                                  setBetPredLocal(myPred ? myPred.pred_local : 0);
+                                  setBetPredVisitante(myPred ? myPred.pred_visitante : 0);
+                                }}
+                                className="bg-yellow-500 hover:bg-yellow-600 active:scale-95 text-zinc-950 font-bold px-3 py-1.5 rounded-lg text-[10.5px] transition tracking-wider uppercase z-10"
+                              >
+                                {myPred ? 'Modificar' : 'Pronosticar'}
+                              </button>
+                            )}
+                          </div>
+
                         </div>
+                      );
+                    })}
 
-                      </div>
-                    );
-                  })}
+                  {matches.length === 0 && (
+                    <div className="py-20 text-center text-zinc-500 col-span-2">
+                      <p>Cargando lista de partidos...</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
-                {matches.length === 0 && (
-                  <div className="py-20 text-center text-zinc-500 col-span-2">
-                    <p>Cargando lista de partidos...</p>
+              {/* VIEW MODE B: INTERACTIVE EXCEL PLANILLA SPREADSHEET */}
+              {viewMode === 'excel' && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
+                  
+                  {/* Excel Sheet Container Scrollable */}
+                  <div className="overflow-x-auto no-scrollbar">
+                    <table className="w-full text-left border-collapse min-w-[600px]">
+                      <thead>
+                        <tr className="bg-zinc-950 border-b border-zinc-800 text-[10px] font-black text-zinc-500 uppercase tracking-widest text-center">
+                          <th className="py-4 px-4 text-left w-24">GRUPO</th>
+                          <th className="py-4 px-2 text-right">LOCAL</th>
+                          <th className="py-4 w-20">PRONÓSTICO</th>
+                          <th className="py-4 px-2 text-left">VISITANTE</th>
+                          <th className="py-4 w-24">ESTADO</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-900 text-xs">
+                        {matches
+                          .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
+                          .filter((m) => filterFase === 'ALL' || m.fase === filterFase)
+                          .map((m) => {
+                            const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+                            const currentScore = excelScores[m.id] || { local: 0, visitante: 0 };
+
+                            return (
+                              <tr 
+                                key={m.id} 
+                                className="hover:bg-zinc-950/30 transition text-center align-middle cursor-pointer"
+                                onClick={() => {
+                                  setSummaryModalMatch(m);
+                                  fetchCommunityBets(m.id);
+                                }}
+                              >
+                                {/* Group/Stage Cell */}
+                                <td className="py-3 px-4 text-left font-mono font-bold text-zinc-500 uppercase tracking-wide">
+                                  GRP {m.grupo}
+                                </td>
+
+                                {/* Local Country Cell */}
+                                <td className="py-3 px-2 text-right font-extrabold text-zinc-200 uppercase tracking-wide">
+                                  <span className="mr-2 text-base">{getTeamFlag(m.local)}</span>
+                                  <span>{m.local}</span>
+                                </td>
+
+                                {/* Input Prediction cells (Spreadsheet style!) */}
+                                <td className="py-3" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center gap-1 justify-center bg-zinc-950/80 border border-zinc-800 rounded-xl p-1 max-w-[90px] mx-auto">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      disabled={isClosed}
+                                      value={currentScore.local}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                                        setExcelScores((prev) => ({
+                                          ...prev,
+                                          [m.id]: { ...prev[m.id], local: val }
+                                        }));
+                                      }}
+                                      className="w-7 bg-zinc-900 text-center font-mono font-black text-xs py-1 rounded text-yellow-500 disabled:text-zinc-600 outline-none border border-transparent focus:border-yellow-500/20 disabled:bg-transparent"
+                                    />
+                                    <span className="text-zinc-700 font-bold">:</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      disabled={isClosed}
+                                      value={currentScore.visitante}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                                        setExcelScores((prev) => ({
+                                          ...prev,
+                                          [m.id]: { ...prev[m.id], visitante: val }
+                                        }));
+                                      }}
+                                      className="w-7 bg-zinc-900 text-center font-mono font-black text-xs py-1 rounded text-yellow-500 disabled:text-zinc-600 outline-none border border-transparent focus:border-yellow-500/20 disabled:bg-transparent"
+                                    />
+                                  </div>
+                                </td>
+
+                                {/* Visitante Country Cell */}
+                                <td className="py-3 px-2 text-left font-extrabold text-zinc-200 uppercase tracking-wide">
+                                  <span>{m.visitante}</span>
+                                  <span className="ml-2 text-base">{getTeamFlag(m.visitante)}</span>
+                                </td>
+
+                                {/* Status Cell */}
+                                <td className="py-3 text-center">
+                                  {isClosed ? (
+                                    <span className="text-zinc-600 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1">
+                                      <Lock className="w-3 h-3 flex-shrink-0" />
+                                      <span>Cerrado</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-green-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1">
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Abierto</span>
+                                    </span>
+                                  )}
+                                </td>
+
+                              </tr>
+                            );
+                          })}
+
+                        {matches.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="py-12 text-center text-zinc-600 italic">No hay partidos disponibles</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-              </div>
+
+                </div>
+              )}
+
             </section>
           )}
 

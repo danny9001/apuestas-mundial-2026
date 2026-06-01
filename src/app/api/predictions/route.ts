@@ -16,7 +16,6 @@ export async function GET(req: NextRequest) {
     const matchId = searchParams.get('matchId');
 
     if (matchId) {
-      // Fetch all predictions for this specific match (community review)
       const res = await pool.query(
         `SELECT p.*, u.nombre, u.avatar, u.tipo
          FROM predictions p
@@ -44,7 +43,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: save or update a prediction
+// POST: save or update prediction(s) (supports single or batch array!)
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser();
@@ -52,13 +51,70 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { matchId, predLocal, predVisitante } = await req.json();
+    const body = await req.json();
+
+    // Check if the request is a batch array
+    if (Array.isArray(body)) {
+      const results = [];
+      const errors = [];
+
+      for (const item of body) {
+        const { matchId, predLocal, predVisitante } = item;
+        if (matchId === undefined || predLocal === undefined || predVisitante === undefined) {
+          continue;
+        }
+
+        // Check match validity and kickoff time
+        const matchRes = await pool.query(
+          'SELECT fecha, estado FROM matches WHERE id = $1',
+          [matchId]
+        );
+
+        if (matchRes.rows.length === 0) {
+          errors.push({ matchId, error: 'Partido no encontrado' });
+          continue;
+        }
+
+        const match = matchRes.rows[0];
+        const now = new Date();
+        const matchTime = new Date(match.fecha);
+
+        if (match.estado !== 'upcoming' || now >= matchTime) {
+          errors.push({ matchId, error: 'Apuestas cerradas' });
+          continue;
+        }
+
+        // Upsert prediction
+        const upsertQuery = `
+          INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (user_id, match_id) 
+          DO UPDATE SET pred_local = EXCLUDED.pred_local,
+                        pred_visitante = EXCLUDED.pred_visitante,
+                        created_at = CURRENT_TIMESTAMP
+          RETURNING *
+        `;
+
+        const res = await pool.query(upsertQuery, [
+          user.id,
+          matchId,
+          parseInt(predLocal),
+          parseInt(predVisitante)
+        ]);
+
+        results.push(res.rows[0]);
+      }
+
+      return NextResponse.json({ success: true, results, errors });
+    }
+
+    // Otherwise, handle standard single prediction
+    const { matchId, predLocal, predVisitante } = body;
 
     if (matchId === undefined || predLocal === undefined || predVisitante === undefined) {
       return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
     }
 
-    // Check match start time and current status
     const matchRes = await pool.query(
       'SELECT fecha, estado FROM matches WHERE id = $1',
       [matchId]
@@ -72,7 +128,6 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const matchTime = new Date(match.fecha);
 
-    // Block predictions if game has started or is not in 'upcoming' state
     if (match.estado !== 'upcoming' || now >= matchTime) {
       return NextResponse.json(
         { error: 'El partido ya ha comenzado. Apuestas cerradas.' },
@@ -80,7 +135,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Upsert prediction
     const upsertQuery = `
       INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante)
       VALUES ($1, $2, $3, $4)
@@ -100,7 +154,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, prediction: res.rows[0] });
   } catch (error: any) {
-    console.error('Error saving prediction:', error);
+    console.error('Error saving predictions:', error);
     return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
   }
 }

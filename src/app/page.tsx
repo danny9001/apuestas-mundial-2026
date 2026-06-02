@@ -162,7 +162,7 @@ export default function PWAAppPage() {
   const [registerLoading, setRegisterLoading] = useState(false);
 
   // Active Bottom Tab
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture' | 'reglas'>('partidos');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture' | 'reglas'>('dashboard');
   const [groupDate, setGroupDate] = useState(false);
 
   // Group remaining matches toggle
@@ -944,9 +944,14 @@ export default function PWAAppPage() {
 
   // Kickoff Countdown Timer Effect
   useEffect(() => {
-    const targetDate = new Date('2026-06-11T16:00:00-04:00'); // Bolivia Time Kickoff
-    
     const updateTimer = () => {
+      const upcoming = matches
+        .filter((m: any) => m.estado === 'upcoming' && new Date(m.fecha).getTime() > Date.now())
+        .sort((a: any, b: any) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+      
+      const nextMatch = upcoming[0];
+      const targetDate = nextMatch ? new Date(nextMatch.fecha) : new Date('2026-06-11T16:00:00-04:00'); // Bolivia Time Kickoff
+      
       const diff = targetDate.getTime() - Date.now();
       if (diff <= 0) {
         setKickoffTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -964,7 +969,7 @@ export default function PWAAppPage() {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [matches]);
 
   useEffect(() => {
     checkSession();
@@ -1545,19 +1550,17 @@ export default function PWAAppPage() {
 
           {/* Navigation Links */}
           <nav className="flex flex-col gap-2">
-            {user && (
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
-                  activeTab === 'dashboard' 
-                    ? 'btn-primary-stitch shadow-md' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent'
-                }`}
-              >
-                <Home className="w-4 h-4" />
-                <span>Inicio</span>
-              </button>
-            )}
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
+                activeTab === 'dashboard' 
+                  ? 'btn-primary-stitch shadow-md' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent'
+              }`}
+            >
+              <Home className="w-4 h-4" />
+              <span>Inicio</span>
+            </button>
             <button
               onClick={() => setActiveTab('partidos')}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
@@ -1766,289 +1769,454 @@ export default function PWAAppPage() {
         {/* MAIN VIEW CONTROLLER */}
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8 overflow-y-auto pb-24 md:pb-8">
           
-          {/* --- VIEW 0: DASHBOARD --- */}
-          {activeTab === 'dashboard' && user && (() => {
-            const myRank = leaderboard.find(row => row.user_id === user.id);
-            const userPredictionsCount = predictions.length;
-            const userExactsCount = predictions.filter(p => p.puntos === 3).length;
+          {/* --- VIEW 0: DASHBOARD (INICIO) --- */}
+          {activeTab === 'dashboard' && (() => {
+            const myRank = user ? leaderboard.find(row => row.user_id === user.id) : null;
+            const userPredictionsCount = user ? predictions.length : 0;
+            const userExactsCount = user ? predictions.filter(p => p.puntos === 3).length : 0;
+            const upcomingMatches = matches
+              .filter((m) => m.estado === 'upcoming' || m.estado === 'live')
+              .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+              .slice(0, 3);
+            const countdownMatch = matches
+              .filter((m) => m.estado === 'upcoming' && new Date(m.fecha).getTime() > Date.now())
+              .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
 
             return (
-              <section className="space-y-6 max-w-5xl mx-auto">
+              <section className="space-y-6 max-w-5xl mx-auto pb-8">
+                
                 {/* Welcome Card */}
-                <div className="bg-gradient-to-r from-yellow-500/15 via-amber-500/5 to-transparent border border-yellow-500/20 rounded-3xl p-6 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg animate-fade-in">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 rounded-full blur-2xl pointer-events-none"></div>
-                  <div>
-                    <div className="text-[10px] text-yellow-500 font-black uppercase tracking-widest">Resumen de Quiniela</div>
-                    <h2 className="text-2xl font-black text-zinc-100 mt-1">¡Hola, {user.nombre}! 👋</h2>
-                    <p className="text-zinc-400 text-xs mt-1">
-                      Aquí tienes el estado actual de tus predicciones, tu ranking y las novedades del torneo.
-                    </p>
+                {user ? (
+                  <div className="bg-gradient-to-r from-yellow-500/15 via-amber-500/5 to-transparent border border-yellow-500/20 rounded-3xl p-6 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg animate-fade-in">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                    <div>
+                      <div className="text-[10px] text-yellow-500 font-black uppercase tracking-widest">Resumen de Quiniela</div>
+                      <h2 className="text-2xl font-black text-zinc-100 mt-1">¡Hola, {user.nombre}! 👋</h2>
+                      <p className="text-zinc-400 text-xs mt-1">
+                        Aquí tienes el estado actual de tus predicciones, tu ranking y las novedades del torneo.
+                      </p>
+                    </div>
+                    {user.companies && user.companies.length > 0 && (
+                      <div className="flex gap-2 flex-wrap">
+                        {user.companies.map((c: any) => (
+                          <span key={c.id} className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border"
+                                style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '15' }}>
+                            🏢 {c.nombre}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {user.companies && user.companies.length > 0 && (
-                    <div className="flex gap-2 flex-wrap">
-                      {user.companies.map((c: any) => (
-                        <span key={c.id} className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border"
-                              style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '15' }}>
-                          🏢 {c.nombre}
+                ) : (
+                  <div className="bg-gradient-to-r from-yellow-500/15 via-amber-500/5 to-transparent border border-yellow-500/20 rounded-3xl p-6 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg animate-fade-in">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                    <div>
+                      <div className="text-[10px] text-yellow-500 font-black uppercase tracking-widest">Quiniela Oficial del Mundial 2026</div>
+                      <h2 className="text-2xl font-black text-zinc-100 mt-1">¡Bienvenido a la Quiniela! 🏆</h2>
+                      <p className="text-zinc-400 text-xs mt-1">
+                        Únete hoy mismo para pronosticar los resultados de los partidos, acumular puntos y competir contra amigos y colegas de tu empresa.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('perfil')}
+                      className="btn-primary-stitch px-5 py-2.5 text-xs font-black tracking-wider uppercase flex-shrink-0 active:scale-[0.97] transition"
+                    >
+                      Ingresar / Registrarse
+                    </button>
+                  </div>
+                )}
+
+                {/* Stats cards grid (Only visible to authenticated users) */}
+                {user && (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Card 1: Points */}
+                    <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Puntos Totales</span>
+                      <div className="mt-3 flex items-baseline gap-1.5">
+                        <span className="text-3xl font-mono font-black text-yellow-500">{myRank ? myRank.puntos_totales : 0}</span>
+                        <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider">pts</span>
+                      </div>
+                      <span className="text-[9px] text-zinc-500 mt-2">Acumulados en todos los partidos</span>
+                    </div>
+
+                    {/* Card 2: Ranking Position */}
+                    <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Posición General</span>
+                      <div className="mt-3 flex items-baseline gap-1.5">
+                        <span className="text-3xl font-mono font-black text-amber-500">
+                          {myRank && myRank.posicion !== 9999 ? `#${myRank.posicion}` : '--'}
                         </span>
+                      </div>
+                      <span className="text-[9px] text-zinc-500 mt-2">
+                        {myRank && myRank.tendencia === 'up' && '▲ Subiendo posiciones'}
+                        {myRank && myRank.tendencia === 'down' && '▼ Bajando posiciones'}
+                        {myRank && myRank.tendencia === 'same' && '● Manteniendo posición'}
+                        {!myRank && 'Aún sin clasificar'}
+                      </span>
+                    </div>
+
+                    {/* Card 3: Predictions Made */}
+                    <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Predicciones Hechas</span>
+                      <div className="mt-3 flex items-baseline gap-1.5">
+                        <span className="text-3xl font-mono font-black text-zinc-100">{userPredictionsCount}</span>
+                        <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider">apuestas</span>
+                      </div>
+                      <span className="text-[9px] text-zinc-500 mt-2">Total de marcadores ingresados</span>
+                    </div>
+
+                    {/* Card 4: Exact scores */}
+                    <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Aciertos Exactos</span>
+                      <div className="mt-3 flex items-baseline gap-1.5">
+                        <span className="text-3xl font-mono font-black text-emerald-500">
+                          {myRank ? myRank.exactos : userExactsCount}
+                        </span>
+                        <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider">marcas</span>
+                      </div>
+                      <span className="text-[9px] text-zinc-500 mt-2">Marcadores idénticos acertados (+3 pts)</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Animated countdown & where to watch wrapper */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Countdown Timer */}
+                  <div className="lg:col-span-5 flex flex-col justify-between bg-zinc-950/80 border border-yellow-500/30 rounded-3xl p-5 shadow-[0_0_25px_rgba(234,179,8,0.12)] relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-amber-500/5 to-transparent animate-pulse pointer-events-none"></div>
+                    <div className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-red-500 animate-ping"></span>
+                      <span className="h-2 w-2 rounded-full bg-red-500 absolute"></span>
+                      {countdownMatch ? (
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span>PRÓXIMO PARTIDO:</span>
+                          <span className="text-zinc-100 flex items-center gap-1 min-w-0 truncate">
+                            {getTeamFlag(countdownMatch.local)} <span className="truncate">{countdownMatch.local}</span> vs {getTeamFlag(countdownMatch.visitante)} <span className="truncate">{countdownMatch.visitante}</span>
+                          </span>
+                        </span>
+                      ) : (
+                        'INICIO DEL MUNDIAL 2026'
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-between gap-3 py-2 relative z-10">
+                      {[
+                        { label: 'DÍAS', value: kickoffTimeLeft.days },
+                        { label: 'HORAS', value: kickoffTimeLeft.hours },
+                        { label: 'MINS', value: kickoffTimeLeft.minutes },
+                        { label: 'SEGS', value: kickoffTimeLeft.seconds },
+                      ].map((item, idx) => (
+                        <React.Fragment key={item.label}>
+                          <div className="flex flex-col items-center flex-1">
+                            <div className="w-full h-16 bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl flex items-center justify-center font-mono font-black text-2xl text-yellow-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] select-none relative overflow-hidden group-hover:scale-105 transition-all duration-300">
+                              <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-black/80 z-10"></div>
+                              <span className="drop-shadow-[0_2px_8px_rgba(234,179,8,0.4)] text-yellow-400 font-extrabold animate-pulse">
+                                {String(item.value).padStart(2, '0')}
+                              </span>
+                            </div>
+                            <span className="text-[8.5px] text-yellow-500/80 font-black uppercase tracking-widest mt-1.5">{item.label}</span>
+                          </div>
+                          {idx < 3 && (
+                            <span className="text-yellow-500 font-mono font-black text-xl select-none animate-pulse -translate-y-2">:</span>
+                          )}
+                        </React.Fragment>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Previews and Streams column */}
+                  <div className="lg:col-span-7 flex flex-col justify-between bg-zinc-900/40 border border-zinc-850 rounded-3xl p-5">
+                    <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3.5 flex items-center justify-between">
+                      <span>¿Dónde Ver? · Canales y Transmisiones</span>
+                      <span className="text-yellow-500 font-mono">100% Legal</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="bg-zinc-950/40 border border-zinc-850 hover:border-yellow-500/25 rounded-2xl p-3.5 flex flex-col justify-between transition group">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">BOLIVIA</span>
+                            <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 text-[7px] font-black tracking-widest uppercase">Televisión</span>
+                          </div>
+                          <p className="text-[9px] text-zinc-400 leading-relaxed">
+                            Unitel transmitirá 30 partidos en señal abierta para todo el país, incluyendo inauguración, semis y final.
+                          </p>
+                        </div>
+                        <a href="https://www.unitel.bo" target="_blank" rel="noopener noreferrer" className="text-[8.5px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-3 tracking-wider uppercase">
+                          Sitio Web <span>→</span>
+                        </a>
+                      </div>
+
+                      <div className="bg-zinc-950/40 border border-zinc-850 hover:border-yellow-500/25 rounded-2xl p-3.5 flex flex-col justify-between transition group">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">CABLE (TIGO)</span>
+                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[7px] font-black tracking-widest uppercase">Completo</span>
+                          </div>
+                          <p className="text-[9px] text-zinc-400 leading-relaxed">
+                            Tigo Sports transmitirá en exclusiva por cable los 104 partidos del Mundial con cobertura especial HD.
+                          </p>
+                        </div>
+                        <a href="https://tigosports.com.bo" target="_blank" rel="noopener noreferrer" className="text-[8.5px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-3 tracking-wider uppercase">
+                          Sitio Web <span>→</span>
+                        </a>
+                      </div>
+
+                      <div className="bg-zinc-950/40 border border-zinc-850 hover:border-yellow-500/25 rounded-2xl p-3.5 flex flex-col justify-between transition group">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">MÓVIL / APP</span>
+                            <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 text-[7px] font-black tracking-widest uppercase">Streaming</span>
+                          </div>
+                          <p className="text-[9px] text-zinc-400 leading-relaxed">
+                            FIFA+ ofrecerá streams gratuitos en vivo de partidos seleccionados y resúmenes al instante de 5 minutos.
+                          </p>
+                        </div>
+                        <a href="https://plus.fifa.com" target="_blank" rel="noopener noreferrer" className="text-[8.5px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-3 tracking-wider uppercase">
+                          Abrir FIFA+ <span>→</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Partidos Cercanos Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-yellow-500" />
+                    <h3 className="text-xs font-black uppercase tracking-wider text-zinc-200">Próximos Partidos Cercanos</h3>
+                  </div>
+                  {upcomingMatches.length === 0 ? (
+                    <div className="glass-card border border-zinc-850 p-6 rounded-2xl text-center text-zinc-500 text-xs italic">
+                      No hay partidos próximos programados en este momento.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {upcomingMatches.map((m) => {
+                        const isLive = m.estado === 'live';
+                        const myPred = predictions.find((p) => p.match_id === m.id);
+                        return (
+                          <div 
+                            key={m.id}
+                            onClick={() => {
+                              setSummaryModalMatch(m);
+                              fetchCommunityBets(m.id);
+                            }}
+                            className={`glass-card p-4 border transition cursor-pointer flex flex-col justify-between gap-3 ${
+                              isLive 
+                                ? 'border-red-500/40 bg-red-950/5 shadow-[0_0_15px_rgba(239,68,68,0.08)]' 
+                                : 'border-zinc-850 hover:border-yellow-500/35 hover:bg-zinc-900/40'
+                            }`}
+                          >
+                            <div className="flex justify-between items-center text-[9px] font-black text-zinc-500 uppercase tracking-wider">
+                              <span>{m.fase}</span>
+                              <span className={isLive ? 'text-red-400 animate-pulse font-extrabold' : 'text-zinc-400 font-mono'}>
+                                {isLive ? '🔴 EN VIVO' : new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            
+                            <div className="flex justify-between items-center py-1">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
+                                <span className="font-extrabold text-xs text-zinc-200 truncate uppercase">{m.local}</span>
+                              </div>
+                              <span className="font-mono text-xs font-bold text-zinc-400 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-850">
+                                {isLive ? `${m.goles_local} - ${m.goles_visitante}` : 'VS'}
+                              </span>
+                              <div className="flex items-center gap-2 min-w-0 justify-end">
+                                <span className="font-extrabold text-xs text-zinc-200 truncate uppercase">{m.visitante}</span>
+                                <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center text-[9px] border-t border-zinc-900/50 pt-2 text-zinc-500">
+                              <span className="truncate max-w-[65%]">📍 {m.estadio || 'Estadio por definir'}</span>
+                              {user && myPred && (
+                                <span className="font-mono text-[9px] text-zinc-400 font-bold bg-zinc-950/80 px-1.5 py-0.5 rounded border border-zinc-850">
+                                  Mi apuesta: {myPred.pred_local}-{myPred.pred_visitante}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
-                {/* Stats cards grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Card 1: Points */}
-                  <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Puntos Totales</span>
-                    <div className="mt-3 flex items-baseline gap-1.5">
-                      <span className="text-3xl font-mono font-black text-yellow-500">{myRank ? myRank.puntos_totales : 0}</span>
-                      <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider">pts</span>
-                    </div>
-                    <span className="text-[9px] text-zinc-500 mt-2">Acumulados en todos los partidos</span>
+                {/* Sedes y Estadios Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-yellow-500" />
+                    <h3 className="text-xs font-black uppercase tracking-wider text-zinc-200">Sedes y Estadios Destacados</h3>
                   </div>
-
-                  {/* Card 2: Ranking Position */}
-                  <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Posición General</span>
-                    <div className="mt-3 flex items-baseline gap-1.5">
-                      <span className="text-3xl font-mono font-black text-amber-500">
-                        {myRank && myRank.posicion !== 9999 ? `#${myRank.posicion}` : '--'}
-                      </span>
-                    </div>
-                    <span className="text-[9px] text-zinc-500 mt-2">
-                      {myRank && myRank.tendencia === 'up' && '▲ Subiendo posiciones'}
-                      {myRank && myRank.tendencia === 'down' && '▼ Bajando posiciones'}
-                      {myRank && myRank.tendencia === 'same' && '● Manteniendo posición'}
-                      {!myRank && 'Aún sin clasificar'}
-                    </span>
-                  </div>
-
-                  {/* Card 3: Predictions Made */}
-                  <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Predicciones Hechas</span>
-                    <div className="mt-3 flex items-baseline gap-1.5">
-                      <span className="text-3xl font-mono font-black text-zinc-100">{userPredictionsCount}</span>
-                      <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider">apuestas</span>
-                    </div>
-                    <span className="text-[9px] text-zinc-500 mt-2">Total de marcadores ingresados</span>
-                  </div>
-
-                  {/* Card 4: Exact scores */}
-                  <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Aciertos Exactos</span>
-                    <div className="mt-3 flex items-baseline gap-1.5">
-                      <span className="text-3xl font-mono font-black text-emerald-500">
-                        {myRank ? myRank.exactos : userExactsCount}
-                      </span>
-                      <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider">marcas</span>
-                    </div>
-                    <span className="text-[9px] text-zinc-500 mt-2">Marcadores idénticos acertados (+3 pts)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                      { nombre: 'Estadio Azteca', ciudad: 'Ciudad de México, MEX', cap: '87,523', desc: 'Sede del partido inaugural. Histórico templo del fútbol mundial, el primero en hospedar tres mundiales.' },
+                      { nombre: 'MetLife Stadium', ciudad: 'Nueva York / Nueva Jersey, USA', cap: '82,500', desc: 'Sede confirmada para la Gran Final del 19 de julio de 2026. Estadio ultra-moderno con tecnología de punta.' },
+                      { nombre: 'BC Place', ciudad: 'Vancouver, CAN', cap: '54,500', desc: 'Estadio principal canadiense con techo retráctil. Hospedará múltiples partidos de fase de grupos y eliminatorias.' },
+                    ].map((estadio) => (
+                      <div key={estadio.nombre} className="glass-card border border-zinc-850 p-4 rounded-2xl flex flex-col justify-between gap-2">
+                        <div>
+                          <div className="flex justify-between items-start gap-2">
+                            <h4 className="font-black text-xs text-zinc-100 uppercase">{estadio.nombre}</h4>
+                            <span className="text-[8px] font-mono bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-2 py-0.5 rounded font-black flex-shrink-0">
+                              CAP. {estadio.cap}
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-zinc-500 font-semibold">{estadio.ciudad}</span>
+                          <p className="text-[10px] text-zinc-400 mt-2 leading-relaxed">{estadio.desc}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Ambient Decorative Widgets (Official Streams & Countdown Widget) */}
-                <div className="glass-card rounded-3xl p-5 md:p-6 border border-zinc-800/80 shadow-2xl relative overflow-hidden space-y-5">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
-                  
-                  {/* Header */}
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-zinc-850">
-                    <div className="flex items-center gap-2.5">
-                      <Trophy className="w-5 h-5 text-yellow-500 animate-bounce" />
-                      <div>
-                        <h2 className="text-xs md:text-sm font-black uppercase tracking-wider text-zinc-100">
-                          Estadísticas y Novedades Mundial 2026
-                        </h2>
-                        <p className="text-[9px] text-zinc-500 font-semibold">
-                          Información de transmisiones y cronómetro de inicio oficial
-                        </p>
-                      </div>
+                {/* Curiosidades y Eventos Especiales Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Curiosidades */}
+                  <div className="glass-card border border-zinc-850 p-5 rounded-2xl space-y-4">
+                    <div className="flex items-center gap-2 border-b border-zinc-850 pb-3">
+                      <BookOpen className="w-4 h-4 text-yellow-500" />
+                      <h3 className="text-xs font-black uppercase tracking-wider text-zinc-100">Curiosidades del Torneo</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {[
+                        { titulo: 'Expansión Histórica', desc: 'Será el primer Mundial de la historia con 48 selecciones clasificadas, disputando un total inédito de 104 partidos.' },
+                        { titulo: 'Tres Países Anfitriones', desc: 'Por primera vez en la historia, el torneo será coorganizado por tres naciones de forma conjunta: México, EE. UU. y Canadá.' },
+                        { titulo: '39 Días de Competencia', desc: 'El torneo se jugará desde el 11 de junio hasta el 19 de julio de 2026, convirtiéndose en uno de los mundiales más largos de todos.' },
+                      ].map((item) => (
+                        <div key={item.titulo} className="bg-zinc-950/20 border border-zinc-900 p-3 rounded-xl">
+                          <h5 className="font-black text-[10.5px] text-yellow-500 uppercase">{item.titulo}</h5>
+                          <p className="text-[9.5px] text-zinc-400 mt-1 leading-relaxed">{item.desc}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-                    {/* Countdown Widget */}
-                    <div className="lg:col-span-5 flex flex-col justify-between bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 relative">
-                      <div className="text-[9px] font-black text-yellow-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
-                        Cronómetro de Inicio Oficial (Bolivia)
+                  {/* Eventos Especiales */}
+                  <div className="glass-card border border-zinc-850 p-5 rounded-2xl space-y-4">
+                    <div className="flex items-center gap-2 border-b border-zinc-850 pb-3">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <h3 className="text-xs font-black uppercase tracking-wider text-zinc-100">Eventos Especiales</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {[
+                        { fecha: '11 JUN', titulo: 'Show de Inauguración', desc: 'Ceremonia de apertura artística de clase mundial y el partido inaugural en el colosal Estadio Azteca de la Ciudad de México.' },
+                        { fecha: '19 JUL', titulo: 'La Gran Final', desc: 'El evento deportivo más visto del planeta coronará al nuevo campeón del mundo en el MetLife Stadium de Nueva York / Nueva Jersey.' },
+                        { fecha: 'DEBUT', titulo: 'Fase de Eliminación Directa', desc: 'Hospedará por primera vez una ronda de dieciseisavos de final (Ronda de 32), duplicando la emoción de los partidos a matar o morir.' },
+                      ].map((item) => (
+                        <div key={item.titulo} className="bg-zinc-950/20 border border-zinc-900 p-3 rounded-xl flex gap-3">
+                          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 text-center flex flex-col justify-center items-center min-w-[50px] h-12">
+                            <span className="font-black text-[11px] text-yellow-500 font-mono leading-none">{item.fecha.split(' ')[0]}</span>
+                            <span className="font-black text-[8px] text-yellow-500 font-mono mt-0.5 leading-none">{item.fecha.split(' ')[1] || ''}</span>
+                          </div>
+                          <div>
+                            <h5 className="font-black text-[10.5px] text-zinc-200 uppercase">{item.titulo}</h5>
+                            <p className="text-[9.5px] text-zinc-400 mt-1 leading-relaxed">{item.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {/* Notifications & Quick Links (Only visible if logged in) */}
+                {user && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    {/* Notifications box */}
+                    <div className="glass-card border border-zinc-850 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-4 border-b border-zinc-850 pb-3">
+                          <Bell className="w-4 h-4 text-yellow-500" />
+                          <h3 className="text-xs font-black uppercase tracking-wider text-zinc-100">Notificaciones Recientes</h3>
+                        </div>
+                        <div className="space-y-3">
+                          {notifications.slice(0, 3).map((n) => (
+                            <div 
+                              key={n.id} 
+                              onClick={() => handleMarkNotificationRead(n.id)}
+                              className={`p-3 rounded-xl border transition cursor-pointer text-xs ${
+                                !n.leido 
+                                  ? 'bg-yellow-500/5 border-yellow-500/20 text-zinc-200' 
+                                  : 'bg-zinc-950/20 border-zinc-850 text-zinc-400 hover:text-zinc-300'
+                              }`}
+                            >
+                              <div className="flex justify-between items-center font-bold">
+                                <span>{n.titulo}</span>
+                                {!n.leido && <span className="h-1.5 w-1.5 rounded-full bg-yellow-500"></span>}
+                              </div>
+                              <p className="text-[10px] text-zinc-550 mt-1 leading-relaxed">{n.contenido}</p>
+                            </div>
+                          ))}
+                          {notifications.length === 0 && (
+                            <div className="py-8 text-center text-zinc-500 text-xs italic">
+                              No tienes notificaciones pendientes.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {notifications.length > 0 && (
+                        <button 
+                          onClick={() => setNotifPanelOpen(true)}
+                          className="text-[9px] font-black text-yellow-500 hover:text-yellow-400 uppercase tracking-widest mt-4 text-left"
+                        >
+                          Ver todas las notificaciones ({notifications.length})
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Quick links & tips box */}
+                    <div className="glass-card border border-zinc-850 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-4 border-b border-zinc-850 pb-3">
+                          <Activity className="w-4 h-4 text-yellow-500" />
+                          <h3 className="text-xs font-black uppercase tracking-wider text-zinc-100">Enlaces Rápidos</h3>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            onClick={() => setActiveTab('partidos')}
+                            className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
+                          >
+                            <div className="text-xl mb-1">⚽</div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Ver Partidos</span>
+                            <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Predice y haz apuestas de grupo o ronda.</span>
+                          </button>
+
+                          <button
+                            onClick={() => setActiveTab('ranking')}
+                            className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
+                          >
+                            <div className="text-xl mb-1">📊</div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Tabla de Posiciones</span>
+                            <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Revisa el pozo acumulado y tu puesto.</span>
+                          </button>
+
+                          <button
+                            onClick={() => setActiveTab('fixture')}
+                            className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
+                          >
+                            <div className="text-xl mb-1">🌲</div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Fase Eliminatoria</span>
+                            <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Bracket interactivo rumbo a la Copa.</span>
+                          </button>
+
+                          <button
+                            onClick={() => setActiveTab('perfil')}
+                            className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
+                          >
+                            <div className="text-xl mb-1">🔑</div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Ajustes & Passkeys</span>
+                            <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Configura tu perfil y llaves de acceso.</span>
+                          </button>
+                        </div>
                       </div>
                       
-                      <div className="flex items-center justify-between gap-2 py-2">
-                        {[
-                          { label: 'DÍAS', value: kickoffTimeLeft.days },
-                          { label: 'HORAS', value: kickoffTimeLeft.hours },
-                          { label: 'MINUTOS', value: kickoffTimeLeft.minutes },
-                          { label: 'SEGUNDOS', value: kickoffTimeLeft.seconds },
-                        ].map((item, idx) => (
-                          <React.Fragment key={item.label}>
-                            <div className="flex flex-col items-center flex-1">
-                              <div className="w-full h-14 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center font-mono font-black text-xl text-yellow-500 shadow-inner select-none relative overflow-hidden">
-                                <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-black/60 z-10"></div>
-                                <span className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                                  {String(item.value).padStart(2, '0')}
-                                </span>
-                              </div>
-                              <span className="text-[8px] text-zinc-500 font-black uppercase tracking-wider mt-1">{item.label}</span>
-                            </div>
-                            {idx < 3 && <span className="text-yellow-500/40 font-mono font-black text-lg select-none">:</span>}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Previews and Streams column */}
-                    <div className="lg:col-span-7 flex flex-col justify-between bg-zinc-950/20 border border-zinc-900 rounded-2xl p-4">
-                      <div className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-3 flex items-center justify-between">
-                        <span>Canales y Transmisión Autorizada</span>
-                        <span className="text-yellow-500 font-mono">100% Legal</span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
-                          <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">BOLIVIA</span>
-                              <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 text-[7px] font-black tracking-widest uppercase">Televisión</span>
-                            </div>
-                            <p className="text-[8.5px] text-zinc-550 font-semibold leading-relaxed">
-                              Unitel transmitirá 30 partidos abiertos en televisión abierta para todo el país, incluyendo inauguración, semifinales y la gran final.
-                            </p>
-                          </div>
-                          <a href="https://www.unitel.bo" target="_blank" rel="noopener noreferrer" className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase">
-                            Sitio Web <span>→</span>
-                          </a>
-                        </div>
-
-                        <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
-                          <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">CABLE (TIGO)</span>
-                              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[7px] font-black tracking-widest uppercase">Completo</span>
-                            </div>
-                            <p className="text-[8.5px] text-zinc-550 font-semibold leading-relaxed">
-                              Tigo Sports transmitirá en exclusiva por cable los 104 partidos del Mundial, incluyendo canales HD y cobertura especial.
-                            </p>
-                          </div>
-                          <a href="https://tigosports.com.bo" target="_blank" rel="noopener noreferrer" className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase">
-                            Sitio Web <span>→</span>
-                          </a>
-                        </div>
-
-                        <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
-                          <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">MÓVIL / APP</span>
-                              <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 text-[7px] font-black tracking-widest uppercase">Streaming</span>
-                            </div>
-                            <p className="text-[8.5px] text-zinc-550 font-semibold leading-relaxed">
-                              FIFA+ habilitará streams gratuitos en vivo de partidos seleccionados y resúmenes extendidos de 5 minutos al instante.
-                            </p>
-                          </div>
-                          <a href="https://plus.fifa.com" target="_blank" rel="noopener noreferrer" className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase">
-                            Abrir FIFA+ <span>→</span>
-                          </a>
-                        </div>
+                      <div className="bg-yellow-500/5 border border-yellow-500/15 rounded-xl p-3 mt-4 text-[9px] text-zinc-400 font-semibold leading-relaxed">
+                        💡 **Consejo Táctico**: Las apuestas se cierran automáticamente al momento del kickoff oficial de cada partido. ¡No olvides ingresar tus marcadores a tiempo!
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Notifications and Quick Links grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Notifications box */}
-                  <div className="glass-card border border-zinc-850 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-4 border-b border-zinc-850 pb-3">
-                        <Bell className="w-4 h-4 text-yellow-500" />
-                        <h3 className="text-xs font-black uppercase tracking-wider text-zinc-100">Notificaciones Recientes</h3>
-                      </div>
-                      <div className="space-y-3">
-                        {notifications.slice(0, 3).map((n) => (
-                          <div 
-                            key={n.id} 
-                            onClick={() => handleMarkNotificationRead(n.id)}
-                            className={`p-3 rounded-xl border transition cursor-pointer text-xs ${
-                              !n.leido 
-                                ? 'bg-yellow-500/5 border-yellow-500/20 text-zinc-200' 
-                                : 'bg-zinc-950/20 border-zinc-850 text-zinc-400 hover:text-zinc-300'
-                            }`}
-                          >
-                            <div className="flex justify-between items-center font-bold">
-                              <span>{n.titulo}</span>
-                              {!n.leido && <span className="h-1.5 w-1.5 rounded-full bg-yellow-500"></span>}
-                            </div>
-                            <p className="text-[10px] text-zinc-550 mt-1 leading-relaxed">{n.contenido}</p>
-                          </div>
-                        ))}
-                        {notifications.length === 0 && (
-                          <div className="py-8 text-center text-zinc-500 text-xs italic">
-                            No tienes notificaciones pendientes.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {notifications.length > 0 && (
-                      <button 
-                        onClick={() => setNotifPanelOpen(true)}
-                        className="text-[9px] font-black text-yellow-500 hover:text-yellow-400 uppercase tracking-widest mt-4 text-left"
-                      >
-                        Ver todas las notificaciones ({notifications.length})
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Quick links & tips box */}
-                  <div className="glass-card border border-zinc-850 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-4 border-b border-zinc-850 pb-3">
-                        <Activity className="w-4 h-4 text-yellow-500" />
-                        <h3 className="text-xs font-black uppercase tracking-wider text-zinc-100">Enlaces Rápidos</h3>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={() => setActiveTab('partidos')}
-                          className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
-                        >
-                          <div className="text-xl mb-1">⚽</div>
-                          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Ver Partidos</span>
-                          <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Predice y haz apuestas de grupo o ronda.</span>
-                        </button>
-
-                        <button
-                          onClick={() => setActiveTab('ranking')}
-                          className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
-                        >
-                          <div className="text-xl mb-1">📊</div>
-                          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Tabla de Posiciones</span>
-                          <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Revisa el pozo acumulado y tu puesto.</span>
-                        </button>
-
-                        <button
-                          onClick={() => setActiveTab('fixture')}
-                          className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
-                        >
-                          <div className="text-xl mb-1">🌲</div>
-                          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Fase Eliminatoria</span>
-                          <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Bracket interactivo rumbo a la Copa.</span>
-                        </button>
-
-                        <button
-                          onClick={() => setActiveTab('perfil')}
-                          className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
-                        >
-                          <div className="text-xl mb-1">🔑</div>
-                          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Ajustes & Passkeys</span>
-                          <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Configura tu perfil y llaves de acceso.</span>
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-yellow-500/5 border border-yellow-500/15 rounded-xl p-3 mt-4 text-[9px] text-zinc-400 font-semibold leading-relaxed">
-                      💡 **Consejo Táctico**: Las apuestas se cierran automáticamente al momento del kickoff oficial de cada partido. ¡No olvides ingresar tus marcadores a tiempo!
-                    </div>
-                  </div>
-                </div>
+                )}
               </section>
             );
           })()}
@@ -3730,18 +3898,16 @@ export default function PWAAppPage() {
         {/* BOTTOM MOBILE APP NAVIGATION (Hidden on Desktop) */}
         <nav className="fixed bottom-0 left-0 right-0 z-50 bottom-nav-glass shadow-[0_-2px_24px_rgba(0,0,0,0.6)] flex items-center justify-around py-3 px-2 md:hidden" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
           
-          {/* Tab Inicio (Visible if logged in) */}
-          {user && (
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
-                activeTab === 'dashboard' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              <Home className="w-5 h-5" />
-              <span className="text-[9px] font-bold tracking-wide uppercase">Inicio</span>
-            </button>
-          )}
+          {/* Tab Inicio */}
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
+              activeTab === 'dashboard' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Home className="w-5 h-5" />
+            <span className="text-[9px] font-bold tracking-wide uppercase">Inicio</span>
+          </button>
 
           {/* Tab Partidos */}
           <button

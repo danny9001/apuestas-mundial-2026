@@ -15,7 +15,7 @@ export async function GET() {
          u.avatar,
          u.activo,
          COALESCE(
-           json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
+           json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color, 'monto_participacion', c.monto_participacion))
            FILTER (WHERE c.id IS NOT NULL), '[]'
          ) AS companies,
          COALESCE(l.puntos_totales, 0) as puntos_totales,

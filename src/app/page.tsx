@@ -268,7 +268,11 @@ export default function PWAAppPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [newCompanyNombre, setNewCompanyNombre] = useState('');
   const [newCompanyColor, setNewCompanyColor] = useState('#6366f1');
+  const [newCompanyMonto, setNewCompanyMonto] = useState<string>('150');
   const [companySubmitting, setCompanySubmitting] = useState(false);
+  const [companySelectModal, setCompanySelectModal] = useState(false);
+  const [editingMontoId, setEditingMontoId] = useState<number | null>(null);
+  const [editingMontoValue, setEditingMontoValue] = useState<string>('');
 
   // Groups
   const [groups, setGroups] = useState<any[]>([]);
@@ -1403,11 +1407,12 @@ export default function PWAAppPage() {
       const res = await fetch('/api/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', nombre: newCompanyNombre, color: newCompanyColor }),
+        body: JSON.stringify({ action: 'create', nombre: newCompanyNombre, color: newCompanyColor, monto_participacion: parseFloat(newCompanyMonto) || 150 }),
       });
       if (res.ok) {
         showToast('🏢 Empresa creada con éxito');
         setNewCompanyNombre('');
+        setNewCompanyMonto('150');
         await fetchCompanies();
       } else {
         const d = await res.json();
@@ -1431,6 +1436,25 @@ export default function PWAAppPage() {
       } else {
         const d = await res.json();
         showToast(d.error || 'Error');
+      }
+    } catch { showToast('Error de red'); }
+  };
+
+  const handleSaveCompanyMonto = async (companyId: number) => {
+    const monto = parseFloat(editingMontoValue);
+    if (isNaN(monto) || monto <= 0) { showToast('Monto inválido'); return; }
+    try {
+      const res = await fetch('/api/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update', id: companyId, monto_participacion: monto }),
+      });
+      if (res.ok) {
+        showToast('💰 Monto actualizado');
+        setEditingMontoId(null);
+        await fetchCompanies();
+      } else {
+        const d = await res.json(); showToast(d.error || 'Error');
       }
     } catch { showToast('Error de red'); }
   };
@@ -2562,40 +2586,48 @@ export default function PWAAppPage() {
                       </span>
                     </div>
 
-                    {/* Company selector (visible only if there are more than 1) */}
-                    {availableCompanies.length > 1 && (
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-zinc-900/35 border border-zinc-800/60 rounded-2xl p-4 max-w-3xl mx-auto shadow-md">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-zinc-400" />
-                          <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Filtrar por Empresa:</span>
+                    {/* Company selector pill */}
+                    {availableCompanies.length > 0 && (() => {
+                      const sel = availableCompanies.find((c: any) => c.id === selectedCompanyId);
+                      return (
+                        <div className="flex items-center justify-between gap-3 max-w-3xl mx-auto">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Building2 className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                            <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Empresa:</span>
+                            {sel && (
+                              <span className="text-xs font-black text-zinc-100 truncate">{sel.nombre}</span>
+                            )}
+                          </div>
+                          {availableCompanies.length > 1 && (
+                            <button
+                              onClick={() => setCompanySelectModal(true)}
+                              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl border border-yellow-500/30 text-yellow-500 bg-yellow-500/5 hover:bg-yellow-500/10 transition flex-shrink-0"
+                            >
+                              <RefreshCw className="w-3 h-3" /> Cambiar
+                            </button>
+                          )}
                         </div>
-                        <select
-                          value={selectedCompanyId || ''}
-                          onChange={(e) => setSelectedCompanyId(Number(e.target.value) || null)}
-                          className="bg-zinc-950 border border-zinc-800 text-zinc-300 text-xs rounded-xl px-4 py-2 focus:outline-none focus:ring-1 focus:ring-yellow-500 cursor-pointer w-full sm:w-auto font-bold"
-                        >
-                          {availableCompanies.map((c: any) => (
-                            <option key={c.id} value={c.id}>
-                              {c.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Pozo Acumulado */}
-                    {filteredLeaderboard.length > 0 && (
-                      <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
-                        <div>
-                          <div className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Pozo Acumulado</div>
-                          <div className="text-2xl font-black text-yellow-500 font-mono mt-0.5">
-                            Bs. {(filteredLeaderboard.length * 150).toLocaleString('es-BO')}
+                    {filteredLeaderboard.length > 0 && (() => {
+                      const selectedCompany = availableCompanies.find((c: any) => c.id === selectedCompanyId);
+                      const monto = parseFloat(selectedCompany?.monto_participacion) || 150;
+                      const pozo = filteredLeaderboard.length * monto;
+                      return (
+                        <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
+                          <div>
+                            <div className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Pozo Acumulado</div>
+                            <div className="text-2xl font-black text-yellow-500 font-mono mt-0.5">
+                              Bs. {pozo.toLocaleString('es-BO', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-[10px] text-zinc-500 mt-0.5">{filteredLeaderboard.length} participantes × Bs. {monto.toLocaleString('es-BO')}</div>
                           </div>
-                          <div className="text-[10px] text-zinc-500 mt-0.5">{filteredLeaderboard.length} participantes × Bs. 150</div>
+                          <div className="text-4xl">🏆</div>
                         </div>
-                        <div className="text-4xl">🏆</div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Medals Podium Pods */}
                     <div className="grid grid-cols-3 gap-4 pt-2 max-w-xl mx-auto">
@@ -3845,6 +3877,10 @@ export default function PWAAppPage() {
                       <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre</label>
                       <input type="text" required value={newCompanyNombre} onChange={(e) => setNewCompanyNombre(e.target.value)} placeholder="Nombre de la empresa" className="w-full input-stitch px-3 py-2 text-xs" />
                     </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Monto de Participación (Bs.)</label>
+                      <input type="number" min="0" step="0.01" value={newCompanyMonto} onChange={(e) => setNewCompanyMonto(e.target.value)} placeholder="150" className="w-full input-stitch px-3 py-2 text-xs font-mono" />
+                    </div>
                   </div>
                   <div className="flex justify-end">
                     <button type="submit" disabled={companySubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95">
@@ -3857,15 +3893,45 @@ export default function PWAAppPage() {
                     <div className="p-6 text-center text-zinc-500 text-xs">Sin empresas registradas</div>
                   )}
                   {companies.map((c) => (
-                    <div key={c.id} className="flex justify-between items-center p-4">
-                      <div className="flex items-center gap-3">
+                    <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div className="w-5 h-5 rounded-full border border-zinc-700 flex-shrink-0" style={{ backgroundColor: c.color }} />
-                        <span className="text-sm font-bold text-zinc-200">{c.nombre}</span>
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${c.activo ? 'bg-green-500/10 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}>{c.activo ? 'Activo' : 'Inactivo'}</span>
+                        <div className="min-w-0">
+                          <span className="text-sm font-bold text-zinc-200 block truncate">{c.nombre}</span>
+                          <span className={`text-[9px] font-black uppercase ${c.activo ? 'text-green-400' : 'text-zinc-500'}`}>{c.activo ? 'Activo' : 'Inactivo'}</span>
+                        </div>
                       </div>
-                      <button onClick={() => handleDeleteCompany(c.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border border-red-500/20 hover:border-red-500/40 transition flex items-center gap-1.5">
-                        <Trash2 className="w-3 h-3" /> Eliminar
-                      </button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {editingMontoId === c.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-zinc-400 font-mono">Bs.</span>
+                            <input
+                              type="number" min="0" step="0.01"
+                              value={editingMontoValue}
+                              onChange={(e) => setEditingMontoValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveCompanyMonto(c.id); if (e.key === 'Escape') setEditingMontoId(null); }}
+                              className="w-24 input-stitch px-2 py-1 text-xs font-mono"
+                              autoFocus
+                            />
+                            <button onClick={() => handleSaveCompanyMonto(c.id)} className="text-green-400 hover:text-green-300 text-[10px] font-bold px-2 py-1 rounded-lg border border-green-500/20 transition">
+                              <Check className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => setEditingMontoId(null)} className="text-zinc-500 hover:text-zinc-300 text-[10px] font-bold px-2 py-1 rounded-lg border border-zinc-700 transition">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingMontoId(c.id); setEditingMontoValue(String(c.monto_participacion || 150)); }}
+                            className="flex items-center gap-1.5 text-[10px] font-black text-yellow-500 px-2.5 py-1.5 rounded-lg border border-yellow-500/20 bg-yellow-500/5 hover:bg-yellow-500/10 transition"
+                          >
+                            💰 Bs. {parseFloat(c.monto_participacion || 150).toLocaleString('es-BO')}
+                          </button>
+                        )}
+                        <button onClick={() => handleDeleteCompany(c.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border border-red-500/20 hover:border-red-500/40 transition flex items-center gap-1.5">
+                          <Trash2 className="w-3 h-3" /> Eliminar
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -4248,6 +4314,50 @@ export default function PWAAppPage() {
         )}
 
         {/* --- POPUP 1: BETTING / CHRONO PROG FORM MODAL --- */}
+        {/* ── MODAL SELECCIÓN DE EMPRESA ── */}
+        {companySelectModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setCompanySelectModal(false)}>
+            <div className="glass-card border border-zinc-800/80 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-black uppercase text-zinc-100 tracking-wider">Seleccionar Empresa</h3>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">Elige la empresa para ver su clasificación y pozo</p>
+                </div>
+                <button onClick={() => setCompanySelectModal(false)} className="text-zinc-500 hover:text-zinc-300 transition p-1">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {getAvailableCompanies().map((c: any) => {
+                  const isSelected = c.id === selectedCompanyId;
+                  const participantes = leaderboard.filter((r: any) => (r.companies || []).some((rc: any) => rc.id === c.id)).length;
+                  const monto = parseFloat(c.monto_participacion) || 150;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => { setSelectedCompanyId(c.id); setCompanySelectModal(false); }}
+                      className={`w-full flex items-center justify-between p-4 rounded-xl border transition text-left ${isSelected ? 'border-yellow-500/50 bg-yellow-500/8' : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
+                        <div>
+                          <div className="text-sm font-black text-zinc-100">{c.nombre}</div>
+                          <div className="text-[10px] text-zinc-500">{participantes} participante{participantes !== 1 ? 's' : ''}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-black text-yellow-500">Bs. {monto.toLocaleString('es-BO')}</div>
+                        <div className="text-[9px] text-zinc-500 uppercase tracking-wider">por persona</div>
+                        {isSelected && <div className="text-[9px] text-yellow-500 font-black mt-0.5">✓ Seleccionada</div>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {betModalMatch && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm p-4">
             <div className="glass-card border-t-2 border-t-yellow-500 border-x border-b border-zinc-800/80 rounded-xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">

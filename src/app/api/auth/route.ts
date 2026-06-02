@@ -16,7 +16,7 @@ export async function GET() {
 
   // Fetch companies for this user
   const compRes = await pool.query(
-    `SELECT c.id, c.nombre, c.color FROM companies c
+    `SELECT c.id, c.nombre, c.color, c.monto_participacion FROM companies c
      JOIN user_companies uc ON uc.company_id = c.id
      WHERE uc.user_id = $1`,
     [user.id]
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch companies for this user
     const compRes = await pool.query(
-      `SELECT c.id, c.nombre, c.color FROM companies c
+      `SELECT c.id, c.nombre, c.color, c.monto_participacion FROM companies c
        JOIN user_companies uc ON uc.company_id = c.id
        WHERE uc.user_id = $1`,
       [user.id]

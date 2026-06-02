@@ -21,7 +21,7 @@ async function ensureCompaniesTable() {
 export async function GET() {
   try {
     await ensureCompaniesTable();
-    const res = await pool.query('SELECT id, nombre, logo, color, activo, created_at FROM companies ORDER BY nombre ASC');
+    const res = await pool.query('SELECT id, nombre, logo, color, activo, monto_participacion, created_at FROM companies ORDER BY nombre ASC');
     const response = NextResponse.json(res.rows);
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
@@ -44,27 +44,30 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === 'create') {
-      const { nombre, logo, color } = body;
+      const { nombre, logo, color, monto_participacion } = body;
       if (!nombre?.trim()) return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 });
+      const monto = parseFloat(monto_participacion) || 150;
       const res = await pool.query(
-        `INSERT INTO companies (nombre, logo, color) VALUES ($1, $2, $3) RETURNING *`,
-        [nombre.trim(), logo || null, color || '#6366f1']
+        `INSERT INTO companies (nombre, logo, color, monto_participacion) VALUES ($1, $2, $3, $4) RETURNING *`,
+        [nombre.trim(), logo || null, color || '#6366f1', monto]
       );
       broadcastUpdate('settings', { type: 'company', action: 'create', company: res.rows[0] });
       return NextResponse.json({ success: true, company: res.rows[0] });
     }
 
     if (action === 'update') {
-      const { id, nombre, logo, color, activo } = body;
+      const { id, nombre, logo, color, activo, monto_participacion } = body;
       if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
+      const monto = monto_participacion != null ? parseFloat(monto_participacion) : null;
       const res = await pool.query(
         `UPDATE companies SET
           nombre = COALESCE($1, nombre),
           logo = COALESCE($2, logo),
           color = COALESCE($3, color),
-          activo = COALESCE($4, activo)
-        WHERE id = $5 RETURNING *`,
-        [nombre || null, logo || null, color || null, activo ?? null, id]
+          activo = COALESCE($4, activo),
+          monto_participacion = COALESCE($5, monto_participacion)
+        WHERE id = $6 RETURNING *`,
+        [nombre || null, logo || null, color || null, activo ?? null, monto, id]
       );
       if (res.rows.length === 0) return NextResponse.json({ error: 'Empresa no encontrada' }, { status: 404 });
       broadcastUpdate('settings', { type: 'company', action: 'update', company: res.rows[0] });

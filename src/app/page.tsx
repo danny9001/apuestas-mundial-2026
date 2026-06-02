@@ -1257,7 +1257,6 @@ export default function PWAAppPage() {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
         <RefreshCw className="w-12 h-12 text-yellow-500 animate-spin" />
-        <p className="text-zinc-500 text-sm mt-4 font-mono">Iniciando aplicación...</p>
       </div>
     );
   }
@@ -2249,7 +2248,7 @@ export default function PWAAppPage() {
               <div className="glass-card border border-zinc-800/40 rounded-xl overflow-hidden mt-6 max-w-3xl mx-auto shadow-2xl">
                 <div className="divide-y divide-zinc-900 text-sm">
                   {leaderboard.map((row, index) => {
-                    const isMe = row.user_id === user.id;
+                    const isMe = user?.id === row.user_id;
 
                     return (
                       <div 

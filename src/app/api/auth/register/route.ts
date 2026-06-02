@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const { nombre, email, password } = await req.json();
+    const { nombre, email, password, telefono, company_id, company_ids } = await req.json();
 
     if (!nombre || !email || !password) {
       return NextResponse.json({ error: 'Todos los campos son obligatorios' }, { status: 400 });
@@ -33,13 +33,21 @@ export async function POST(req: NextRequest) {
     // Dynamic avatar seed from Dicebear
     const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(nombreTrim)}`;
 
-    // Insert user into PostgreSQL (type 'externo' by default, and pending approval)
+    // Insert user — telefono is optional
     const insertRes = await pool.query(
-      'INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado) VALUES ($1, $2, $3, $4, $5, true, false) RETURNING id, nombre, email, tipo, avatar, aprobado',
-      [nombreTrim, emailTrim, passwordHash, 'externo', avatarUrl]
+      `INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado, telefono)
+       VALUES ($1, $2, $3, $4, $5, true, false, $6)
+       RETURNING id, nombre, email, tipo, avatar, aprobado, telefono`,
+      [nombreTrim, emailTrim, passwordHash, 'externo', avatarUrl, telefono?.trim() || null]
     );
 
     const newUser = insertRes.rows[0];
+
+    // Assign companies if provided (multi-company support)
+    const cids: number[] = company_ids?.length ? company_ids : (company_id ? [company_id] : []);
+    for (const cid of cids) {
+      await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [newUser.id, cid]);
+    }
 
     // Trigger PL/pgSQL recalculation so the new user is correctly indexed in the Leaderboard
     await pool.query('SELECT recalculate_leaderboard()');

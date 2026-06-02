@@ -13,10 +13,15 @@ export async function GET() {
     }
 
     const res = await pool.query(
-      `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.created_at,
-              u.company_id, c.nombre AS company_nombre, c.color AS company_color, c.logo AS company_logo
+      `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.created_at, u.telefono,
+              COALESCE(
+                json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
+                FILTER (WHERE c.id IS NOT NULL), '[]'
+              ) AS companies
        FROM users u
-       LEFT JOIN companies c ON c.id = u.company_id
+       LEFT JOIN user_companies uc ON uc.user_id = u.id
+       LEFT JOIN companies c ON c.id = uc.company_id
+       GROUP BY u.id
        ORDER BY u.id ASC`
     );
     return NextResponse.json(res.rows);
@@ -38,9 +43,25 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === 'assignCompany') {
-      const { userId: targetUserId, companyId } = body;
+      // Toggle: add if not member, remove if already member
+      const { userId: targetUserId, companyId, assign } = body;
+      if (!targetUserId || !companyId) return NextResponse.json({ error: 'userId y companyId requeridos' }, { status: 400 });
+      if (assign) {
+        await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [targetUserId, companyId]);
+      } else {
+        await pool.query('DELETE FROM user_companies WHERE user_id = $1 AND company_id = $2', [targetUserId, companyId]);
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'setCompanies') {
+      // Replace all companies for a user
+      const { userId: targetUserId, companyIds } = body;
       if (!targetUserId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
-      await pool.query('UPDATE users SET company_id = $1 WHERE id = $2', [companyId || null, targetUserId]);
+      await pool.query('DELETE FROM user_companies WHERE user_id = $1', [targetUserId]);
+      for (const cid of (companyIds || [])) {
+        await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [targetUserId, cid]);
+      }
       return NextResponse.json({ success: true });
     }
 

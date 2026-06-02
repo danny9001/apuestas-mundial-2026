@@ -139,9 +139,12 @@ export default function PWAAppPage() {
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyError, setPasskeyError] = useState('');
   const [passkeyRegistering, setPasskeyRegistering] = useState(false);
+  const [userPasskeys, setUserPasskeys] = useState<any[]>([]);
   const [registerNombre, setRegisterNombre] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
+  const [registerPhone, setRegisterPhone] = useState('');
+  const [registerCompanyIds, setRegisterCompanyIds] = useState<number[]>([]);
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [registerError, setRegisterError] = useState('');
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -482,6 +485,10 @@ export default function PWAAppPage() {
 
   // WebAuthn: autenticar con passkey (login sin contraseña)
   const handlePasskeyLogin = async () => {
+    if (!email.trim()) {
+      setPasskeyError('Ingresa tu correo electrónico primero para usar la llave FIDO');
+      return;
+    }
     setPasskeyLoading(true);
     setPasskeyError('');
     try {
@@ -647,9 +654,28 @@ export default function PWAAppPage() {
     }
   }, [activeTab, appName, appLogo, user]);
 
+  const fetchPasskeys = async () => {
+    try {
+      const res = await fetch(`/api/auth/webauthn/passkeys?t=${Date.now()}`);
+      if (res.ok) setUserPasskeys(await res.json());
+    } catch (e) {}
+  };
+
+  const handleDeletePasskey = async (id: number) => {
+    try {
+      const res = await fetch('/api/auth/webauthn/passkeys', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) { showToast('🔑 Llave eliminada'); await fetchPasskeys(); }
+      else { const d = await res.json(); showToast(d.error || 'Error'); }
+    } catch { showToast('Error de red'); }
+  };
+
   // Load personal stats when profile tab is opened
   useEffect(() => {
-    if (user && activeTab === 'perfil') fetchMyStats();
+    if (user && activeTab === 'perfil') { fetchMyStats(); fetchPasskeys(); }
   }, [activeTab, user]);
 
   // Kickoff Countdown Timer Effect
@@ -791,7 +817,9 @@ export default function PWAAppPage() {
         body: JSON.stringify({
           nombre: registerNombre,
           email: registerEmail,
-          password: registerPassword
+          password: registerPassword,
+          telefono: registerPhone || undefined,
+          company_ids: registerCompanyIds.length ? registerCompanyIds : undefined,
         })
       });
 
@@ -804,6 +832,8 @@ export default function PWAAppPage() {
         setRegisterEmail('');
         setRegisterPassword('');
         setRegisterConfirmPassword('');
+        setRegisterPhone('');
+        setRegisterCompanyIds([]);
         setIsRegistering(false);
       } else {
         setRegisterError(data.error || 'Error al intentar registrarse');
@@ -1109,20 +1139,21 @@ export default function PWAAppPage() {
     } catch { showToast('Error de red'); }
   };
 
-  const handleAssignCompany = async (userId: number, companyId: number | null) => {
+  const handleToggleUserCompany = async (userId: number, companyId: number, currentlyMember: boolean) => {
     try {
       await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'assignCompany', userId, companyId }),
+        body: JSON.stringify({ action: 'assignCompany', userId, companyId, assign: !currentlyMember }),
       });
-      const found = companies.find((c) => c.id === companyId);
       setAdminUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? { ...u, company_id: companyId, company_nombre: found?.nombre || null, company_color: found?.color || null }
-            : u
-        )
+        prev.map((u) => {
+          if (u.id !== userId) return u;
+          const updatedCompanies = currentlyMember
+            ? u.companies.filter((c: any) => c.id !== companyId)
+            : [...u.companies, companies.find((c) => c.id === companyId)].filter(Boolean);
+          return { ...u, companies: updatedCompanies };
+        })
       );
     } catch { showToast('Error de red'); }
   };
@@ -2262,14 +2293,12 @@ export default function PWAAppPage() {
                               <div className="text-zinc-200 text-sm flex items-center gap-2 flex-wrap">
                                 <span>{row.nombre}</span>
                                 {isMe && <span className="bg-yellow-500 text-zinc-950 font-black text-[9px] px-1 rounded uppercase">Yo</span>}
-                                {row.company_nombre && (
-                                  <span
-                                    className="text-[9px] px-2 py-0.5 rounded-full border font-bold"
-                                    style={{ color: row.company_color, borderColor: row.company_color + '40', backgroundColor: row.company_color + '18' }}
-                                  >
-                                    {row.company_nombre}
+                                {(row.companies || []).map((c: any) => (
+                                  <span key={c.id} className="text-[9px] px-2 py-0.5 rounded-full border font-bold"
+                                    style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '18' }}>
+                                    {c.nombre}
                                   </span>
-                                )}
+                                ))}
                               </div>
                               <div className="text-[10px] text-zinc-500 tracking-wider uppercase font-mono">{row.tipo}</div>
                             </div>
@@ -2543,9 +2572,10 @@ export default function PWAAppPage() {
                     <form onSubmit={handleLogin} className="space-y-4">
                       <div>
                         <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
-                        <input 
+                        <input
                           type="email"
                           required
+                          autoComplete="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="ej: diego@mundial.com"
@@ -2555,9 +2585,10 @@ export default function PWAAppPage() {
 
                       <div>
                         <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña</label>
-                        <input 
+                        <input
                           type="password"
                           required
+                          autoComplete="current-password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="Contraseña de acceso"
@@ -2643,9 +2674,10 @@ export default function PWAAppPage() {
 
                       <div>
                         <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña (mín. 6 carac.)</label>
-                        <input 
+                        <input
                           type="password"
                           required
+                          autoComplete="new-password"
                           value={registerPassword}
                           onChange={(e) => setRegisterPassword(e.target.value)}
                           placeholder="Elige tu contraseña"
@@ -2655,15 +2687,59 @@ export default function PWAAppPage() {
 
                       <div>
                         <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Confirmar Contraseña</label>
-                        <input 
+                        <input
                           type="password"
                           required
+                          autoComplete="new-password"
                           value={registerConfirmPassword}
                           onChange={(e) => setRegisterConfirmPassword(e.target.value)}
                           placeholder="Confirma tu contraseña"
                           className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
                         />
                       </div>
+
+                      {/* Teléfono (opcional) */}
+                      <div>
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Celular / WhatsApp</label>
+                        <div className="flex gap-2 items-center">
+                          <span className="text-zinc-400 text-sm flex-shrink-0">📱</span>
+                          <input
+                            type="tel"
+                            autoComplete="tel"
+                            value={registerPhone}
+                            onChange={(e) => setRegisterPhone(e.target.value)}
+                            placeholder="+591 XXXXXXXX"
+                            className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                          />
+                        </div>
+                        <p className="text-[10px] text-zinc-600 mt-1">Opcional · Para recibir avisos por WhatsApp</p>
+                      </div>
+
+                      {/* Empresa(s) — multi-select */}
+                      {companies.length > 0 && (
+                        <div>
+                          <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-2">Empresa(s) — opcional</label>
+                          <div className="flex flex-wrap gap-2">
+                            {companies.filter((c) => c.activo).map((c) => {
+                              const selected = registerCompanyIds.includes(c.id);
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => setRegisterCompanyIds((prev) =>
+                                    selected ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                                  )}
+                                  className={`text-xs px-3 py-1.5 rounded-full border font-bold transition ${selected ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+                                  style={{ color: c.color, borderColor: c.color + '60', backgroundColor: selected ? c.color + '20' : 'transparent' }}
+                                >
+                                  {selected ? '✓ ' : ''}{c.nombre}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[10px] text-zinc-600 mt-1.5">Puedes seleccionar múltiples empresas</p>
+                        </div>
+                      )}
 
                       {registerError && (
                         <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
@@ -2763,13 +2839,23 @@ export default function PWAAppPage() {
                       <h3 className="text-xl font-black text-zinc-100">{user.nombre}</h3>
                       <p className="text-zinc-500 text-xs">{user.email}</p>
                       
-                      <div className="flex justify-center gap-2 pt-2">
+                      <div className="flex justify-center gap-2 pt-2 flex-wrap">
                         <span className="bg-zinc-950 border border-zinc-800 text-[9px] text-zinc-400 font-mono tracking-widest px-2.5 py-1 rounded-full uppercase font-black">
                           Rol: {user.tipo}
                         </span>
                         <span className="bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-mono px-2.5 py-1 rounded-full uppercase font-black">
                           En línea
                         </span>
+                        {user.telefono && (
+                          <a
+                            href={`https://wa.me/${user.telefono.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-green-500/10 border border-green-500/20 text-[9px] text-green-400 font-bold px-2.5 py-1 rounded-full uppercase tracking-widest flex items-center gap-1 hover:bg-green-500/20 transition"
+                          >
+                            📱 WhatsApp
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2802,8 +2888,9 @@ export default function PWAAppPage() {
 
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Nueva Contraseña (Opcional)</label>
-                        <input 
-                          type="password" 
+                        <input
+                          type="password"
+                          autoComplete="new-password"
                           value={profilePassword}
                           onChange={(e) => setProfilePassword(e.target.value)}
                           placeholder="Dejar en blanco para no cambiar"
@@ -2864,23 +2951,52 @@ export default function PWAAppPage() {
                 <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                   <div>
                     <div className="text-xs font-black text-zinc-300 uppercase tracking-wider">Llaves FIDO / Passkeys</div>
-                    <div className="text-[10px] text-zinc-500 mt-0.5">Inicia sesión con huella, Face ID o clave de seguridad</div>
+                    <div className="text-[10px] text-zinc-500 mt-0.5">Inicia sesión con huella, Face ID o clave de seguridad — puedes agregar varias llaves</div>
                   </div>
                   <span className="text-2xl">🔑</span>
                 </div>
+
+                {/* Registered passkeys list */}
+                {userPasskeys.length > 0 && (
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl divide-y divide-zinc-800 overflow-hidden">
+                    {userPasskeys.map((pk) => (
+                      <div key={pk.id} className="flex justify-between items-center px-4 py-3">
+                        <div>
+                          <div className="text-xs font-bold text-zinc-300 flex items-center gap-2">
+                            <span>{pk.device_type === 'multiDevice' ? '☁️' : '📱'}</span>
+                            <span className="capitalize">{pk.device_type === 'multiDevice' ? 'Llave multi-dispositivo' : 'Llave de un dispositivo'}</span>
+                            {pk.backed_up && <span className="text-[9px] bg-green-500/10 text-green-400 border border-green-500/20 px-1.5 rounded-full">backup</span>}
+                          </div>
+                          <div className="text-[9px] text-zinc-600 mt-0.5 font-mono">
+                            Registrada {new Date(pk.created_at).toLocaleDateString('es-BO')}
+                            {pk.last_used_at && ` · Usada ${new Date(pk.last_used_at).toLocaleDateString('es-BO')}`}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeletePasskey(pk.id)}
+                          className="text-red-400 hover:text-red-300 p-2 rounded-lg hover:bg-red-500/10 transition"
+                          title="Eliminar esta llave"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <button
                   onClick={handlePasskeyRegister}
                   disabled={passkeyRegistering}
                   className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-yellow-500/40 text-zinc-300 hover:text-zinc-100 py-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.99] uppercase tracking-wider"
                 >
                   <span className="text-base">➕</span>
-                  <span>{passkeyRegistering ? 'Registrando...' : 'Registrar nueva passkey / llave FIDO'}</span>
+                  <span>{passkeyRegistering ? 'Registrando...' : userPasskeys.length > 0 ? 'Agregar otra llave FIDO' : 'Registrar llave FIDO / Passkey'}</span>
                 </button>
                 {passkeyError && (
                   <div className="bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">{passkeyError}</div>
                 )}
                 <p className="text-[10px] text-zinc-600 leading-relaxed">
-                  Compatible con: Touch ID (Mac), Windows Hello, YubiKey, Face ID (iPhone/Android). Requiere HTTPS en producción.
+                  Touch ID (Mac) · Windows Hello · YubiKey · Face ID (iPhone/Android) · Puedes agregar múltiples llaves para cada dispositivo.
                 </p>
               </div>
 
@@ -3010,28 +3126,37 @@ export default function PWAAppPage() {
                         <div className="min-w-0">
                           <div className="font-bold text-sm text-zinc-200 flex items-center gap-2 flex-wrap">
                             <span className="truncate">{u.nombre}</span>
-                            {u.company_nombre && (
-                              <span className="text-[9px] px-2 py-0.5 rounded-full border font-bold flex-shrink-0" style={{ color: u.company_color, borderColor: u.company_color + '40', backgroundColor: u.company_color + '18' }}>
-                                {u.company_nombre}
+                            {(u.companies || []).map((c: any) => (
+                              <span key={c.id} className="text-[9px] px-2 py-0.5 rounded-full border font-bold flex-shrink-0"
+                                style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '18' }}>
+                                {c.nombre}
                               </span>
-                            )}
+                            ))}
                           </div>
-                          <div className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase">{u.tipo}</div>
+                          <div className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase">
+                            {u.tipo}{u.telefono && ` · 📱 ${u.telefono}`}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-                        {/* Company assignment */}
-                        {u.id !== user.id && (
-                          <select
-                            value={u.company_id || ''}
-                            onChange={(e) => handleAssignCompany(u.id, e.target.value ? parseInt(e.target.value) : null)}
-                            className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-lg px-2 py-1 max-w-[120px]"
-                          >
-                            <option value="">Sin empresa</option>
-                            {companies.map((c) => (
-                              <option key={c.id} value={c.id}>{c.nombre}</option>
-                            ))}
-                          </select>
+                        {/* Multi-company assignment */}
+                        {u.id !== user.id && companies.length > 0 && (
+                          <div className="flex gap-1 flex-wrap max-w-[200px]">
+                            {companies.map((c) => {
+                              const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
+                              return (
+                                <button
+                                  key={c.id}
+                                  onClick={() => handleToggleUserCompany(u.id, c.id, isMember)}
+                                  className={`text-[9px] px-2 py-1 rounded-full border font-bold transition ${isMember ? 'opacity-100' : 'opacity-30 hover:opacity-70'}`}
+                                  style={{ color: c.color, borderColor: c.color + '60', backgroundColor: isMember ? c.color + '20' : 'transparent' }}
+                                  title={isMember ? `Quitar de ${c.nombre}` : `Agregar a ${c.nombre}`}
+                                >
+                                  {c.nombre}
+                                </button>
+                              );
+                            })}
+                          </div>
                         )}
                         {u.id !== user.id ? (
                           <>

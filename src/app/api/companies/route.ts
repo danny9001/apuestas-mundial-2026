@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     if (action === 'delete') {
       const { id } = body;
       if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
-      await pool.query('UPDATE users SET company_id = NULL WHERE company_id = $1', [id]);
+      // user_companies rows cascade on delete via FK, companies table cascade deletes
       await pool.query('DELETE FROM companies WHERE id = $1', [id]);
       broadcastUpdate('settings', { type: 'company', action: 'delete', id });
       return NextResponse.json({ success: true });

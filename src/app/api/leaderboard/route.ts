@@ -14,10 +14,10 @@ export async function GET() {
          u.tipo,
          u.avatar,
          u.activo,
-         u.company_id,
-         c.nombre AS company_nombre,
-         c.color AS company_color,
-         c.logo AS company_logo,
+         COALESCE(
+           json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
+           FILTER (WHERE c.id IS NOT NULL), '[]'
+         ) AS companies,
          COALESCE(l.puntos_totales, 0) as puntos_totales,
          COALESCE(l.exactos, 0) as exactos,
          COALESCE(l.posicion, 9999) as posicion,
@@ -25,8 +25,10 @@ export async function GET() {
          COALESCE(l.tendencia, 'same') as tendencia
        FROM users u
        LEFT JOIN leaderboard l ON u.id = l.user_id
-       LEFT JOIN companies c ON c.id = u.company_id
+       LEFT JOIN user_companies uc ON uc.user_id = u.id
+       LEFT JOIN companies c ON c.id = uc.company_id
        WHERE u.activo = true
+       GROUP BY u.id, l.puntos_totales, l.exactos, l.posicion, l.posicion_anterior, l.tendencia
        ORDER BY COALESCE(l.posicion, 9999) ASC, u.nombre ASC`
     );
 

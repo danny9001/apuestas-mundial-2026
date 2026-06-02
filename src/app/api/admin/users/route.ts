@@ -66,6 +66,48 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action } = body;
 
+    if (action === 'editUser') {
+      const { userId: targetId, nombre, email, tipo, password } = body;
+      if (!targetId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
+      if (!nombre?.trim()) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 });
+      if (!email?.trim()) return NextResponse.json({ error: 'Email requerido' }, { status: 400 });
+
+      // Admin cannot elevate to superadmin or edit other admins
+      if (user.tipo === 'admin') {
+        const targetRes = await pool.query('SELECT tipo FROM users WHERE id = $1', [targetId]);
+        const targetTipo = targetRes.rows[0]?.tipo;
+        if (targetTipo === 'admin' || targetTipo === 'superadmin') {
+          return NextResponse.json({ error: 'No autorizado para editar administradores' }, { status: 403 });
+        }
+        if (tipo === 'admin' || tipo === 'superadmin') {
+          return NextResponse.json({ error: 'No autorizado para asignar ese rol' }, { status: 403 });
+        }
+      }
+
+      // Check email not taken by another user
+      const dup = await pool.query('SELECT id FROM users WHERE email = $1 AND id <> $2', [email.trim().toLowerCase(), targetId]);
+      if (dup.rows.length > 0) return NextResponse.json({ error: 'El correo ya está en uso por otro usuario' }, { status: 400 });
+
+      let updateQuery: string;
+      let params: any[];
+
+      if (password?.trim()) {
+        const bcrypt = await import('bcryptjs');
+        const hash = await bcrypt.hash(password.trim(), 10);
+        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, password_hash=$4 WHERE id=$5
+          RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`;
+        params = [nombre.trim(), email.trim().toLowerCase(), tipo, hash, targetId];
+      } else {
+        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3 WHERE id=$4
+          RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`;
+        params = [nombre.trim(), email.trim().toLowerCase(), tipo, targetId];
+      }
+
+      const r = await pool.query(updateQuery, params);
+      if (r.rows.length === 0) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+      return NextResponse.json({ success: true, user: r.rows[0] });
+    }
+
     if (action === 'approve') {
       const { userId: targetId } = body;
       if (!targetId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });

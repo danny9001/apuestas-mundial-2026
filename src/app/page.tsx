@@ -34,7 +34,9 @@ import {
   MessageSquare,
   Trash2,
   LayoutDashboard,
-  Home
+  Home,
+  Pencil,
+  KeyRound
 } from 'lucide-react';
 
 const TEAM_CODES: { [key: string]: string } = {
@@ -236,6 +238,15 @@ export default function PWAAppPage() {
   const [newUserTipo, setNewUserTipo] = useState<'user' | 'admin' | 'superadmin'>('user');
   const [newUserCompanyId, setNewUserCompanyId] = useState<number | ''>('');
   const [newUserSubmitting, setNewUserSubmitting] = useState(false);
+
+  // Admin Edit User Modal
+  const [editUserModal, setEditUserModal] = useState<any | null>(null);
+  const [editUserNombre, setEditUserNombre] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserTipo, setEditUserTipo] = useState('');
+  const [editUserPassword, setEditUserPassword] = useState('');
+  const [editUserSubmitting, setEditUserSubmitting] = useState(false);
+  const [editUserError, setEditUserError] = useState('');
 
   // Match Summary & Statistics Modal
   const [summaryModalMatch, setSummaryModalMatch] = useState<any | null>(null);
@@ -1438,6 +1449,48 @@ export default function PWAAppPage() {
         showToast(d.error || 'Error');
       }
     } catch { showToast('Error de red'); }
+  };
+
+  const openEditUserModal = (u: any) => {
+    setEditUserModal(u);
+    setEditUserNombre(u.nombre);
+    setEditUserEmail(u.email);
+    setEditUserTipo(u.tipo);
+    setEditUserPassword('');
+    setEditUserError('');
+  };
+
+  const handleSaveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUserModal) return;
+    if (!editUserNombre.trim()) { setEditUserError('El nombre es requerido'); return; }
+    if (!editUserEmail.trim()) { setEditUserError('El email es requerido'); return; }
+    setEditUserSubmitting(true);
+    setEditUserError('');
+    try {
+      const body: any = {
+        action: 'editUser',
+        userId: editUserModal.id,
+        nombre: editUserNombre.trim(),
+        email: editUserEmail.trim().toLowerCase(),
+        tipo: editUserTipo,
+      };
+      if (editUserPassword.trim()) body.password = editUserPassword.trim();
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        setAdminUsers((prev) => prev.map((u) => u.id === editUserModal.id ? { ...u, ...d.user } : u));
+        showToast('✅ Usuario actualizado');
+        setEditUserModal(null);
+      } else {
+        setEditUserError(d.error || 'Error al guardar');
+      }
+    } catch { setEditUserError('Error de red'); }
+    finally { setEditUserSubmitting(false); }
   };
 
   const handleSaveCompanyMonto = async (companyId: number) => {
@@ -3763,6 +3816,9 @@ export default function PWAAppPage() {
                         )}
                         {u.id !== user.id ? (
                           <>
+                            <button onClick={() => openEditUserModal(u)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700">
+                              <Pencil className="w-3 h-3" /> Editar
+                            </button>
                             {u.tipo !== 'admin' && u.tipo !== 'superadmin' && (
                               u.denegado ? (
                                 <button onClick={() => handleSetPending(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border border-zinc-700">
@@ -4314,6 +4370,92 @@ export default function PWAAppPage() {
         )}
 
         {/* --- POPUP 1: BETTING / CHRONO PROG FORM MODAL --- */}
+        {/* ── MODAL EDITAR USUARIO ── */}
+        {editUserModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setEditUserModal(null)}>
+            <div className="glass-card border border-zinc-800/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center border-b border-zinc-800/50 pb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase text-zinc-100 tracking-wider flex items-center gap-2">
+                    <Pencil className="w-4 h-4 text-yellow-500" /> Editar Usuario
+                  </h3>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">{editUserModal.email}</p>
+                </div>
+                <button onClick={() => setEditUserModal(null)} className="text-zinc-500 hover:text-zinc-300 transition">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditUser} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre</label>
+                  <input
+                    type="text" required value={editUserNombre}
+                    onChange={(e) => setEditUserNombre(e.target.value)}
+                    className="w-full input-stitch px-3 py-2.5 text-sm"
+                    placeholder="Nombre completo"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Email</label>
+                  <input
+                    type="email" required value={editUserEmail}
+                    onChange={(e) => setEditUserEmail(e.target.value)}
+                    className="w-full input-stitch px-3 py-2.5 text-sm"
+                    placeholder="correo@ejemplo.com"
+                  />
+                </div>
+
+                {user.tipo === 'superadmin' && (
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Rol</label>
+                    <select
+                      value={editUserTipo}
+                      onChange={(e) => setEditUserTipo(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2.5 text-sm focus:ring-1 focus:ring-yellow-500/30"
+                    >
+                      <option value="externo">Usuario Externo</option>
+                      <option value="interno">Usuario Interno</option>
+                      <option value="admin">Administrador</option>
+                      <option value="superadmin">Super Administrador</option>
+                    </select>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                    <KeyRound className="w-3 h-3" /> Nueva Contraseña
+                    <span className="text-zinc-600 normal-case font-medium">(dejar vacío para no cambiar)</span>
+                  </label>
+                  <input
+                    type="password" value={editUserPassword}
+                    onChange={(e) => setEditUserPassword(e.target.value)}
+                    className="w-full input-stitch px-3 py-2.5 text-sm"
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                  />
+                </div>
+
+                {editUserError && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl font-semibold">
+                    {editUserError}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setEditUserModal(null)} className="flex-1 btn-secondary-stitch py-2.5 text-xs font-black uppercase tracking-wider">
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={editUserSubmitting} className="flex-1 btn-primary-stitch py-2.5 text-xs font-black uppercase tracking-wider disabled:opacity-50">
+                    {editUserSubmitting ? 'Guardando...' : 'Guardar Cambios'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* ── MODAL SELECCIÓN DE EMPRESA ── */}
         {companySelectModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setCompanySelectModal(false)}>

@@ -13,7 +13,11 @@ export async function GET() {
     }
 
     const res = await pool.query(
-      'SELECT id, nombre, email, tipo, avatar, activo, aprobado, created_at FROM users ORDER BY id ASC'
+      `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.created_at,
+              u.company_id, c.nombre AS company_nombre, c.color AS company_color, c.logo AS company_logo
+       FROM users u
+       LEFT JOIN companies c ON c.id = u.company_id
+       ORDER BY u.id ASC`
     );
     return NextResponse.json(res.rows);
   } catch (error: any) {
@@ -32,6 +36,13 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { action } = body;
+
+    if (action === 'assignCompany') {
+      const { userId: targetUserId, companyId } = body;
+      if (!targetUserId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
+      await pool.query('UPDATE users SET company_id = $1 WHERE id = $2', [companyId || null, targetUserId]);
+      return NextResponse.json({ success: true });
+    }
 
     if (action === 'create') {
       const { nombre, email, password, tipo } = body;

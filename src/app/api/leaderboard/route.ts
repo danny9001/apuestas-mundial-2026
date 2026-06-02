@@ -14,6 +14,10 @@ export async function GET() {
          u.tipo,
          u.avatar,
          u.activo,
+         u.company_id,
+         c.nombre AS company_nombre,
+         c.color AS company_color,
+         c.logo AS company_logo,
          COALESCE(l.puntos_totales, 0) as puntos_totales,
          COALESCE(l.exactos, 0) as exactos,
          COALESCE(l.posicion, 9999) as posicion,
@@ -21,6 +25,7 @@ export async function GET() {
          COALESCE(l.tendencia, 'same') as tendencia
        FROM users u
        LEFT JOIN leaderboard l ON u.id = l.user_id
+       LEFT JOIN companies c ON c.id = u.company_id
        WHERE u.activo = true
        ORDER BY COALESCE(l.posicion, 9999) ASC, u.nombre ASC`
     );

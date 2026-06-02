@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { promises as fs } from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,12 +64,16 @@ export async function POST(req: NextRequest) {
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'logos');
       await fs.mkdir(uploadDir, { recursive: true });
 
-      const ext = path.extname(logoFile.name) || '.png';
-      const filename = `logo_${Date.now()}${ext}`;
+      const filename = `logo_${Date.now()}.webp`;
       const filePath = path.join(uploadDir, filename);
 
-      const buffer = Buffer.from(await logoFile.arrayBuffer());
-      await fs.writeFile(filePath, buffer);
+      const inputBuffer = Buffer.from(await logoFile.arrayBuffer());
+      const webpBuffer = await sharp(inputBuffer)
+        .rotate()
+        .resize(256, 256, { fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 90, effort: 6 })
+        .toBuffer();
+      await fs.writeFile(filePath, webpBuffer);
 
       appLogo = `/uploads/logos/${filename}`;
     } else if (logoType === 'file') {
@@ -93,13 +98,37 @@ export async function POST(req: NextRequest) {
       [appLogo]
     );
 
+    // Extended branding settings
+    const primaryColor = formData.get('primary_color') as string | null;
+    const appSubtitle = formData.get('app_subtitle') as string | null;
+    const contactWhatsapp = formData.get('contact_whatsapp') as string | null;
+    const contactEmail = formData.get('contact_email') as string | null;
+
+    const extraSettings: [string, string][] = [
+      ['primary_color', primaryColor || ''],
+      ['app_subtitle', appSubtitle || ''],
+      ['contact_whatsapp', contactWhatsapp || ''],
+      ['contact_email', contactEmail || ''],
+    ];
+    for (const [key, value] of extraSettings) {
+      if (value !== null) {
+        await pool.query(
+          `INSERT INTO settings (key, value) VALUES ($1, $2)
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+          [key, value]
+        );
+      }
+    }
+
+    // Return full updated settings map
+    const allSettings = await pool.query('SELECT key, value FROM settings');
+    const settingsMap: Record<string, string> = {};
+    allSettings.rows.forEach((r) => { settingsMap[r.key] = r.value; });
+
     return NextResponse.json({
       success: true,
       message: 'Configuración actualizada con éxito',
-      settings: {
-        app_name: appName || 'Mundial 2026',
-        app_logo: appLogo,
-      },
+      settings: settingsMap,
     });
   } catch (error: any) {
     console.error('Error updating settings:', error);

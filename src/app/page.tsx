@@ -3,18 +3,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Trophy, 
-  Calendar, 
-  User, 
+import {
+  Trophy,
+  Calendar,
+  User,
   Sun,
   Moon,
-  Settings, 
-  LogOut, 
-  Lock, 
-  Plus, 
-  Check, 
-  RefreshCw, 
+  Settings,
+  LogOut,
+  Lock,
+  Plus,
+  Check,
+  RefreshCw,
   ShieldAlert,
   ArrowUp,
   ArrowDown,
@@ -27,7 +27,12 @@ import {
   BarChart3,
   Grid,
   BookOpen,
-  Activity
+  Activity,
+  Bell,
+  Building2,
+  Users,
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 
 // Team flags helper map — 48 equipos Mundial 2026
@@ -238,6 +243,40 @@ export default function PWAAppPage() {
   // Kickoff Countdown State (Kickoff June 11, 2026 16:00:00 Bolivia Time - UTC-4)
   const [kickoffTimeLeft, setKickoffTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
+  // Companies
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [newCompanyNombre, setNewCompanyNombre] = useState('');
+  const [newCompanyColor, setNewCompanyColor] = useState('#6366f1');
+  const [companySubmitting, setCompanySubmitting] = useState(false);
+
+  // Groups
+  const [groups, setGroups] = useState<any[]>([]);
+  const [newGroupNombre, setNewGroupNombre] = useState('');
+  const [newGroupColor, setNewGroupColor] = useState('#10b981');
+  const [groupSubmitting, setGroupSubmitting] = useState(false);
+  const [groupMembersModal, setGroupMembersModal] = useState<any | null>(null);
+  const [groupMembers, setGroupMembers] = useState<any[]>([]);
+
+  // Notifications — admin create form
+  const [notifTitulo, setNotifTitulo] = useState('');
+  const [notifContenido, setNotifContenido] = useState('');
+  const [notifTipo, setNotifTipo] = useState<'info' | 'warning' | 'success' | 'error'>('info');
+  const [notifTargetType, setNotifTargetType] = useState<'all' | 'group' | 'user'>('all');
+  const [notifTargetId, setNotifTargetId] = useState<number | null>(null);
+  const [notifExpiresAt, setNotifExpiresAt] = useState('');
+  const [notifSubmitting, setNotifSubmitting] = useState(false);
+
+  // Notifications — user-facing
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Extended branding settings
+  const [editPrimaryColor, setEditPrimaryColor] = useState('#eab308');
+  const [editSubtitle, setEditSubtitle] = useState('');
+  const [editContactWhatsapp, setEditContactWhatsapp] = useState('');
+  const [editContactEmail, setEditContactEmail] = useState('');
+
   // Load App Settings
   const fetchSettings = async () => {
     try {
@@ -246,6 +285,13 @@ export default function PWAAppPage() {
         const data = await res.json();
         if (data.app_name) setAppName(data.app_name);
         if (data.app_logo) setAppLogo(data.app_logo);
+        if (data.primary_color) setEditPrimaryColor(data.primary_color);
+        if (data.app_subtitle) setEditSubtitle(data.app_subtitle);
+        if (data.contact_whatsapp) setEditContactWhatsapp(data.contact_whatsapp);
+        if (data.contact_email) setEditContactEmail(data.contact_email);
+        if (data.primary_color) {
+          document.documentElement.style.setProperty('--primary', data.primary_color);
+        }
       }
     } catch (e) {
       console.error('Failed to fetch settings:', e);
@@ -304,6 +350,23 @@ export default function PWAAppPage() {
           setAdminUsers(uData);
         }
       }
+
+      // Fetch companies, groups, and notifications in parallel
+      const [companiesRes, groupsRes] = await Promise.all([
+        fetch(`/api/companies?t=${Date.now()}`),
+        fetch(`/api/groups?t=${Date.now()}`),
+      ]);
+      if (companiesRes.ok) setCompanies(await companiesRes.json());
+      if (groupsRes.ok) setGroups(await groupsRes.json());
+
+      if (user) {
+        const nRes = await fetch(`/api/notifications?t=${Date.now()}`);
+        if (nRes.ok) {
+          const nData: any[] = await nRes.json();
+          setNotifications(nData);
+          setUnreadCount(nData.filter((n) => !n.leido).length);
+        }
+      }
     } catch (error) {
       console.error('Error fetching application data:', error);
     } finally {
@@ -359,6 +422,43 @@ export default function PWAAppPage() {
     try {
       const res = await fetch(`/api/stats/me?t=${Date.now()}`);
       if (res.ok) setMyStats(await res.json());
+    } catch (e) {}
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const res = await fetch(`/api/companies?t=${Date.now()}`);
+      if (res.ok) setCompanies(await res.json());
+    } catch (e) {}
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const res = await fetch(`/api/groups?t=${Date.now()}`);
+      if (res.ok) setGroups(await res.json());
+    } catch (e) {}
+  };
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/notifications?t=${Date.now()}`);
+      if (res.ok) {
+        const data: any[] = await res.json();
+        setNotifications(data);
+        setUnreadCount(data.filter((n) => !n.leido).length);
+      }
+    } catch (e) {}
+  };
+
+  const fetchGroupMembers = async (groupId: number) => {
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'members', groupId }),
+      });
+      if (res.ok) setGroupMembers(await res.json());
     } catch (e) {}
   };
 
@@ -526,9 +626,13 @@ export default function PWAAppPage() {
     }
   }, [user]);
 
-  // Load sync status when admin tab is opened
+  // Load admin data when admin tab is opened
   useEffect(() => {
-    if (user && activeTab === 'admin') fetchSyncStatus();
+    if (user && activeTab === 'admin') {
+      fetchSyncStatus();
+      fetchCompanies();
+      fetchGroups();
+    }
   }, [activeTab, user]);
 
   useEffect(() => {
@@ -629,6 +733,9 @@ export default function PWAAppPage() {
           // ESPN live goal strobe
           setGoalAlert(payload.data);
           setTimeout(() => setGoalAlert(null), 5000);
+        } else if (payload.type === 'notification') {
+          fetchNotifications();
+          showToast(`🔔 ${payload.data.titulo}`);
         }
       } catch (e) {
         // Ignored parsing errors
@@ -876,12 +983,17 @@ export default function PWAAppPage() {
       const formData = new FormData();
       formData.append('app_name', editAppName);
       formData.append('logo_type', editLogoType);
-      
+
       if (editLogoType === 'emoji') {
         formData.append('logo_emoji', editLogoEmoji);
       } else if (editLogoFile) {
         formData.append('logo_file', editLogoFile);
       }
+
+      formData.append('primary_color', editPrimaryColor);
+      formData.append('app_subtitle', editSubtitle);
+      formData.append('contact_whatsapp', editContactWhatsapp);
+      formData.append('contact_email', editContactEmail);
 
       const res = await fetch('/api/settings', {
         method: 'POST',
@@ -893,6 +1005,9 @@ export default function PWAAppPage() {
         if (data.success) {
           setAppName(data.settings.app_name);
           setAppLogo(data.settings.app_logo);
+          if (data.settings.primary_color) {
+            document.documentElement.style.setProperty('--primary', data.settings.primary_color);
+          }
           showToast('✅ Configuración de la aplicación guardada con éxito');
         } else {
           showToast(`Error: ${data.error}`);
@@ -952,6 +1067,153 @@ export default function PWAAppPage() {
     } finally {
       setNewUserSubmitting(false);
     }
+  };
+
+  // --- Company handlers ---
+  const handleCreateCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCompanySubmitting(true);
+    try {
+      const res = await fetch('/api/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', nombre: newCompanyNombre, color: newCompanyColor }),
+      });
+      if (res.ok) {
+        showToast('🏢 Empresa creada con éxito');
+        setNewCompanyNombre('');
+        await fetchCompanies();
+      } else {
+        const d = await res.json();
+        showToast(d.error || 'Error al crear empresa');
+      }
+    } catch { showToast('Error de red'); }
+    finally { setCompanySubmitting(false); }
+  };
+
+  const handleDeleteCompany = async (id: number) => {
+    try {
+      const res = await fetch('/api/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+      if (res.ok) {
+        showToast('Empresa eliminada');
+        await fetchCompanies();
+        await fetchAppData();
+      } else {
+        const d = await res.json();
+        showToast(d.error || 'Error');
+      }
+    } catch { showToast('Error de red'); }
+  };
+
+  const handleAssignCompany = async (userId: number, companyId: number | null) => {
+    try {
+      await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'assignCompany', userId, companyId }),
+      });
+      const found = companies.find((c) => c.id === companyId);
+      setAdminUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? { ...u, company_id: companyId, company_nombre: found?.nombre || null, company_color: found?.color || null }
+            : u
+        )
+      );
+    } catch { showToast('Error de red'); }
+  };
+
+  // --- Group handlers ---
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGroupSubmitting(true);
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', nombre: newGroupNombre, color: newGroupColor }),
+      });
+      if (res.ok) {
+        showToast('👥 Grupo creado');
+        setNewGroupNombre('');
+        await fetchGroups();
+      } else {
+        const d = await res.json();
+        showToast(d.error || 'Error');
+      }
+    } catch { showToast('Error de red'); }
+    finally { setGroupSubmitting(false); }
+  };
+
+  const handleDeleteGroup = async (id: number) => {
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+      if (res.ok) { showToast('Grupo eliminado'); await fetchGroups(); }
+      else { const d = await res.json(); showToast(d.error || 'Error'); }
+    } catch { showToast('Error de red'); }
+  };
+
+  const handleGroupMembership = async (groupId: number, userId: number, action: 'addUser' | 'removeUser') => {
+    try {
+      await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, groupId, userId }),
+      });
+      await fetchGroupMembers(groupId);
+      await fetchGroups();
+    } catch { showToast('Error de red'); }
+  };
+
+  // --- Notification handlers ---
+  const handleCreateNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNotifSubmitting(true);
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo: notifTitulo,
+          contenido: notifContenido,
+          tipo: notifTipo,
+          target_type: notifTargetType,
+          target_id: notifTargetId,
+          expires_at: notifExpiresAt || null,
+        }),
+      });
+      if (res.ok) {
+        showToast('🔔 Notificación enviada');
+        setNotifTitulo('');
+        setNotifContenido('');
+        setNotifTargetType('all');
+        setNotifTargetId(null);
+        setNotifExpiresAt('');
+      } else {
+        const d = await res.json();
+        showToast(d.error || 'Error');
+      }
+    } catch { showToast('Error de red'); }
+    finally { setNotifSubmitting(false); }
+  };
+
+  const handleMarkNotificationRead = async (notificationId?: number) => {
+    try {
+      await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId }),
+      });
+      await fetchNotifications();
+    } catch {}
   };
 
   // Rendering Helpers
@@ -1078,14 +1340,26 @@ export default function PWAAppPage() {
                 <div className="text-xs font-bold text-zinc-300 truncate">{user.nombre}</div>
                 <div className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">{user.tipo}</div>
               </div>
-              <button 
+              <button
+                onClick={() => setNotifPanelOpen(true)}
+                className="relative text-zinc-555 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
+                title="Notificaciones"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 text-white text-[7px] font-black rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
                 className="text-zinc-555 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
                 title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
               >
                 {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
               </button>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="text-zinc-555 hover:text-red-400 p-1.5 transition flex-shrink-0"
                 title="Cerrar Sesión"
@@ -1172,10 +1446,26 @@ export default function PWAAppPage() {
             >
               {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
             </button>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-full px-3 py-1 flex items-center gap-1.5 text-xs text-zinc-300">
-              <img src={user.avatar} className="w-4 h-4 rounded-full" alt="avatar" />
-              <span className="font-bold max-w-[80px] truncate">{user.nombre.split(' ')[0]}</span>
-            </div>
+            {user && (
+              <>
+                <button
+                  onClick={() => setNotifPanelOpen(true)}
+                  className="relative bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-yellow-500 p-2 rounded-lg border border-zinc-800 transition flex items-center justify-center"
+                  title="Notificaciones"
+                >
+                  <Bell className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-full px-3 py-1 flex items-center gap-1.5 text-xs text-zinc-300">
+                  <img src={user.avatar} className="w-4 h-4 rounded-full" alt="avatar" />
+                  <span className="font-bold max-w-[80px] truncate">{user.nombre.split(' ')[0]}</span>
+                </div>
+              </>
+            )}
           </div>
         </header>
 
@@ -1969,9 +2259,17 @@ export default function PWAAppPage() {
                           <div className="flex items-center gap-3">
                             <img src={row.avatar} className="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-950 shadow" alt="avatar" />
                             <div>
-                              <div className="text-zinc-200 text-sm flex items-center gap-2">
+                              <div className="text-zinc-200 text-sm flex items-center gap-2 flex-wrap">
                                 <span>{row.nombre}</span>
                                 {isMe && <span className="bg-yellow-500 text-zinc-950 font-black text-[9px] px-1 rounded uppercase">Yo</span>}
+                                {row.company_nombre && (
+                                  <span
+                                    className="text-[9px] px-2 py-0.5 rounded-full border font-bold"
+                                    style={{ color: row.company_color, borderColor: row.company_color + '40', backgroundColor: row.company_color + '18' }}
+                                  >
+                                    {row.company_nombre}
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[10px] text-zinc-500 tracking-wider uppercase font-mono">{row.tipo}</div>
                             </div>
@@ -2667,92 +2965,335 @@ export default function PWAAppPage() {
                 </button>
               </div>
 
-              {/* Configuración de la Aplicación */}
+              {/* ─── 1. GESTIÓN DE USUARIOS ─── */}
               <div className="space-y-4">
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Personalización de la Aplicación</h3>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5" /> Gestión de Usuarios
+                </h3>
+
+                <form onSubmit={handleCreateUser} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl shadow-lg">
+                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Crear Nuevo Usuario</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre Completo</label>
+                      <input type="text" required value={newUserNombre} onChange={(e) => setNewUserNombre(e.target.value)} placeholder="Nombre completo" className="w-full input-stitch px-3 py-2 text-xs" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Correo Electrónico</label>
+                      <input type="email" required value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} placeholder="usuario@mundial.com" className="w-full input-stitch px-3 py-2 text-xs" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Contraseña</label>
+                      <input type="password" required value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full input-stitch px-3 py-2 text-xs" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Rol</label>
+                      <select value={newUserTipo} onChange={(e) => setNewUserTipo(e.target.value as 'user' | 'admin')} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30">
+                        <option value="user">Usuario Común</option>
+                        <option value="admin">Administrador</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <button type="submit" disabled={newUserSubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow">
+                      <span>{newUserSubmitting ? 'Creando...' : 'Crear Usuario'}</span>
+                    </button>
+                  </div>
+                </form>
+
+                <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-black pt-2">Lista de Usuarios ({adminUsers.length})</div>
+                <div className="bg-zinc-900/40 border border-zinc-900 divide-y divide-zinc-900 rounded-2xl overflow-hidden shadow-lg max-w-4xl">
+                  {adminUsers.map((u) => (
+                    <div key={u.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 text-xs gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={u.avatar} className="w-10 h-10 rounded-full bg-zinc-950 border border-zinc-850 flex-shrink-0" alt="avatar" />
+                        <div className="min-w-0">
+                          <div className="font-bold text-sm text-zinc-200 flex items-center gap-2 flex-wrap">
+                            <span className="truncate">{u.nombre}</span>
+                            {u.company_nombre && (
+                              <span className="text-[9px] px-2 py-0.5 rounded-full border font-bold flex-shrink-0" style={{ color: u.company_color, borderColor: u.company_color + '40', backgroundColor: u.company_color + '18' }}>
+                                {u.company_nombre}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase">{u.tipo}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+                        {/* Company assignment */}
+                        {u.id !== user.id && (
+                          <select
+                            value={u.company_id || ''}
+                            onChange={(e) => handleAssignCompany(u.id, e.target.value ? parseInt(e.target.value) : null)}
+                            className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-lg px-2 py-1 max-w-[120px]"
+                          >
+                            <option value="">Sin empresa</option>
+                            {companies.map((c) => (
+                              <option key={c.id} value={c.id}>{c.nombre}</option>
+                            ))}
+                          </select>
+                        )}
+                        {u.id !== user.id ? (
+                          <>
+                            {u.tipo !== 'admin' && (
+                              <button onClick={() => handleToggleUserApproval(u.id, u.aprobado)} className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.aprobado ? 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border border-yellow-500/20' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border border-zinc-700'}`}>
+                                {u.aprobado ? <><Check className="w-3.5 h-3.5" /> Aprobado</> : <><Lock className="w-3.5 h-3.5 text-zinc-500 animate-pulse" /> Aprobar</>}
+                              </button>
+                            )}
+                            <button onClick={() => handleToggleUserStatus(u.id, u.activo)} className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.activo ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'}`}>
+                              {u.activo ? <><UserX className="w-3.5 h-3.5" /> Desactivar</> : <><UserCheck className="w-3.5 h-3.5" /> Activar</>}
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-zinc-500 uppercase tracking-widest italic pr-4">Tú (Admin)</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ─── 2. PERSONALIZACIÓN DEL SISTEMA ─── */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
+                  <Settings className="w-3.5 h-3.5" /> Personalización del Sistema
+                </h3>
                 <form onSubmit={handleSaveSettings} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* App Name */}
                     <div className="space-y-1.5">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre de la Quiniela</label>
-                      <input 
-                        type="text"
-                        required
-                        value={editAppName}
-                        onChange={(e) => setEditAppName(e.target.value)}
-                        placeholder="Nombre de la Quiniela"
-                        className="w-full input-stitch px-3 py-2 text-xs"
-                      />
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre del Sistema</label>
+                      <input type="text" required value={editAppName} onChange={(e) => setEditAppName(e.target.value)} placeholder="Nombre de la Quiniela" className="w-full input-stitch px-3 py-2 text-xs" />
                     </div>
-
-                    {/* Logo Type */}
                     <div className="space-y-1.5">
                       <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Tipo de Logo</label>
-                      <select 
-                        value={editLogoType}
-                        onChange={(e) => setEditLogoType(e.target.value as 'emoji' | 'file')}
-                        className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30"
-                      >
+                      <select value={editLogoType} onChange={(e) => setEditLogoType(e.target.value as 'emoji' | 'file')} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30">
                         <option value="emoji">Emoji o Símbolo</option>
-                        <option value="file">Imagen Personalizada (Subir)</option>
+                        <option value="file">Imagen Personalizada</option>
                       </select>
                     </div>
                   </div>
 
                   {editLogoType === 'emoji' ? (
                     <div className="space-y-1.5 max-w-xs">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Emoji o Icono Texto</label>
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Emoji o Icono</label>
                       <div className="flex gap-2">
-                        <input 
-                          type="text"
-                          required
-                          value={editLogoEmoji}
-                          onChange={(e) => setEditLogoEmoji(e.target.value)}
-                          placeholder="ej: 🏆 o ⚽ o 🎫"
-                          className="w-full input-stitch px-3 py-2 text-xs"
-                        />
-                        <div className="w-9 h-9 bg-zinc-950 border border-zinc-850 rounded-xl flex items-center justify-center text-xl select-none flex-shrink-0">
-                          {editLogoEmoji}
-                        </div>
+                        <input type="text" required value={editLogoEmoji} onChange={(e) => setEditLogoEmoji(e.target.value)} placeholder="🏆" className="w-full input-stitch px-3 py-2 text-xs" />
+                        <div className="w-9 h-9 bg-zinc-950 border border-zinc-850 rounded-xl flex items-center justify-center text-xl select-none flex-shrink-0">{editLogoEmoji}</div>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-1.5">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Archivo de Logo (PNG / JPG / SVG)</label>
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Archivo de Logo</label>
                       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                        <input 
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                              setEditLogoFile(e.target.files[0]);
-                            }
-                          }}
-                          className="text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-zinc-950 file:text-yellow-500 hover:file:bg-zinc-900 file:cursor-pointer"
-                        />
+                        <input type="file" accept="image/*" onChange={(e) => { if (e.target.files?.[0]) setEditLogoFile(e.target.files[0]); }} className="text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-zinc-950 file:text-yellow-500 hover:file:bg-zinc-900 file:cursor-pointer" />
                         {appLogo.startsWith('/') && (
                           <div className="flex items-center gap-2 bg-zinc-950/60 border border-zinc-850 p-2 rounded-xl">
-                            <span className="text-[9px] text-zinc-500">Logo actual:</span>
-                            <img src={appLogo} className="w-8 h-8 object-contain rounded" alt="logo actual" />
+                            <span className="text-[9px] text-zinc-500">Actual:</span>
+                            <img src={appLogo} className="w-8 h-8 object-contain rounded" alt="logo" />
                           </div>
                         )}
                       </div>
                     </div>
                   )}
 
+                  {/* Color primario */}
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Color de Acento</label>
+                    <div className="flex items-center gap-3">
+                      <input type="color" value={editPrimaryColor} onChange={(e) => setEditPrimaryColor(e.target.value)} className="w-10 h-9 rounded-lg border border-zinc-850 bg-zinc-950 cursor-pointer" />
+                      <input type="text" value={editPrimaryColor} onChange={(e) => setEditPrimaryColor(e.target.value)} placeholder="#eab308" className="w-32 input-stitch px-3 py-2 text-xs font-mono" />
+                      <div className="h-9 w-16 rounded-lg border border-zinc-850 flex-shrink-0" style={{ backgroundColor: editPrimaryColor }}></div>
+                    </div>
+                  </div>
+
+                  {/* Subtítulo y contacto */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Subtítulo</label>
+                      <input type="text" value={editSubtitle} onChange={(e) => setEditSubtitle(e.target.value)} placeholder="Ej: Quiniela Oficial del Mundial" className="w-full input-stitch px-3 py-2 text-xs" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">WhatsApp de Contacto</label>
+                      <input type="text" value={editContactWhatsapp} onChange={(e) => setEditContactWhatsapp(e.target.value)} placeholder="+591 XXXXXXXX" className="w-full input-stitch px-3 py-2 text-xs" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Email de Contacto</label>
+                      <input type="email" value={editContactEmail} onChange={(e) => setEditContactEmail(e.target.value)} placeholder="info@empresa.com" className="w-full input-stitch px-3 py-2 text-xs" />
+                    </div>
+                  </div>
+
                   <div className="flex justify-end pt-2 border-t border-zinc-950">
-                    <button
-                      type="submit"
-                      disabled={settingsSubmitting}
-                      className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
-                    >
+                    <button type="submit" disabled={settingsSubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow">
                       <span>{settingsSubmitting ? 'Guardando...' : 'Guardar Cambios'}</span>
                     </button>
                   </div>
                 </form>
               </div>
 
-              {/* Sync Dashboard */}
+              {/* ─── 3. GESTIÓN DE EMPRESAS ─── */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
+                  <Building2 className="w-3.5 h-3.5" /> Gestión de Empresas
+                </h3>
+                <form onSubmit={handleCreateCompany} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Crear Empresa</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre</label>
+                      <input type="text" required value={newCompanyNombre} onChange={(e) => setNewCompanyNombre(e.target.value)} placeholder="Nombre de la empresa" className="w-full input-stitch px-3 py-2 text-xs" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Color</label>
+                      <div className="flex items-center gap-2">
+                        <input type="color" value={newCompanyColor} onChange={(e) => setNewCompanyColor(e.target.value)} className="w-9 h-9 rounded-lg border border-zinc-850 bg-zinc-950 cursor-pointer" />
+                        <input type="text" value={newCompanyColor} onChange={(e) => setNewCompanyColor(e.target.value)} className="w-24 input-stitch px-3 py-2 text-xs font-mono" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button type="submit" disabled={companySubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95">
+                      <span>{companySubmitting ? 'Creando...' : 'Crear Empresa'}</span>
+                    </button>
+                  </div>
+                </form>
+                <div className="bg-zinc-900/40 border border-zinc-900 divide-y divide-zinc-900 rounded-2xl overflow-hidden max-w-2xl">
+                  {companies.length === 0 && (
+                    <div className="p-6 text-center text-zinc-500 text-xs">Sin empresas registradas</div>
+                  )}
+                  {companies.map((c) => (
+                    <div key={c.id} className="flex justify-between items-center p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full border border-zinc-700 flex-shrink-0" style={{ backgroundColor: c.color }} />
+                        <span className="text-sm font-bold text-zinc-200">{c.nombre}</span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${c.activo ? 'bg-green-500/10 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}>{c.activo ? 'Activo' : 'Inactivo'}</span>
+                      </div>
+                      <button onClick={() => handleDeleteCompany(c.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border border-red-500/20 hover:border-red-500/40 transition flex items-center gap-1.5">
+                        <Trash2 className="w-3 h-3" /> Eliminar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ─── 4. GRUPOS DE USUARIOS ─── */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5" /> Grupos de Usuarios
+                </h3>
+                <form onSubmit={handleCreateGroup} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Crear Grupo</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre del Grupo</label>
+                      <input type="text" required value={newGroupNombre} onChange={(e) => setNewGroupNombre(e.target.value)} placeholder="ej: Ventas, Producción..." className="w-full input-stitch px-3 py-2 text-xs" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Color</label>
+                      <div className="flex items-center gap-2">
+                        <input type="color" value={newGroupColor} onChange={(e) => setNewGroupColor(e.target.value)} className="w-9 h-9 rounded-lg border border-zinc-850 bg-zinc-950 cursor-pointer" />
+                        <input type="text" value={newGroupColor} onChange={(e) => setNewGroupColor(e.target.value)} className="w-24 input-stitch px-3 py-2 text-xs font-mono" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button type="submit" disabled={groupSubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95">
+                      <span>{groupSubmitting ? 'Creando...' : 'Crear Grupo'}</span>
+                    </button>
+                  </div>
+                </form>
+                <div className="bg-zinc-900/40 border border-zinc-900 divide-y divide-zinc-900 rounded-2xl overflow-hidden max-w-2xl">
+                  {groups.length === 0 && <div className="p-6 text-center text-zinc-500 text-xs">Sin grupos creados</div>}
+                  {groups.map((g) => (
+                    <div key={g.id} className="flex justify-between items-center p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full border border-zinc-700" style={{ backgroundColor: g.color }} />
+                        <div>
+                          <div className="text-sm font-bold text-zinc-200">{g.nombre}</div>
+                          <div className="text-[9px] text-zinc-500 font-mono">{g.member_count} miembro{g.member_count !== 1 ? 's' : ''}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => { setGroupMembersModal(g); fetchGroupMembers(g.id); }}
+                          className="text-zinc-400 hover:text-zinc-200 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-700 transition"
+                        >
+                          Miembros
+                        </button>
+                        <button onClick={() => handleDeleteGroup(g.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border border-red-500/20 hover:border-red-500/40 transition flex items-center gap-1.5">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ─── 5. NOTIFICACIONES Y MENSAJES ─── */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
+                  <MessageSquare className="w-3.5 h-3.5" /> Notificaciones y Mensajes
+                </h3>
+                <form onSubmit={handleCreateNotification} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Enviar Notificación</div>
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Título</label>
+                    <input type="text" required value={notifTitulo} onChange={(e) => setNotifTitulo(e.target.value)} placeholder="Título de la notificación" className="w-full input-stitch px-3 py-2 text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Contenido</label>
+                    <textarea required value={notifContenido} onChange={(e) => setNotifContenido(e.target.value)} placeholder="Escribe tu mensaje aquí..." rows={3} className="w-full input-stitch px-3 py-2 text-xs resize-none" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Tipo</label>
+                      <select value={notifTipo} onChange={(e) => setNotifTipo(e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
+                        <option value="info">ℹ️ Info</option>
+                        <option value="success">✅ Éxito</option>
+                        <option value="warning">⚠️ Aviso</option>
+                        <option value="error">❌ Error</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Destinatario</label>
+                      <select value={notifTargetType} onChange={(e) => { setNotifTargetType(e.target.value as any); setNotifTargetId(null); }} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
+                        <option value="all">🌐 Todos</option>
+                        <option value="group">👥 Grupo</option>
+                        <option value="user">👤 Usuario</option>
+                      </select>
+                    </div>
+                    {notifTargetType === 'group' && (
+                      <div className="space-y-1.5">
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Grupo</label>
+                        <select value={notifTargetId || ''} onChange={(e) => setNotifTargetId(e.target.value ? parseInt(e.target.value) : null)} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
+                          <option value="">Seleccionar...</option>
+                          {groups.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    {notifTargetType === 'user' && (
+                      <div className="space-y-1.5">
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Usuario</label>
+                        <select value={notifTargetId || ''} onChange={(e) => setNotifTargetId(e.target.value ? parseInt(e.target.value) : null)} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
+                          <option value="">Seleccionar...</option>
+                          {adminUsers.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Expira (opcional)</label>
+                    <input type="datetime-local" value={notifExpiresAt} onChange={(e) => setNotifExpiresAt(e.target.value)} className="input-stitch px-3 py-2 text-xs" />
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <button type="submit" disabled={notifSubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95">
+                      <Bell className="w-3.5 h-3.5" />
+                      <span>{notifSubmitting ? 'Enviando...' : 'Enviar Notificación'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* ─── 6. SINCRONIZACIÓN EN VIVO ─── */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Sincronización en Vivo</h3>
                 <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4">
@@ -2772,46 +3313,33 @@ export default function PWAAppPage() {
                           );
                         })()
                       ) : (
-                        <>
-                          <span className="h-2.5 w-2.5 rounded-full bg-zinc-600"></span>
-                          <span className="text-xs text-zinc-500">Sin datos de sync</span>
-                        </>
+                        <><span className="h-2.5 w-2.5 rounded-full bg-zinc-600"></span><span className="text-xs text-zinc-500">Sin datos de sync</span></>
                       )}
                     </div>
-                    <button
-                      onClick={handleForceSyncAdmin}
-                      disabled={syncLoading}
-                      className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95"
-                    >
+                    <button onClick={handleForceSyncAdmin} disabled={syncLoading} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95">
                       <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
                       <span>{syncLoading ? 'Sincronizando...' : 'Forzar Sync'}</span>
                     </button>
                   </div>
-
                   {!syncStatus?.sync_enabled && (
                     <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs p-3 rounded-lg font-bold">
                       ⚠️ Sincronización automática desactivada. Modo manual activo.
                     </div>
                   )}
-
                   {syncStatus?.logs && syncStatus.logs.length > 0 && (
                     <div className="space-y-2">
                       <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Últimas sincronizaciones</div>
                       <div className="bg-zinc-950 border border-zinc-850 rounded-xl divide-y divide-zinc-900 max-h-48 overflow-y-auto">
                         {syncStatus.logs.map((log: any) => (
                           <div key={log.id} className="flex justify-between items-center p-3 text-[10px] font-mono">
-                            <span className="text-zinc-500">
-                              {new Date(log.synced_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </span>
+                            <span className="text-zinc-500">{new Date(log.synced_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                             <div className="flex gap-3 text-zinc-400">
                               <span className="text-yellow-500">↑{log.matches_updated} upd</span>
                               <span className="text-green-400">⚽{log.goals_detected} goles</span>
                               <span className="text-blue-400">✓{log.matches_finished} fin</span>
                               <span className="text-zinc-500">{log.duration_ms}ms</span>
                             </div>
-                            {log.errors && log.errors.length > 0 && (
-                              <span className="text-red-400 text-[9px]">ERR</span>
-                            )}
+                            {log.errors?.length > 0 && <span className="text-red-400 text-[9px]">ERR</span>}
                           </div>
                         ))}
                       </div>
@@ -2820,10 +3348,9 @@ export default function PWAAppPage() {
                 </div>
               </div>
 
-              {/* Admin match live updater list */}
+              {/* ─── 7. MARCADORES EN VIVO (siempre al final) ─── */}
               <div className="space-y-4">
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Marcadores en vivo</h3>
-                
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Marcadores en Vivo</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {matches.map((m) => (
                     <div key={m.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl flex justify-between items-center text-xs shadow-md">
@@ -2835,157 +3362,9 @@ export default function PWAAppPage() {
                           {m.estado === 'live' ? '🔴 En juego' : m.estado === 'finished' ? '⚫ Finalizado' : '⚪ Programado'}
                         </span>
                       </div>
-
-                      <button
-                        onClick={() => {
-                          setAdminMatchModal(m);
-                          setAdminGolesLocal(m.goles_local);
-                          setAdminGolesVisitante(m.goles_visitante);
-                          setAdminEstado(m.estado);
-                          setAdminTransmisionEnlaces(m.transmision_enlaces || '');
-                        }}
-                        className="bg-zinc-950 hover:bg-zinc-800 text-zinc-300 font-bold px-4 py-2 border border-zinc-800 hover:border-yellow-500/25 rounded-xl transition"
-                      >
+                      <button onClick={() => { setAdminMatchModal(m); setAdminGolesLocal(m.goles_local); setAdminGolesVisitante(m.goles_visitante); setAdminEstado(m.estado); setAdminTransmisionEnlaces(m.transmision_enlaces || ''); }} className="bg-zinc-950 hover:bg-zinc-800 text-zinc-300 font-bold px-4 py-2 border border-zinc-800 hover:border-yellow-500/25 rounded-xl transition">
                         Editar
                       </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Admin User Activation Manager list */}
-              <div className="space-y-4 max-w-2xl">
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Gestión de Usuarios</h3>
-
-                {/* Formulario de creación de usuario */}
-                <form onSubmit={handleCreateUser} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 shadow-lg">
-                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Crear Nuevo Usuario</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Nombre */}
-                    <div className="space-y-1.5">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre Completo</label>
-                      <input 
-                        type="text"
-                        required
-                        value={newUserNombre}
-                        onChange={(e) => setNewUserNombre(e.target.value)}
-                        placeholder="Nombre completo"
-                        className="w-full input-stitch px-3 py-2 text-xs"
-                      />
-                    </div>
-
-                    {/* Email */}
-                    <div className="space-y-1.5">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Correo Electrónico</label>
-                      <input 
-                        type="email"
-                        required
-                        value={newUserEmail}
-                        onChange={(e) => setNewUserEmail(e.target.value)}
-                        placeholder="ej: usuario@mundial.com"
-                        className="w-full input-stitch px-3 py-2 text-xs"
-                      />
-                    </div>
-
-                    {/* Password */}
-                    <div className="space-y-1.5">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Contraseña</label>
-                      <input 
-                        type="password"
-                        required
-                        value={newUserPassword}
-                        onChange={(e) => setNewUserPassword(e.target.value)}
-                        placeholder="Contraseña (mín. 6 caracteres)"
-                        className="w-full input-stitch px-3 py-2 text-xs"
-                      />
-                    </div>
-
-                    {/* Role / Tipo */}
-                    <div className="space-y-1.5">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Rol del Usuario</label>
-                      <select 
-                        value={newUserTipo}
-                        onChange={(e) => setNewUserTipo(e.target.value as 'user' | 'admin')}
-                        className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30"
-                      >
-                        <option value="user">Usuario Común</option>
-                        <option value="admin">Administrador</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <button
-                      type="submit"
-                      disabled={newUserSubmitting}
-                      className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
-                    >
-                      <span>{newUserSubmitting ? 'Creando...' : 'Crear Usuario'}</span>
-                    </button>
-                  </div>
-                </form>
-
-                <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-black pt-2">Lista de Usuarios</div>
-
-                <div className="bg-zinc-900/40 border border-zinc-900 divide-y divide-zinc-900 rounded-2xl overflow-hidden shadow-lg">
-                  {adminUsers.map((u) => (
-                    <div key={u.id} className="flex justify-between items-center p-4 text-xs">
-                      <div className="flex items-center gap-3">
-                        <img src={u.avatar} className="w-10 h-10 rounded-full bg-zinc-950 border border-zinc-850" alt="avatar" />
-                        <div>
-                          <div className="font-bold text-sm text-zinc-200">{u.nombre}</div>
-                          <div className="text-[9px] text-zinc-500 font-mono tracking-widest uppercase">{u.tipo}</div>
-                        </div>
-                      </div>
-
-                      {u.id !== user.id ? (
-                        <div className="flex items-center gap-2">
-                          {/* Approval Status Toggle */}
-                          {u.tipo !== 'admin' && (
-                            <button
-                              onClick={() => handleToggleUserApproval(u.id, u.aprobado)}
-                              className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${
-                                u.aprobado
-                                  ? 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border border-yellow-500/20'
-                                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border border-zinc-700'
-                              }`}
-                              title={u.aprobado ? 'Aprobado para participar en quinielas' : 'Pendiente de aprobación'}
-                            >
-                              {u.aprobado ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5" /> Aprobado
-                                </>
-                              ) : (
-                                <>
-                                  <Lock className="w-3.5 h-3.5 text-zinc-500 animate-pulse" /> Aprobar
-                                </>
-                              )}
-                            </button>
-                          )}
-
-                          {/* Active Status Toggle */}
-                          <button
-                            onClick={() => handleToggleUserStatus(u.id, u.activo)}
-                            className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${
-                              u.activo 
-                                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' 
-                                : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'
-                            }`}
-                          >
-                            {u.activo ? (
-                              <>
-                                <UserX className="w-3.5 h-3.5" /> Desactivar
-                              </>
-                            ) : (
-                              <>
-                                <UserCheck className="w-3.5 h-3.5" /> Activar
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest italic pr-4">Tú (Admin)</span>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -3067,6 +3446,97 @@ export default function PWAAppPage() {
             </button>
           )}
         </nav>
+
+        {/* --- PANEL: NOTIFICACIONES --- */}
+        {notifPanelOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setNotifPanelOpen(false)} />
+            <div className="relative w-full max-w-sm bg-zinc-950 border-l border-zinc-900 h-full overflow-y-auto flex flex-col shadow-2xl">
+              <div className="flex justify-between items-center p-4 border-b border-zinc-900 sticky top-0 bg-zinc-950 z-10">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-yellow-500" />
+                  <h3 className="text-sm font-black text-zinc-100 uppercase tracking-wider">Notificaciones</h3>
+                  {unreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{unreadCount}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  {unreadCount > 0 && (
+                    <button onClick={() => handleMarkNotificationRead()} className="text-[10px] text-zinc-500 hover:text-yellow-500 font-bold uppercase transition">
+                      Marcar todo leído
+                    </button>
+                  )}
+                  <button onClick={() => setNotifPanelOpen(false)} className="text-zinc-500 hover:text-zinc-200 transition">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 divide-y divide-zinc-900">
+                {notifications.length === 0 && (
+                  <div className="p-8 text-center text-zinc-500 text-xs">Sin notificaciones</div>
+                )}
+                {notifications.map((n) => {
+                  const colorMap: Record<string, string> = { info: 'text-blue-400 border-blue-500/30 bg-blue-500/5', warning: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5', success: 'text-green-400 border-green-500/30 bg-green-500/5', error: 'text-red-400 border-red-500/30 bg-red-500/5' };
+                  const cls = colorMap[n.tipo] || colorMap.info;
+                  return (
+                    <div
+                      key={n.id}
+                      className={`p-4 cursor-pointer hover:bg-zinc-900/50 transition ${!n.leido ? 'border-l-2 border-l-yellow-500' : ''}`}
+                      onClick={() => { if (!n.leido) handleMarkNotificationRead(n.id); }}
+                    >
+                      <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border mb-2 ${cls}`}>{n.tipo}</span>
+                      <div className="text-xs font-bold text-zinc-200">{n.titulo}</div>
+                      <div className="text-[11px] text-zinc-500 mt-1 leading-relaxed">{n.contenido}</div>
+                      <div className="text-[9px] text-zinc-600 mt-2">{new Date(n.created_at).toLocaleString('es-BO')}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- MODAL: MIEMBROS DE GRUPO --- */}
+        {groupMembersModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]">
+              <div className="flex justify-between items-center p-5 border-b border-zinc-900">
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: groupMembersModal.color }} />
+                  <div>
+                    <h3 className="text-sm font-black text-zinc-100">{groupMembersModal.nombre}</h3>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Miembros del grupo</p>
+                  </div>
+                </div>
+                <button onClick={() => { setGroupMembersModal(null); setGroupMembers([]); }} className="text-zinc-500 hover:text-zinc-200 transition">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 divide-y divide-zinc-900">
+                {adminUsers.filter((u) => u.activo).map((u) => {
+                  const isMember = groupMembers.some((m) => m.id === u.id);
+                  return (
+                    <div key={u.id} className="flex justify-between items-center p-4">
+                      <div className="flex items-center gap-3">
+                        <img src={u.avatar} className="w-8 h-8 rounded-full border border-zinc-800 bg-zinc-900" alt="avatar" />
+                        <div>
+                          <div className="text-xs font-bold text-zinc-200">{u.nombre}</div>
+                          <div className="text-[9px] text-zinc-500 font-mono uppercase">{u.tipo}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleGroupMembership(groupMembersModal.id, u.id, isMember ? 'removeUser' : 'addUser')}
+                        className={`text-[10px] font-bold px-3 py-1.5 rounded-xl border transition ${isMember ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20'}`}
+                      >
+                        {isMember ? 'Quitar' : 'Agregar'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* --- POPUP 1: BETTING / CHRONO PROG FORM MODAL --- */}
         {betModalMatch && (

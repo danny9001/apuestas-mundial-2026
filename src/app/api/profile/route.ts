@@ -4,6 +4,7 @@ import { getSessionUser, setSession } from '@/lib/auth';
 import { promises as fs } from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
+import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,17 +26,21 @@ export async function POST(req: NextRequest) {
 
     let avatarPath = user.avatar;
 
-    // Handle avatar upload if present
+    // Handle avatar upload — convert to WebP 200×200 for consistency and performance
     if (file && file.size > 0) {
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'avatars');
       await fs.mkdir(uploadDir, { recursive: true });
 
-      const ext = path.extname(file.name) || '.png';
-      const filename = `avatar_${user.id}_${Date.now()}${ext}`;
+      const filename = `avatar_${user.id}_${Date.now()}.webp`;
       const filePath = path.join(uploadDir, filename);
 
-      const buffer = Buffer.from(await file.arrayBuffer());
-      await fs.writeFile(filePath, buffer);
+      const inputBuffer = Buffer.from(await file.arrayBuffer());
+      const webpBuffer = await sharp(inputBuffer)
+        .rotate()
+        .resize(200, 200, { fit: 'cover' })
+        .webp({ quality: 80, effort: 6 })
+        .toBuffer();
+      await fs.writeFile(filePath, webpBuffer);
 
       avatarPath = `/uploads/avatars/${filename}`;
     }

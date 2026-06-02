@@ -13,7 +13,21 @@ export async function GET() {
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
   }
-  const response = NextResponse.json({ authenticated: true, user });
+
+  // Fetch companies for this user
+  const compRes = await pool.query(
+    `SELECT c.id, c.nombre, c.color FROM companies c
+     JOIN user_companies uc ON uc.company_id = c.id
+     WHERE uc.user_id = $1`,
+    [user.id]
+  );
+
+  const userWithCompanies = {
+    ...user,
+    companies: compRes.rows
+  };
+
+  const response = NextResponse.json({ authenticated: true, user: userWithCompanies });
   response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
   return response;
 }
@@ -61,7 +75,20 @@ export async function POST(req: NextRequest) {
 
     await setSession(sessionData);
 
-    return NextResponse.json({ success: true, user: sessionData });
+    // Fetch companies for this user
+    const compRes = await pool.query(
+      `SELECT c.id, c.nombre, c.color FROM companies c
+       JOIN user_companies uc ON uc.company_id = c.id
+       WHERE uc.user_id = $1`,
+      [user.id]
+    );
+
+    const userWithCompanies = {
+      ...sessionData,
+      companies: compRes.rows
+    };
+
+    return NextResponse.json({ success: true, user: userWithCompanies });
   } catch (error: any) {
     console.error('Login error:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });

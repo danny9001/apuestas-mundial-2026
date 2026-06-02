@@ -249,6 +249,7 @@ export default function PWAAppPage() {
 
   // Companies
   const [companies, setCompanies] = useState<any[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [newCompanyNombre, setNewCompanyNombre] = useState('');
   const [newCompanyColor, setNewCompanyColor] = useState('#6366f1');
   const [companySubmitting, setCompanySubmitting] = useState(false);
@@ -633,6 +634,28 @@ export default function PWAAppPage() {
       setProfileNombre(user.nombre);
     }
   }, [user]);
+
+  // Available companies for selector
+  const getAvailableCompanies = () => {
+    if (!user) return [];
+    if (user.tipo === 'superadmin') {
+      return companies;
+    }
+    return user.companies || [];
+  };
+
+  // Synchronize selected company with available companies list
+  useEffect(() => {
+    const available = getAvailableCompanies();
+    if (available.length > 0) {
+      const isValidSelection = available.some((c: any) => c.id === selectedCompanyId);
+      if (!isValidSelection) {
+        setSelectedCompanyId(available[0].id);
+      }
+    } else {
+      setSelectedCompanyId(null);
+    }
+  }, [user, companies]);
 
   // Load admin data when admin tab is opened
   useEffect(() => {
@@ -2182,134 +2205,212 @@ export default function PWAAppPage() {
           {/* --- VIEW 2: LEADERBOARD RANKINGS --- */}
           {activeTab === 'ranking' && (
             <section className="space-y-6">
-              
-              {/* Top Leaderboard Title */}
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-500" />
-                  <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Clasificación General</h2>
+              {!user ? (
+                /* Inline Login Screen for Guests */
+                <div className="w-full max-w-md mx-auto bg-zinc-900/55 backdrop-blur-md border border-zinc-800 rounded-3xl p-8 shadow-2xl relative z-10 animate-fade-in my-8 text-center flex flex-col items-center">
+                  <div className="h-16 w-16 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-inner animate-pulse">
+                    🔒
+                  </div>
+                  <h2 className="text-xl font-black text-zinc-100 uppercase tracking-wider">Acceso Restringido</h2>
+                  <p className="text-zinc-400 text-sm mt-2">
+                    La clasificación general está reservada exclusivamente para participantes registrados de la quiniela.
+                  </p>
+                  <button
+                    onClick={() => { setIsRegistering(false); setActiveTab('perfil'); }}
+                    className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase mt-6"
+                  >
+                    Iniciar Sesión
+                  </button>
+                  <button
+                    onClick={() => { setIsRegistering(true); setActiveTab('perfil'); }}
+                    className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-zinc-600 text-zinc-300 py-3 text-sm font-bold rounded-xl transition mt-3 active:scale-[0.99]"
+                  >
+                    Crear Cuenta
+                  </button>
                 </div>
-                <span className="bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs px-2.5 py-1 rounded-lg font-mono">
-                  {leaderboard.length} Jugadores
-                </span>
-              </div>
+              ) : user.tipo === 'externo' ? (
+                /* Restricted access for external users */
+                <div className="w-full max-w-md mx-auto bg-zinc-900/55 backdrop-blur-md border border-zinc-800 rounded-3xl p-8 shadow-2xl relative z-10 animate-fade-in my-8 text-center flex flex-col items-center">
+                  <div className="h-16 w-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-inner">
+                    🚫
+                  </div>
+                  <h2 className="text-xl font-black text-zinc-100 uppercase tracking-wider">Acceso Denegado</h2>
+                  <p className="text-zinc-400 text-sm mt-2">
+                    La clasificación general no está habilitada para usuarios externos.
+                  </p>
+                </div>
+              ) : (() => {
+                const availableCompanies = getAvailableCompanies();
+                const filteredLeaderboard = leaderboard.filter(row => {
+                  if (!selectedCompanyId) return false;
+                  return (row.companies || []).some((c: any) => c.id === selectedCompanyId);
+                });
 
-              {/* Pozo Acumulado */}
-              {leaderboard.length > 0 && (
-                <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
-                  <div>
-                    <div className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Pozo Acumulado</div>
-                    <div className="text-2xl font-black text-yellow-500 font-mono mt-0.5">
-                      Bs. {(leaderboard.length * 150).toLocaleString('es-BO')}
+                if (availableCompanies.length === 0) {
+                  return (
+                    <div className="text-center py-12 max-w-md mx-auto bg-zinc-900/20 border border-zinc-800/40 rounded-3xl p-8">
+                      <div className="text-4xl mb-4">🏢</div>
+                      <h3 className="text-base font-bold text-zinc-300">Sin Empresa Asignada</h3>
+                      <p className="text-zinc-500 text-xs mt-2">
+                        Tu usuario no tiene ninguna empresa asignada. Por favor, solicita a un administrador que te asigne a tu empresa para ver el ranking.
+                      </p>
                     </div>
-                    <div className="text-[10px] text-zinc-500 mt-0.5">{leaderboard.length} participantes × Bs. 150</div>
-                  </div>
-                  <div className="text-4xl">🏆</div>
-                </div>
-              )}
+                  );
+                }
 
-              {/* Medals Podium Pods */}
-              <div className="grid grid-cols-3 gap-4 pt-2 max-w-xl mx-auto">
-                {/* 2nd place */}
-                {leaderboard[1] && (
-                  <div className="glass-card rounded-xl p-4 text-center flex flex-col items-center justify-between order-1 shadow-md">
-                    <div className="text-3xl">🥈</div>
-                    <div className="text-xs font-bold text-zinc-300 truncate w-full mt-2">{leaderboard[1].nombre}</div>
-                    <div className="text-amber-500 font-extrabold text-base font-mono mt-1">{leaderboard[1].puntos_totales} pts</div>
-                    <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{leaderboard[1].exactos} exactos</div>
-                  </div>
-                )}
-
-                {/* 1st place */}
-                {leaderboard[0] && (
-                  <div className="glass-card border-2 border-yellow-500/50 rounded-xl p-5 text-center flex flex-col items-center justify-between order-2 relative shadow-[0_0_24px_rgba(255,209,101,0.2)] scale-105">
-                    <span className="absolute top-[-10px] bg-yellow-500 text-zinc-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow">
-                      Líder
-                    </span>
-                    <div className="text-4xl animate-bounce">🥇</div>
-                    <div className="text-sm font-black text-zinc-100 truncate w-full mt-2">{leaderboard[0].nombre}</div>
-                    <div className="text-yellow-500 font-black text-lg font-mono mt-1">{leaderboard[0].puntos_totales} pts</div>
-                    <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{leaderboard[0].exactos} exactos</div>
-                  </div>
-                )}
-
-                {/* 3rd place */}
-                {leaderboard[2] && (
-                  <div className="glass-card rounded-xl p-4 text-center flex flex-col items-center justify-between order-3 shadow-md">
-                    <div className="text-3xl">🥉</div>
-                    <div className="text-xs font-bold text-zinc-300 truncate w-full mt-2">{leaderboard[2].nombre}</div>
-                    <div className="text-amber-700 font-extrabold text-base font-mono mt-1">{leaderboard[2].puntos_totales} pts</div>
-                    <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{leaderboard[2].exactos} exactos</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Ranking list table */}
-              <div className="glass-card border border-zinc-800/40 rounded-xl overflow-hidden mt-6 max-w-3xl mx-auto shadow-2xl">
-                <div className="divide-y divide-zinc-900 text-sm">
-                  {leaderboard.map((row, index) => {
-                    const isMe = user?.id === row.user_id;
-
-                    return (
-                      <div 
-                        key={row.user_id} 
-                        className={`flex items-center justify-between p-5 transition ${
-                          isMe ? 'bg-yellow-500/5 border-l-4 border-yellow-500 font-bold' : 'hover:bg-zinc-900/20'
-                        }`}
-                      >
-                        {/* Left Block Position & Name */}
-                        <div className="flex items-center gap-4">
-                          <span className="font-bold text-zinc-400 w-6 font-mono text-center">#{index + 1}</span>
-                          <div className="flex items-center gap-3">
-                            <img src={row.avatar} className="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-950 shadow" alt="avatar" />
-                            <div>
-                              <div className="text-zinc-200 text-sm flex items-center gap-2 flex-wrap">
-                                <span>{row.nombre}</span>
-                                {isMe && <span className="bg-yellow-500 text-zinc-950 font-black text-[9px] px-1 rounded uppercase">Yo</span>}
-                                {(row.companies || []).map((c: any) => (
-                                  <span key={c.id} className="text-[9px] px-2 py-0.5 rounded-full border font-bold"
-                                    style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '18' }}>
-                                    {c.nombre}
-                                  </span>
-                                ))}
-                              </div>
-                              <div className="text-[10px] text-zinc-500 tracking-wider uppercase font-mono">{row.tipo}</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Right Block Points and Trends */}
-                        <div className="flex items-center gap-6">
-                          <div className="text-right">
-                            <div className="font-extrabold text-sm text-zinc-100 font-mono">{row.puntos_totales} pts</div>
-                            <div className="text-[10px] text-zinc-500 font-mono">{row.exactos} exactos</div>
-                          </div>
-
-                          {/* Trend arrows */}
-                          <div className="w-12 flex justify-center">
-                            {row.tendencia === 'up' && (
-                              <span className="flex items-center gap-0.5 text-green-500 text-xs font-black">
-                                <ArrowUp className="w-3.5 h-3.5" /> ▲
-                              </span>
-                            )}
-                            {row.tendencia === 'down' && (
-                              <span className="flex items-center gap-0.5 text-red-500 text-xs font-black animate-pulse">
-                                <ArrowDown className="w-3.5 h-3.5" /> ▼
-                              </span>
-                            )}
-                            {row.tendencia === 'same' && (
-                              <span className="text-zinc-600 text-[10px]">
-                                <Circle className="w-2.5 h-2.5" />
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
+                return (
+                  <>
+                    {/* Top Leaderboard Title */}
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Trophy className="w-5 h-5 text-yellow-500" />
+                        <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Clasificación General</h2>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                      <span className="bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs px-2.5 py-1 rounded-lg font-mono">
+                        {filteredLeaderboard.length} Jugadores
+                      </span>
+                    </div>
+
+                    {/* Company selector (visible only if there are more than 1) */}
+                    {availableCompanies.length > 1 && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-zinc-900/35 border border-zinc-800/60 rounded-2xl p-4 max-w-3xl mx-auto shadow-md">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-zinc-400" />
+                          <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Filtrar por Empresa:</span>
+                        </div>
+                        <select
+                          value={selectedCompanyId || ''}
+                          onChange={(e) => setSelectedCompanyId(Number(e.target.value) || null)}
+                          className="bg-zinc-950 border border-zinc-800 text-zinc-300 text-xs rounded-xl px-4 py-2 focus:outline-none focus:ring-1 focus:ring-yellow-500 cursor-pointer w-full sm:w-auto font-bold"
+                        >
+                          {availableCompanies.map((c: any) => (
+                            <option key={c.id} value={c.id}>
+                              {c.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Pozo Acumulado */}
+                    {filteredLeaderboard.length > 0 && (
+                      <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
+                        <div>
+                          <div className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Pozo Acumulado</div>
+                          <div className="text-2xl font-black text-yellow-500 font-mono mt-0.5">
+                            Bs. {(filteredLeaderboard.length * 150).toLocaleString('es-BO')}
+                          </div>
+                          <div className="text-[10px] text-zinc-500 mt-0.5">{filteredLeaderboard.length} participantes × Bs. 150</div>
+                        </div>
+                        <div className="text-4xl">🏆</div>
+                      </div>
+                    )}
+
+                    {/* Medals Podium Pods */}
+                    <div className="grid grid-cols-3 gap-4 pt-2 max-w-xl mx-auto">
+                      {/* 2nd place */}
+                      {filteredLeaderboard[1] && (
+                        <div className="glass-card rounded-xl p-4 text-center flex flex-col items-center justify-between order-1 shadow-md">
+                          <div className="text-3xl">🥈</div>
+                          <div className="text-xs font-bold text-zinc-300 truncate w-full mt-2">{filteredLeaderboard[1].nombre}</div>
+                          <div className="text-amber-500 font-extrabold text-base font-mono mt-1">{filteredLeaderboard[1].puntos_totales} pts</div>
+                          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{filteredLeaderboard[1].exactos} exactos</div>
+                        </div>
+                      )}
+
+                      {/* 1st place */}
+                      {filteredLeaderboard[0] && (
+                        <div className="glass-card border-2 border-yellow-500/50 rounded-xl p-5 text-center flex flex-col items-center justify-between order-2 relative shadow-[0_0_24px_rgba(255,209,101,0.2)] scale-105">
+                          <span className="absolute top-[-10px] bg-yellow-500 text-zinc-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow">
+                            Líder
+                          </span>
+                          <div className="text-4xl animate-bounce">🥇</div>
+                          <div className="text-sm font-black text-zinc-100 truncate w-full mt-2">{filteredLeaderboard[0].nombre}</div>
+                          <div className="text-yellow-500 font-black text-lg font-mono mt-1">{filteredLeaderboard[0].puntos_totales} pts</div>
+                          <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{filteredLeaderboard[0].exactos} exactos</div>
+                        </div>
+                      )}
+
+                      {/* 3rd place */}
+                      {filteredLeaderboard[2] && (
+                        <div className="glass-card rounded-xl p-4 text-center flex flex-col items-center justify-between order-3 shadow-md">
+                          <div className="text-3xl">🥉</div>
+                          <div className="text-xs font-bold text-zinc-300 truncate w-full mt-2">{filteredLeaderboard[2].nombre}</div>
+                          <div className="text-amber-700 font-extrabold text-base font-mono mt-1">{filteredLeaderboard[2].puntos_totales} pts</div>
+                          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{filteredLeaderboard[2].exactos} exactos</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ranking list table */}
+                    <div className="glass-card border border-zinc-800/40 rounded-xl overflow-hidden mt-6 max-w-3xl mx-auto shadow-2xl">
+                      <div className="divide-y divide-zinc-900 text-sm">
+                        {filteredLeaderboard.map((row, index) => {
+                          const isMe = user?.id === row.user_id;
+
+                          return (
+                            <div 
+                              key={row.user_id} 
+                              className={`flex items-center justify-between p-5 transition ${
+                                isMe ? 'bg-yellow-500/5 border-l-4 border-yellow-500 font-bold' : 'hover:bg-zinc-900/20'
+                              }`}
+                            >
+                              {/* Left Block Position & Name */}
+                              <div className="flex items-center gap-4">
+                                <span className="font-bold text-zinc-400 w-6 font-mono text-center">#{index + 1}</span>
+                                <div className="flex items-center gap-3">
+                                  <img src={row.avatar} className="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-950 shadow" alt="avatar" />
+                                  <div>
+                                    <div className="text-zinc-200 text-sm flex items-center gap-2 flex-wrap">
+                                      <span>{row.nombre}</span>
+                                      {isMe && <span className="bg-yellow-500 text-zinc-950 font-black text-[9px] px-1 rounded uppercase">Yo</span>}
+                                      {(row.companies || []).map((c: any) => (
+                                        <span key={c.id} className="text-[9px] px-2 py-0.5 rounded-full border font-bold"
+                                          style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '18' }}>
+                                          {c.nombre}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <div className="text-[10px] text-zinc-500 tracking-wider uppercase font-mono">{row.tipo}</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Right Block Points and Trends */}
+                              <div className="flex items-center gap-6">
+                                <div className="text-right">
+                                  <div className="font-extrabold text-sm text-zinc-100 font-mono">{row.puntos_totales} pts</div>
+                                  <div className="text-[10px] text-zinc-500 font-mono">{row.exactos} exactos</div>
+                                </div>
+
+                                {/* Trend arrows */}
+                                <div className="w-12 flex justify-center">
+                                  {row.tendencia === 'up' && (
+                                    <span className="flex items-center gap-0.5 text-green-500 text-xs font-black">
+                                      <ArrowUp className="w-3.5 h-3.5" /> ▲
+                                    </span>
+                                  )}
+                                  {row.tendencia === 'down' && (
+                                    <span className="flex items-center gap-0.5 text-red-500 text-xs font-black animate-pulse">
+                                      <ArrowDown className="w-3.5 h-3.5" /> ▼
+                                    </span>
+                                  )}
+                                  {row.tendencia === 'same' && (
+                                    <span className="text-zinc-600 text-[10px]">
+                                      <Circle className="w-2.5 h-2.5" />
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </section>
           )}
 

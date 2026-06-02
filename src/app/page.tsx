@@ -204,7 +204,9 @@ export default function PWAAppPage() {
       return;
     }
     if (!user.aprobado) {
-      showToast('⚠️ Tu cuenta está pendiente de aprobación por el administrador para participar.');
+      showToast(user.denegado
+        ? '🚫 Tu solicitud fue denegada. Contacta al administrador.'
+        : '⚠️ Tu cuenta está pendiente de aprobación por el administrador.');
       return;
     }
     setBetModalMatch(m);
@@ -1207,27 +1209,55 @@ export default function PWAAppPage() {
     }
   };
 
-  // Admin Toggle User Approval
-  const handleToggleUserApproval = async (userId: number, currentApproved: boolean) => {
+  const handleApproveUser = async (userId: number) => {
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, aprobado: !currentApproved })
+        body: JSON.stringify({ action: 'approve', userId }),
       });
-
       if (res.ok) {
-        setAdminUsers((prev) =>
-          prev.map((u) => (u.id === userId ? { ...u, aprobado: !currentApproved } : u))
-        );
-        showToast(`Usuario ${!currentApproved ? 'aprobado' : 'desaprobado'} para participar`);
+        const d = await res.json();
+        setAdminUsers((prev) => prev.map((u) => u.id === userId ? { ...u, ...d.user } : u));
+        showToast('✅ Usuario aprobado para participar');
       } else {
-        const data = await res.json();
-        showToast(data.error || 'Error al cambiar aprobación del usuario');
+        const d = await res.json(); showToast(d.error || 'Error');
       }
-    } catch (e) {
-      showToast('Error de red');
-    }
+    } catch { showToast('Error de red'); }
+  };
+
+  const handleDenyUser = async (userId: number) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deny', userId }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setAdminUsers((prev) => prev.map((u) => u.id === userId ? { ...u, ...d.user } : u));
+        showToast('🚫 Solicitud denegada');
+      } else {
+        const d = await res.json(); showToast(d.error || 'Error');
+      }
+    } catch { showToast('Error de red'); }
+  };
+
+  const handleSetPending = async (userId: number) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_pending', userId }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setAdminUsers((prev) => prev.map((u) => u.id === userId ? { ...u, ...d.user } : u));
+        showToast('⏳ Usuario puesto en espera nuevamente');
+      } else {
+        const d = await res.json(); showToast(d.error || 'Error');
+      }
+    } catch { showToast('Error de red'); }
   };
 
   // Admin Recalculate Leaderboard
@@ -3217,21 +3247,33 @@ export default function PWAAppPage() {
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                           : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20 animate-pulse'
                       }`}>
-                        {user.aprobado ? '✅ Cuenta Aprobada' : '⏳ Pendiente de Aprobación'}
+                        {user.aprobado ? '✅ Cuenta Aprobada' : user.denegado ? '🚫 Solicitud Denegada' : '⏳ Pendiente de Aprobación'}
                       </span>
                     )}
                   </div>
 
                   {!user.aprobado && user.tipo !== 'admin' && user.tipo !== 'superadmin' && (
-                    <div className="bg-yellow-500/5 border border-yellow-500/25 rounded-2xl p-5 mb-6 flex gap-3 text-xs text-yellow-400 font-semibold shadow-lg border-dashed">
-                      <span className="text-xl animate-bounce">⚠️</span>
-                      <div className="space-y-1 flex-1">
-                        <p className="font-extrabold uppercase text-[10px] tracking-wider text-yellow-500">Participación Pendiente de Aprobación</p>
-                        <p className="text-zinc-400 leading-relaxed text-[11px] font-medium">
-                          Tu registro fue exitoso pero el administrador aún debe aprobar tu cuenta antes de que puedas guardar pronósticos (apuestas). Mientras tanto, eres libre de explorar partidos, fixture y clasificaciones públicas.
-                        </p>
+                    user.denegado ? (
+                      <div className="bg-red-500/5 border border-red-500/25 rounded-2xl p-5 mb-6 flex gap-3 text-xs font-semibold shadow-lg border-dashed">
+                        <span className="text-xl">🚫</span>
+                        <div className="space-y-1 flex-1">
+                          <p className="font-extrabold uppercase text-[10px] tracking-wider text-red-400">Solicitud Denegada</p>
+                          <p className="text-zinc-400 leading-relaxed text-[11px] font-medium">
+                            Tu solicitud de participación no fue aprobada. Si crees que es un error, contacta al administrador para que pueda revisar tu caso.
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="bg-yellow-500/5 border border-yellow-500/25 rounded-2xl p-5 mb-6 flex gap-3 text-xs text-yellow-400 font-semibold shadow-lg border-dashed">
+                        <span className="text-xl animate-bounce">⚠️</span>
+                        <div className="space-y-1 flex-1">
+                          <p className="font-extrabold uppercase text-[10px] tracking-wider text-yellow-500">Participación Pendiente de Aprobación</p>
+                          <p className="text-zinc-400 leading-relaxed text-[11px] font-medium">
+                            Tu registro fue exitoso pero el administrador aún debe aprobar tu cuenta antes de que puedas guardar pronósticos. Mientras tanto, puedes explorar partidos, fixture y clasificaciones.
+                          </p>
+                        </div>
+                      </div>
+                    )
                   )}
 
               {/* Interactive Profile Editor Card */}
@@ -3594,6 +3636,59 @@ export default function PWAAppPage() {
                   </div>
                 </form>
 
+                {/* ── SOLICITUDES PENDIENTES ── */}
+                {(() => {
+                  const pendientes = adminUsers.filter(u => !u.aprobado && !u.denegado && u.tipo !== 'admin' && u.tipo !== 'superadmin' && u.id !== user.id);
+                  if (pendientes.length === 0) return null;
+                  return (
+                    <div className="space-y-2 max-w-4xl">
+                      <div className="flex items-center gap-2 text-[10px] font-black text-yellow-500 uppercase tracking-widest">
+                        <span className="h-2 w-2 rounded-full bg-yellow-500 animate-ping inline-block"></span>
+                        Solicitudes Pendientes ({pendientes.length})
+                      </div>
+                      <div className="border border-yellow-500/20 bg-yellow-500/3 divide-y divide-yellow-500/10 rounded-2xl overflow-hidden">
+                        {pendientes.map((u) => (
+                          <div key={u.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img src={u.avatar} className="w-10 h-10 rounded-full bg-zinc-950 border border-zinc-800 flex-shrink-0" alt="avatar" />
+                              <div className="min-w-0">
+                                <div className="font-bold text-sm text-zinc-200 truncate">{u.nombre}</div>
+                                <div className="text-[9px] text-zinc-500 font-mono">{u.email}{u.telefono && ` · 📱 ${u.telefono}`}</div>
+                                <div className="text-[8px] text-zinc-600 font-mono">{new Date(u.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+                              {/* Asignar empresa antes de aprobar */}
+                              {companies.length > 0 && (
+                                <div className="flex gap-1 flex-wrap max-w-[180px]">
+                                  {companies.filter((c) => user.tipo === 'superadmin' || (user.companies || []).some((ac: any) => ac.id === c.id)).map((c) => {
+                                    const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
+                                    return (
+                                      <button key={c.id} onClick={() => handleToggleUserCompany(u.id, c.id, isMember)}
+                                        className={`text-[9px] px-2 py-1 rounded-full border font-bold transition ${isMember ? 'opacity-100' : 'opacity-30 hover:opacity-70'}`}
+                                        style={{ color: c.color, borderColor: c.color + '60', backgroundColor: isMember ? c.color + '20' : 'transparent' }}
+                                        title={isMember ? `Quitar de ${c.nombre}` : `Agregar a ${c.nombre}`}>
+                                        {c.nombre}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              <button onClick={() => handleApproveUser(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20">
+                                <Check className="w-3.5 h-3.5" /> Aprobar
+                              </button>
+                              <button onClick={() => handleDenyUser(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20">
+                                <X className="w-3.5 h-3.5" /> Denegar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── TODOS LOS USUARIOS ── */}
                 <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-black pt-2">
                   {user.tipo === 'superadmin' ? `Todos los usuarios (${adminUsers.length})` : `Usuarios de mi empresa (${adminUsers.filter(u => u.id !== user.id).length})`}
                 </div>
@@ -3605,6 +3700,7 @@ export default function PWAAppPage() {
                         <div className="min-w-0">
                           <div className="font-bold text-sm text-zinc-200 flex items-center gap-2 flex-wrap">
                             <span className="truncate">{u.nombre}</span>
+                            {u.denegado && <span className="text-[8px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-black uppercase flex-shrink-0">Denegado</span>}
                             {(u.companies || []).map((c: any) => (
                               <span key={c.id} className="text-[9px] px-2 py-0.5 rounded-full border font-bold flex-shrink-0"
                                 style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '18' }}>
@@ -3618,24 +3714,15 @@ export default function PWAAppPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-                        {/* Company assignment — superadmin or company admin */}
                         {(user.tipo === 'superadmin' || user.tipo === 'admin') && u.id !== user.id && companies.length > 0 && (
                           <div className="flex gap-1 flex-wrap max-w-[200px]">
-                            {companies
-                              .filter((c) => {
-                                if (user.tipo === 'superadmin') return true;
-                                return (user.companies || []).some((ac: any) => ac.id === c.id);
-                              })
-                              .map((c) => {
-                                const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
+                            {companies.filter((c) => user.tipo === 'superadmin' || (user.companies || []).some((ac: any) => ac.id === c.id)).map((c) => {
+                              const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
                               return (
-                                <button
-                                  key={c.id}
-                                  onClick={() => handleToggleUserCompany(u.id, c.id, isMember)}
+                                <button key={c.id} onClick={() => handleToggleUserCompany(u.id, c.id, isMember)}
                                   className={`text-[9px] px-2 py-1 rounded-full border font-bold transition ${isMember ? 'opacity-100' : 'opacity-30 hover:opacity-70'}`}
                                   style={{ color: c.color, borderColor: c.color + '60', backgroundColor: isMember ? c.color + '20' : 'transparent' }}
-                                  title={isMember ? `Quitar de ${c.nombre}` : `Agregar a ${c.nombre}`}
-                                >
+                                  title={isMember ? `Quitar de ${c.nombre}` : `Agregar a ${c.nombre}`}>
                                   {c.nombre}
                                 </button>
                               );
@@ -3645,9 +3732,24 @@ export default function PWAAppPage() {
                         {u.id !== user.id ? (
                           <>
                             {u.tipo !== 'admin' && u.tipo !== 'superadmin' && (
-                              <button onClick={() => handleToggleUserApproval(u.id, u.aprobado)} className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.aprobado ? 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border border-yellow-500/20' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border border-zinc-700'}`}>
-                                {u.aprobado ? <><Check className="w-3.5 h-3.5" /> Aprobado</> : <><Lock className="w-3.5 h-3.5 text-zinc-500 animate-pulse" /> Aprobar</>}
-                              </button>
+                              u.denegado ? (
+                                <button onClick={() => handleSetPending(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border border-zinc-700">
+                                  <RefreshCw className="w-3.5 h-3.5" /> Poner en Espera
+                                </button>
+                              ) : u.aprobado ? (
+                                <button onClick={() => handleSetPending(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border border-yellow-500/20">
+                                  <Check className="w-3.5 h-3.5" /> Aprobado
+                                </button>
+                              ) : (
+                                <>
+                                  <button onClick={() => handleApproveUser(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20">
+                                    <Check className="w-3.5 h-3.5" /> Aprobar
+                                  </button>
+                                  <button onClick={() => handleDenyUser(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20">
+                                    <X className="w-3.5 h-3.5" /> Denegar
+                                  </button>
+                                </>
+                              )
                             )}
                             <button onClick={() => handleToggleUserStatus(u.id, u.activo)} className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.activo ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'}`}>
                               {u.activo ? <><UserX className="w-3.5 h-3.5" /> Desactivar</> : <><UserCheck className="w-3.5 h-3.5" /> Activar</>}

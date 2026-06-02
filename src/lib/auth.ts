@@ -9,6 +9,7 @@ export interface UserSession {
   tipo: 'interno' | 'externo' | 'admin' | 'superadmin';
   avatar: string;
   aprobado: boolean;
+  denegado: boolean;
 }
 
 const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12h
@@ -35,7 +36,7 @@ export async function getSessionUser(): Promise<UserSession | null> {
     if (!payload.id) return null;
 
     const res = await pool.query(
-      'SELECT id, nombre, email, tipo, avatar, activo, aprobado FROM users WHERE id = $1',
+      'SELECT id, nombre, email, tipo, avatar, activo, aprobado, denegado FROM users WHERE id = $1',
       [payload.id]
     );
 
@@ -48,6 +49,7 @@ export async function getSessionUser(): Promise<UserSession | null> {
       tipo: res.rows[0].tipo,
       avatar: res.rows[0].avatar,
       aprobado: !!res.rows[0].aprobado,
+      denegado: !!res.rows[0].denegado,
     };
   } catch {
     return null;

@@ -15,7 +15,7 @@ export async function GET() {
     let res;
     if (user.tipo === 'superadmin') {
       res = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.created_at, u.telefono,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -24,12 +24,12 @@ export async function GET() {
          LEFT JOIN user_companies uc ON uc.user_id = u.id
          LEFT JOIN companies c ON c.id = uc.company_id
          GROUP BY u.id
-         ORDER BY u.id ASC`
+         ORDER BY u.aprobado ASC, u.denegado ASC, u.id ASC`
       );
     } else {
       // Company admin: only users in shared companies OR users with no company assigned (pending approval)
       res = await pool.query(
-        `SELECT DISTINCT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.created_at, u.telefono,
+        `SELECT DISTINCT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -65,6 +65,39 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { action } = body;
+
+    if (action === 'approve') {
+      const { userId: targetId } = body;
+      if (!targetId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
+      const r = await pool.query(
+        `UPDATE users SET aprobado = true, denegado = false WHERE id = $1
+         RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`,
+        [targetId]
+      );
+      return NextResponse.json({ success: true, user: r.rows[0] });
+    }
+
+    if (action === 'deny') {
+      const { userId: targetId } = body;
+      if (!targetId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
+      const r = await pool.query(
+        `UPDATE users SET aprobado = false, denegado = true WHERE id = $1
+         RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`,
+        [targetId]
+      );
+      return NextResponse.json({ success: true, user: r.rows[0] });
+    }
+
+    if (action === 'set_pending') {
+      const { userId: targetId } = body;
+      if (!targetId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
+      const r = await pool.query(
+        `UPDATE users SET aprobado = false, denegado = false WHERE id = $1
+         RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`,
+        [targetId]
+      );
+      return NextResponse.json({ success: true, user: r.rows[0] });
+    }
 
     if (action === 'assignCompany') {
       // Toggle: add if not member, remove if already member

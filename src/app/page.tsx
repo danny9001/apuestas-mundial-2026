@@ -1911,7 +1911,7 @@ export default function PWAAppPage() {
                           <div className="flex flex-col items-center flex-1">
                             <div className="countdown-digit-block w-full h-16 rounded-xl flex items-center justify-center font-mono font-black text-2xl select-none relative overflow-hidden group-hover:scale-105 transition-all duration-300">
                               <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-black/80 z-10"></div>
-                              <span className="countdown-digit-value font-extrabold animate-pulse">
+                              <span className="countdown-digit-value font-extrabold">
                                 {String(item.value).padStart(2, '0')}
                               </span>
                             </div>

@@ -1883,15 +1883,15 @@ export default function PWAAppPage() {
                 {/* Animated countdown & where to watch wrapper */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   {/* Countdown Timer */}
-                  <div className="lg:col-span-5 flex flex-col justify-between bg-zinc-950/80 border border-yellow-500/30 rounded-3xl p-5 shadow-[0_0_25px_rgba(234,179,8,0.12)] relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-amber-500/5 to-transparent animate-pulse pointer-events-none"></div>
-                    <div className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <div className="countdown-scoreboard lg:col-span-5 flex flex-col justify-between border border-yellow-500/25 rounded-3xl p-5 relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/3 via-transparent to-transparent pointer-events-none"></div>
+                    <div className="countdown-header text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full bg-red-500 animate-ping"></span>
                       <span className="h-2 w-2 rounded-full bg-red-500 absolute"></span>
                       {countdownMatch ? (
                         <span className="flex items-center gap-1.5 min-w-0">
                           <span>PRÓXIMO PARTIDO:</span>
-                          <span className="text-zinc-100 flex items-center gap-1 min-w-0 truncate">
+                          <span className="countdown-match-name flex items-center gap-1 min-w-0 truncate">
                             {getTeamFlag(countdownMatch.local)} <span className="truncate">{countdownMatch.local}</span> vs {getTeamFlag(countdownMatch.visitante)} <span className="truncate">{countdownMatch.visitante}</span>
                           </span>
                         </span>
@@ -1899,7 +1899,7 @@ export default function PWAAppPage() {
                         'INICIO DEL MUNDIAL 2026'
                       )}
                     </div>
-                    
+
                     <div className="flex items-center justify-between gap-3 py-2 relative z-10">
                       {[
                         { label: 'DÍAS', value: kickoffTimeLeft.days },
@@ -1909,16 +1909,16 @@ export default function PWAAppPage() {
                       ].map((item, idx) => (
                         <React.Fragment key={item.label}>
                           <div className="flex flex-col items-center flex-1">
-                            <div className="w-full h-16 bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl flex items-center justify-center font-mono font-black text-2xl text-yellow-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] select-none relative overflow-hidden group-hover:scale-105 transition-all duration-300">
+                            <div className="countdown-digit-block w-full h-16 rounded-xl flex items-center justify-center font-mono font-black text-2xl select-none relative overflow-hidden group-hover:scale-105 transition-all duration-300">
                               <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-black/80 z-10"></div>
-                              <span className="drop-shadow-[0_2px_8px_rgba(234,179,8,0.4)] text-yellow-400 font-extrabold animate-pulse">
+                              <span className="countdown-digit-value font-extrabold animate-pulse">
                                 {String(item.value).padStart(2, '0')}
                               </span>
                             </div>
-                            <span className="text-[8.5px] text-yellow-500/80 font-black uppercase tracking-widest mt-1.5">{item.label}</span>
+                            <span className="countdown-label text-[8.5px] font-black uppercase tracking-widest mt-1.5">{item.label}</span>
                           </div>
                           {idx < 3 && (
-                            <span className="text-yellow-500 font-mono font-black text-xl select-none animate-pulse -translate-y-2">:</span>
+                            <span className="countdown-separator font-mono font-black text-xl select-none animate-pulse -translate-y-2">:</span>
                           )}
                         </React.Fragment>
                       ))}

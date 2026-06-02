@@ -63,60 +63,47 @@ export async function POST(req: NextRequest) {
 
     // Check if the request is a batch array
     if (Array.isArray(body)) {
+      const valid = body.filter(
+        (i) => i.matchId !== undefined && i.predLocal !== undefined && i.predVisitante !== undefined
+      );
+      if (valid.length === 0) return NextResponse.json({ success: true, results: [], errors: [] });
+
+      const matchIds = valid.map((i) => i.matchId);
+      const now = new Date();
+
+      // 1 query para todos los partidos + 1 query para predicciones existentes (en paralelo)
+      const [matchesRes, existingRes] = await Promise.all([
+        pool.query(
+          `SELECT id, fecha, estado FROM matches WHERE id = ANY($1::int[])`,
+          [matchIds]
+        ),
+        pool.query(
+          `SELECT match_id FROM predictions WHERE user_id = $1 AND match_id = ANY($2::int[])`,
+          [user.id, matchIds]
+        ),
+      ]);
+
+      const matchMap = new Map(matchesRes.rows.map((m: { id: number; fecha: string; estado: string }) => [m.id, m]));
+      const existingSet = new Set(existingRes.rows.map((r: { match_id: number }) => r.match_id));
+
       const results = [];
       const errors = [];
 
-      for (const item of body) {
+      for (const item of valid) {
         const { matchId, predLocal, predVisitante } = item;
-        if (matchId === undefined || predLocal === undefined || predVisitante === undefined) {
-          continue;
+        const match = matchMap.get(matchId);
+        if (!match) { errors.push({ matchId, error: 'Partido no encontrado' }); continue; }
+        if (match.estado !== 'upcoming' || now >= new Date(match.fecha)) {
+          errors.push({ matchId, error: 'Apuestas cerradas' }); continue;
+        }
+        if (existingSet.has(matchId)) {
+          errors.push({ matchId, error: 'La apuesta ya ha sido confirmada y no se puede modificar.' }); continue;
         }
 
-        // Check match validity and kickoff time
-        const matchRes = await pool.query(
-          'SELECT fecha, estado FROM matches WHERE id = $1',
-          [matchId]
+        const res = await pool.query(
+          `INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante) VALUES ($1, $2, $3, $4) RETURNING *`,
+          [user.id, matchId, parseInt(predLocal), parseInt(predVisitante)]
         );
-
-        if (matchRes.rows.length === 0) {
-          errors.push({ matchId, error: 'Partido no encontrado' });
-          continue;
-        }
-
-        const match = matchRes.rows[0];
-        const now = new Date();
-        const matchTime = new Date(match.fecha);
-
-        if (match.estado !== 'upcoming' || now >= matchTime) {
-          errors.push({ matchId, error: 'Apuestas cerradas' });
-          continue;
-        }
-
-        // Check if prediction already exists for this user and match
-        const existingPredRes = await pool.query(
-          'SELECT id FROM predictions WHERE user_id = $1 AND match_id = $2',
-          [user.id, matchId]
-        );
-
-        if (existingPredRes.rows.length > 0) {
-          errors.push({ matchId, error: 'La apuesta ya ha sido confirmada y no se puede modificar.' });
-          continue;
-        }
-
-        // Insert prediction
-        const insertQuery = `
-          INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante)
-          VALUES ($1, $2, $3, $4)
-          RETURNING *
-        `;
-
-        const res = await pool.query(insertQuery, [
-          user.id,
-          matchId,
-          parseInt(predLocal),
-          parseInt(predVisitante)
-        ]);
-
         results.push(res.rows[0]);
       }
 

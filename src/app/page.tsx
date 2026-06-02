@@ -175,6 +175,17 @@ export default function PWAAppPage() {
   const [betSubmitting, setBetSubmitting] = useState(false);
   const [betError, setBetError] = useState('');
 
+  const openBetModalForMatch = (m: any) => {
+    if (!user) {
+      setActiveTab('perfil');
+      showToast('🔑 Por favor, inicia sesión para realizar tu apuesta.');
+      return;
+    }
+    setBetModalMatch(m);
+    setBetPredLocal(0);
+    setBetPredVisitante(0);
+  };
+
   // Admin Match Editor Modal
   const [adminMatchModal, setAdminMatchModal] = useState<any | null>(null);
   const [adminGolesLocal, setAdminGolesLocal] = useState<number>(0);
@@ -253,7 +264,6 @@ export default function PWAAppPage() {
 
   // Fetch App Data
   const fetchAppData = async () => {
-    if (!user) return;
     setDataLoading(true);
     try {
       // Fetch Matches
@@ -263,11 +273,15 @@ export default function PWAAppPage() {
         setMatches(mData);
       }
 
-      // Fetch Predictions
-      const pRes = await fetch(`/api/predictions?t=${Date.now()}`);
-      if (pRes.ok) {
-        const pData = await pRes.json();
-        setPredictions(pData);
+      // Fetch Predictions (only if logged in)
+      if (user) {
+        const pRes = await fetch(`/api/predictions?t=${Date.now()}`);
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          setPredictions(pData);
+        }
+      } else {
+        setPredictions([]);
       }
 
       // Fetch Leaderboard
@@ -278,7 +292,7 @@ export default function PWAAppPage() {
       }
 
       // Fetch Users if Admin
-      if (user.tipo === 'admin') {
+      if (user && user.tipo === 'admin') {
         const uRes = await fetch(`/api/admin/users?t=${Date.now()}`);
         if (uRes.ok) {
           const uData = await uRes.json();
@@ -579,48 +593,46 @@ export default function PWAAppPage() {
   }, [theme]);
 
   useEffect(() => {
-    if (user) {
-      fetchAppData();
+    fetchAppData();
 
-      // Realtime Listening via SSE
-      const sse = new EventSource('/api/realtime');
+    // Realtime Listening via SSE
+    const sse = new EventSource('/api/realtime');
 
-      sse.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
+    sse.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        
+        if (payload.type === 'match') {
+          // Update matches state instantly
+          setMatches((prev) =>
+            prev.map((m) => (m.id === payload.data.id ? { ...m, ...payload.data } : m))
+          );
+          showToast(`Partido actualizado: ${payload.data.local} vs ${payload.data.visitante}`);
           
-          if (payload.type === 'match') {
-            // Update matches state instantly
-            setMatches((prev) =>
-              prev.map((m) => (m.id === payload.data.id ? { ...m, ...payload.data } : m))
-            );
-            showToast(`Partido actualizado: ${payload.data.local} vs ${payload.data.visitante}`);
-            
-            // Re-fetch community bets if this match is currently opened in summary
-            if (summaryModalMatch && summaryModalMatch.id === payload.data.id) {
-              setSummaryModalMatch(payload.data);
-              fetchCommunityBets(payload.data.id);
-            }
-          } else if (payload.type === 'leaderboard') {
-            // Refetch leaderboard
-            fetch(`/api/leaderboard?t=${Date.now()}`)
-              .then((res) => res.json())
-              .then((lData) => setLeaderboard(lData));
-            showToast('¡La clasificación general ha cambiado!');
-          } else if (payload.type === 'goal') {
-            // ESPN live goal strobe
-            setGoalAlert(payload.data);
-            setTimeout(() => setGoalAlert(null), 5000);
+          // Re-fetch community bets if this match is currently opened in summary
+          if (summaryModalMatch && summaryModalMatch.id === payload.data.id) {
+            setSummaryModalMatch(payload.data);
+            fetchCommunityBets(payload.data.id);
           }
-        } catch (e) {
-          // Ignored parsing errors
+        } else if (payload.type === 'leaderboard') {
+          // Refetch leaderboard
+          fetch(`/api/leaderboard?t=${Date.now()}`)
+            .then((res) => res.json())
+            .then((lData) => setLeaderboard(lData));
+          showToast('¡La clasificación general ha cambiado!');
+        } else if (payload.type === 'goal') {
+          // ESPN live goal strobe
+          setGoalAlert(payload.data);
+          setTimeout(() => setGoalAlert(null), 5000);
         }
-      };
+      } catch (e) {
+        // Ignored parsing errors
+      }
+    };
 
-      return () => {
-        sse.close();
-      };
-    }
+    return () => {
+      sse.close();
+    };
   }, [user, summaryModalMatch]);
 
   // Actions
@@ -923,190 +935,7 @@ export default function PWAAppPage() {
     );
   }
 
-  // --- SPLASH LOGIN SCREEN ---
-  if (!user) {
-    return (
-      <main className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center px-6 py-12 relative overflow-hidden">
-        {/* Decorative backdrop gradients */}
-        <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full bg-yellow-500/10 blur-[120px] pointer-events-none"></div>
-        <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-amber-500/5 blur-[120px] pointer-events-none"></div>
 
-        <div className="w-full max-w-md bg-zinc-900/55 backdrop-blur-md border border-zinc-800 rounded-3xl p-8 shadow-2xl relative z-10">
-          
-          {/* Logo Splash */}
-          <div className="flex flex-col items-center text-center mb-6">
-            <div className="h-16 w-16 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-inner animate-pulse overflow-hidden p-1">
-              {appLogo.startsWith('/') || appLogo.startsWith('http') ? (
-                <img src={appLogo} className="h-full w-full object-contain rounded-xl" alt="logo" />
-              ) : (
-                <span>{appLogo}</span>
-              )}
-            </div>
-            <h1 className="text-2xl font-black tracking-wider text-zinc-100 uppercase">{appName}</h1>
-            <p className="text-zinc-400 text-xs tracking-widest uppercase mt-1">Plataforma de Apuestas y Quiniela</p>
-          </div>
-
-          {!isRegistering ? (
-            /* Login Form */
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
-                <input 
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ej: diego@mundial.com"
-                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña</label>
-                <input 
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Contraseña de acceso"
-                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
-                />
-              </div>
-
-              {loginError && (
-                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                  <span>{loginError}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loginLoading}
-                className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
-              >
-                {loginLoading ? 'Iniciando Sesión...' : 'Entrar a la Quiniela'}
-              </button>
-
-              {/* Passkey login button */}
-              <div className="relative flex items-center gap-2 my-1">
-                <div className="flex-1 h-px bg-zinc-800"></div>
-                <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">o</span>
-                <div className="flex-1 h-px bg-zinc-800"></div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handlePasskeyLogin}
-                disabled={passkeyLoading}
-                className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-zinc-600 text-zinc-300 py-3 text-sm font-bold rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.99]"
-              >
-                <span className="text-lg">🔑</span>
-                <span>{passkeyLoading ? 'Verificando...' : 'Entrar con Llave FIDO / Passkey'}</span>
-              </button>
-
-              {passkeyError && (
-                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                  <span>{passkeyError}</span>
-                </div>
-              )}
-
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => { setIsRegistering(true); setLoginError(''); }}
-                  className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
-                >
-                  ¿No tienes cuenta? Regístrate aquí
-                </button>
-              </div>
-            </form>
-          ) : (
-            /* Register Form */
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div>
-                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Nombre Completo</label>
-                <input 
-                  type="text"
-                  required
-                  value={registerNombre}
-                  onChange={(e) => setRegisterNombre(e.target.value)}
-                  placeholder="ej: Diego Armando"
-                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
-                <input 
-                  type="email"
-                  required
-                  value={registerEmail}
-                  onChange={(e) => setRegisterEmail(e.target.value)}
-                  placeholder="ej: diego@mundial.com"
-                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña (mín. 6 carac.)</label>
-                <input 
-                  type="password"
-                  required
-                  value={registerPassword}
-                  onChange={(e) => setRegisterPassword(e.target.value)}
-                  placeholder="Elige tu contraseña"
-                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Confirmar Contraseña</label>
-                <input 
-                  type="password"
-                  required
-                  value={registerConfirmPassword}
-                  onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-                  placeholder="Confirma tu contraseña"
-                  className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
-                />
-              </div>
-
-              {registerError && (
-                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                  <span>{registerError}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={registerLoading}
-                className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
-              >
-                {registerLoading ? 'Creando Cuenta...' : 'Registrarme ahora'}
-              </button>
-
-              <div className="text-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsRegistering(false);
-                    setRegisterError('');
-                  }}
-                  className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
-                >
-                  ¿Ya tienes cuenta? Inicia sesión aquí
-                </button>
-              </div>
-            </form>
-          )}
-
-        </div>
-      </main>
-    );
-  }
 
   // --- APP LAYOUT (AUTHENTICATED) ---
   return (
@@ -1187,7 +1016,7 @@ export default function PWAAppPage() {
               <span>Mi Perfil</span>
             </button>
 
-            {user.tipo === 'admin' && (
+            {user && user.tipo === 'admin' && (
               <button
                 onClick={() => setActiveTab('admin')}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
@@ -1213,27 +1042,45 @@ export default function PWAAppPage() {
             <span>📺 Pantalla TV Airport</span>
           </a>
           
-          <div className="bg-zinc-950/60 border border-zinc-850 p-3 rounded-xl flex items-center gap-3">
-            <img src={user.avatar} className="w-8 h-8 rounded-full border border-zinc-800 bg-zinc-900" alt="avatar" />
-            <div className="truncate flex-1">
-              <div className="text-xs font-bold text-zinc-300 truncate">{user.nombre}</div>
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">{user.tipo}</div>
+          {user ? (
+            <div className="bg-zinc-950/60 border border-zinc-850 p-3 rounded-xl flex items-center gap-3">
+              <img src={user.avatar} className="w-8 h-8 rounded-full border border-zinc-800 bg-zinc-900" alt="avatar" />
+              <div className="truncate flex-1">
+                <div className="text-xs font-bold text-zinc-300 truncate">{user.nombre}</div>
+                <div className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">{user.tipo}</div>
+              </div>
+              <button 
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                className="text-zinc-555 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
+                title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
+              >
+                {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="text-zinc-555 hover:text-red-400 p-1.5 transition flex-shrink-0"
+                title="Cerrar Sesión"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
-            <button 
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              className="text-zinc-500 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
-              title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
-            >
-              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            </button>
-            <button 
-              onClick={handleLogout}
-              className="text-zinc-500 hover:text-red-400 p-1.5 transition flex-shrink-0"
-              title="Cerrar Sesión"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
+          ) : (
+            <div className="bg-zinc-950/60 border border-zinc-850 p-3 rounded-xl flex justify-between items-center gap-2">
+              <button
+                onClick={() => setActiveTab('perfil')}
+                className="btn-primary-stitch w-full py-2.5 text-xs tracking-wider uppercase flex items-center justify-center gap-2"
+              >
+                <span>🔑 Iniciar Sesión</span>
+              </button>
+              <button 
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                className="text-zinc-555 hover:text-yellow-500 p-2 border border-zinc-850 bg-zinc-900/40 rounded-xl transition flex items-center justify-center flex-shrink-0"
+                title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
+              >
+                {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -1595,11 +1442,7 @@ export default function PWAAppPage() {
                                 <span className="text-[9px] text-zinc-500 italic">Sin apuesta</span>
                               ) : (
                                 <button
-                                  onClick={() => {
-                                    setBetModalMatch(m);
-                                    setBetPredLocal(0);
-                                    setBetPredVisitante(0);
-                                  }}
+                                  onClick={() => openBetModalForMatch(m)}
                                   className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase"
                                 >
                                   Apostar
@@ -1722,11 +1565,7 @@ export default function PWAAppPage() {
                               </span>
                             ) : (
                               <button
-                                onClick={() => {
-                                  setBetModalMatch(m);
-                                  setBetPredLocal(0);
-                                  setBetPredVisitante(0);
-                                }}
+                                onClick={() => openBetModalForMatch(m)}
                                 className="btn-primary-stitch px-3 py-1.5 text-[10px] tracking-wider uppercase z-10"
                               >
                                 Pronosticar
@@ -1824,11 +1663,7 @@ export default function PWAAppPage() {
                                         <span className="text-[9px] text-zinc-550 italic">Sin apuesta</span>
                                       ) : (
                                         <button
-                                          onClick={() => {
-                                            setBetModalMatch(m);
-                                            setBetPredLocal(0);
-                                            setBetPredVisitante(0);
-                                          }}
+                                          onClick={() => openBetModalForMatch(m)}
                                           className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase"
                                         >
                                           Apostar
@@ -1903,11 +1738,7 @@ export default function PWAAppPage() {
                                       </span>
                                     ) : (
                                       <button
-                                        onClick={() => {
-                                          setBetModalMatch(m);
-                                          setBetPredLocal(0);
-                                          setBetPredVisitante(0);
-                                        }}
+                                        onClick={() => openBetModalForMatch(m)}
                                         className="btn-primary-stitch px-3 py-1.5 text-[10px] tracking-wider uppercase z-10"
                                       >
                                         Pronosticar
@@ -2364,11 +2195,185 @@ export default function PWAAppPage() {
           {/* --- VIEW 3: PROFILE --- */}
           {activeTab === 'perfil' && (
             <section className="space-y-6 max-w-4xl mx-auto">
-              
-              <div className="flex items-center gap-2 mb-4">
-                <User className="w-5 h-5 text-yellow-500" />
-                <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Mi Cuenta</h2>
-              </div>
+              {!user ? (
+                /* Inline Login/Register Screen for Guests */
+                <div className="w-full max-w-md mx-auto bg-zinc-900/55 backdrop-blur-md border border-zinc-800 rounded-3xl p-8 shadow-2xl relative z-10 animate-fade-in my-8">
+                  {/* Logo Splash */}
+                  <div className="flex flex-col items-center text-center mb-6">
+                    <div className="h-16 w-16 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-inner animate-pulse overflow-hidden p-1">
+                      {appLogo.startsWith('/') || appLogo.startsWith('http') ? (
+                        <img src={appLogo} className="h-full w-full object-contain rounded-xl" alt="logo" />
+                      ) : (
+                        <span>{appLogo}</span>
+                      )}
+                    </div>
+                    <h1 className="text-2xl font-black tracking-wider text-zinc-100 uppercase">{appName}</h1>
+                    <p className="text-zinc-400 text-xs tracking-widest uppercase mt-1">Plataforma de Apuestas y Quiniela</p>
+                  </div>
+
+                  {!isRegistering ? (
+                    /* Login Form */
+                    <form onSubmit={handleLogin} className="space-y-4">
+                      <div>
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
+                        <input 
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="ej: diego@mundial.com"
+                          className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña</label>
+                        <input 
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Contraseña de acceso"
+                          className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                        />
+                      </div>
+
+                      {loginError && (
+                        <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                          <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                          <span>{loginError}</span>
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={loginLoading}
+                        className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
+                      >
+                        {loginLoading ? 'Iniciando Sesión...' : 'Entrar a la Quiniela'}
+                      </button>
+
+                      {/* Passkey login button */}
+                      <div className="relative flex items-center gap-2 my-1">
+                        <div className="flex-1 h-px bg-zinc-800"></div>
+                        <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">o</span>
+                        <div className="flex-1 h-px bg-zinc-800"></div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handlePasskeyLogin}
+                        disabled={passkeyLoading}
+                        className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-zinc-600 text-zinc-300 py-3 text-sm font-bold rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.99]"
+                      >
+                        <span className="text-lg">🔑</span>
+                        <span>{passkeyLoading ? 'Verificando...' : 'Entrar con Llave FIDO / Passkey'}</span>
+                      </button>
+
+                      {passkeyError && (
+                        <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                          <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                          <span>{passkeyError}</span>
+                        </div>
+                      )}
+
+                      <div className="text-center pt-1">
+                        <button
+                          type="button"
+                          onClick={() => { setIsRegistering(true); setLoginError(''); }}
+                          className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
+                        >
+                          ¿No tienes cuenta? Regístrate aquí
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    /* Register Form */
+                    <form onSubmit={handleRegister} className="space-y-4">
+                      <div>
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Nombre Completo</label>
+                        <input 
+                          type="text"
+                          required
+                          value={registerNombre}
+                          onChange={(e) => setRegisterNombre(e.target.value)}
+                          placeholder="ej: Diego Armando"
+                          className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
+                        <input 
+                          type="email"
+                          required
+                          value={registerEmail}
+                          onChange={(e) => setRegisterEmail(e.target.value)}
+                          placeholder="ej: diego@mundial.com"
+                          className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña (mín. 6 carac.)</label>
+                        <input 
+                          type="password"
+                          required
+                          value={registerPassword}
+                          onChange={(e) => setRegisterPassword(e.target.value)}
+                          placeholder="Elige tu contraseña"
+                          className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Confirmar Contraseña</label>
+                        <input 
+                          type="password"
+                          required
+                          value={registerConfirmPassword}
+                          onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                          placeholder="Confirma tu contraseña"
+                          className="w-full input-stitch px-4 py-3 text-sm placeholder-zinc-700 focus:ring-2 focus:ring-yellow-500/10"
+                        />
+                      </div>
+
+                      {registerError && (
+                        <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                          <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                          <span>{registerError}</span>
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={registerLoading}
+                        className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
+                      >
+                        {registerLoading ? 'Creando Cuenta...' : 'Registrarme ahora'}
+                      </button>
+
+                      <div className="text-center pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsRegistering(false);
+                            setRegisterError('');
+                          }}
+                          className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
+                        >
+                          ¿Ya tienes cuenta? Inicia sesión aquí
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-4">
+                    <User className="w-5 h-5 text-yellow-500" />
+                    <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Mi Cuenta</h2>
+                  </div>
 
               {/* Interactive Profile Editor Card */}
               <div className="glass-card rounded-3xl p-6 md:p-8 shadow-2xl border border-zinc-800/80">
@@ -2587,6 +2592,8 @@ export default function PWAAppPage() {
                   <span>Cerrar Sesión</span>
                 </button>
               </div>
+                </>
+              )}
             </section>
           )}
 
@@ -2969,7 +2976,7 @@ export default function PWAAppPage() {
           </button>
 
           {/* Tab Admin (Visible to admin only!) */}
-          {user.tipo === 'admin' && (
+          {user && user.tipo === 'admin' && (
             <button
               onClick={() => setActiveTab('admin')}
               className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
@@ -3396,7 +3403,24 @@ export default function PWAAppPage() {
                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Pronósticos realizados</span>
                 </div>
 
-                {loadingSummaryBets ? (
+                {!user ? (
+                  <div className="bg-zinc-950/40 border border-dashed border-zinc-800 rounded-2xl p-6 text-center space-y-3">
+                    <span className="text-2xl">🔒</span>
+                    <p className="text-xs text-zinc-400 font-medium">
+                      Debes iniciar sesión para ver las apuestas de la comunidad y comparar tus resultados.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setSummaryModalMatch(null);
+                        setActiveTab('perfil');
+                        showToast('🔑 Inicia sesión o regístrate para participar.');
+                      }}
+                      className="btn-primary-stitch px-4 py-2 text-[10px] tracking-wider uppercase mx-auto block"
+                    >
+                      Iniciar Sesión / Registro
+                    </button>
+                  </div>
+                ) : loadingSummaryBets ? (
                   <div className="py-4 text-center text-xs text-zinc-500">Cargando pronósticos...</div>
                 ) : (
                   <div className="bg-zinc-950 border border-zinc-850 rounded-2xl divide-y divide-zinc-900 max-h-48 overflow-y-auto">

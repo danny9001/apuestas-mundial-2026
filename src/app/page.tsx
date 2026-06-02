@@ -1292,7 +1292,6 @@ export default function PWAAppPage() {
         formData.append('logo_file', editLogoFile);
       }
 
-      formData.append('primary_color', editPrimaryColor);
       formData.append('app_subtitle', editSubtitle);
       formData.append('contact_whatsapp', editContactWhatsapp);
       formData.append('contact_email', editContactEmail);
@@ -3715,16 +3714,6 @@ export default function PWAAppPage() {
                     </div>
                   )}
 
-                  {/* Color primario */}
-                  <div className="space-y-1.5">
-                    <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Color de Acento</label>
-                    <div className="flex items-center gap-3">
-                      <input type="color" value={editPrimaryColor} onChange={(e) => setEditPrimaryColor(e.target.value)} className="w-10 h-9 rounded-lg border border-zinc-850 bg-zinc-950 cursor-pointer" />
-                      <input type="text" value={editPrimaryColor} onChange={(e) => setEditPrimaryColor(e.target.value)} placeholder="#eab308" className="w-32 input-stitch px-3 py-2 text-xs font-mono" />
-                      <div className="h-9 w-16 rounded-lg border border-zinc-850 flex-shrink-0" style={{ backgroundColor: editPrimaryColor }}></div>
-                    </div>
-                  </div>
-
                   {/* Subtítulo y contacto */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -3760,13 +3749,6 @@ export default function PWAAppPage() {
                     <div className="space-y-1.5">
                       <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre</label>
                       <input type="text" required value={newCompanyNombre} onChange={(e) => setNewCompanyNombre(e.target.value)} placeholder="Nombre de la empresa" className="w-full input-stitch px-3 py-2 text-xs" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Color</label>
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={newCompanyColor} onChange={(e) => setNewCompanyColor(e.target.value)} className="w-9 h-9 rounded-lg border border-zinc-850 bg-zinc-950 cursor-pointer" />
-                        <input type="text" value={newCompanyColor} onChange={(e) => setNewCompanyColor(e.target.value)} className="w-24 input-stitch px-3 py-2 text-xs font-mono" />
-                      </div>
                     </div>
                   </div>
                   <div className="flex justify-end">

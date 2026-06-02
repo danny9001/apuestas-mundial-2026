@@ -217,7 +217,8 @@ export default function PWAAppPage() {
   const [newUserNombre, setNewUserNombre] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
-  const [newUserTipo, setNewUserTipo] = useState<'user' | 'admin'>('user');
+  const [newUserTipo, setNewUserTipo] = useState<'user' | 'admin' | 'superadmin'>('user');
+  const [newUserCompanyId, setNewUserCompanyId] = useState<number | ''>('');
   const [newUserSubmitting, setNewUserSubmitting] = useState(false);
 
   // Match Summary & Statistics Modal
@@ -345,8 +346,8 @@ export default function PWAAppPage() {
         setLeaderboard(lData);
       }
 
-      // Fetch Users if Admin
-      if (user && user.tipo === 'admin') {
+      // Fetch Users if Admin or SuperAdmin
+      if (user && (user.tipo === 'admin' || user.tipo === 'superadmin')) {
         const uRes = await fetch(`/api/admin/users?t=${Date.now()}`);
         if (uRes.ok) {
           const uData = await uRes.json();
@@ -636,14 +637,16 @@ export default function PWAAppPage() {
   // Load admin data when admin tab is opened
   useEffect(() => {
     if (user && activeTab === 'admin') {
-      fetchSyncStatus();
+      if (user.tipo === 'superadmin') {
+        fetchSyncStatus();
+        fetchGroups();
+      }
       fetchCompanies();
-      fetchGroups();
     }
   }, [activeTab, user]);
 
   useEffect(() => {
-    if (user && activeTab === 'admin') {
+    if (user && activeTab === 'admin' && user.tipo === 'superadmin') {
       setEditAppName(appName);
       if (appLogo.startsWith('/') || appLogo.startsWith('http')) {
         setEditLogoType('file');
@@ -1071,7 +1074,8 @@ export default function PWAAppPage() {
           nombre: newUserNombre,
           email: newUserEmail,
           password: newUserPassword,
-          tipo: newUserTipo
+          tipo: newUserTipo,
+          companyId: newUserCompanyId || undefined,
         })
       });
 
@@ -1089,6 +1093,7 @@ export default function PWAAppPage() {
         setNewUserEmail('');
         setNewUserPassword('');
         setNewUserTipo('user');
+        setNewUserCompanyId('');
       } else {
         showToast(`Error: ${data.error || 'No se pudo crear el usuario'}`);
       }
@@ -1338,17 +1343,17 @@ export default function PWAAppPage() {
               <span>Mi Perfil</span>
             </button>
 
-            {user && user.tipo === 'admin' && (
+            {user && (user.tipo === 'admin' || user.tipo === 'superadmin') && (
               <button
                 onClick={() => setActiveTab('admin')}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
-                  activeTab === 'admin' 
-                    ? 'btn-primary-stitch shadow-md' 
+                  activeTab === 'admin'
+                    ? 'btn-primary-stitch shadow-md'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent rounded-lg'
                 }`}
               >
-                <Settings className="w-4 h-4" />
-                <span>Administrador</span>
+                {user.tipo === 'superadmin' ? <ShieldAlert className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+                <span>{user.tipo === 'superadmin' ? 'Super Admin' : 'Mi Empresa'}</span>
               </button>
             )}
           </nav>
@@ -1356,14 +1361,6 @@ export default function PWAAppPage() {
 
         {/* Desktop Sidebar Footer */}
         <div className="space-y-4">
-          <a
-            href="/tv"
-            target="_blank"
-            className="w-full btn-secondary-stitch py-3 px-4 text-xs font-bold flex items-center justify-center gap-2"
-          >
-            <span>📺 Pantalla TV Airport</span>
-          </a>
-          
           {user ? (
             <div className="bg-zinc-950/60 border border-zinc-850 p-3 rounded-xl flex items-center gap-3">
               <img src={user.avatar} className="w-8 h-8 rounded-full border border-zinc-800 bg-zinc-900" alt="avatar" />
@@ -1460,15 +1457,6 @@ export default function PWAAppPage() {
             <span className="font-black tracking-wider text-sm uppercase text-zinc-100 truncate">{appName}</span>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Direct link for TV screen */}
-            <a
-              href="/tv"
-              target="_blank"
-              className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-yellow-500 p-2 rounded-lg border border-zinc-800 transition flex items-center justify-center"
-              title="Ver Modo TV Airport"
-            >
-              📺
-            </a>
             {/* Theme Toggle Button */}
             <button 
               onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
@@ -1533,20 +1521,6 @@ export default function PWAAppPage() {
                     </div>
                   </div>
                   
-                  {/* Portal Link */}
-                  <a 
-                    href="/tv" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 border border-red-500/20 text-[10px] font-black uppercase tracking-wider transition duration-300 shadow-[0_0_15px_rgba(239,68,68,0.08)] group"
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                    <span>Ver Portal en Vivo (TV Aeropuerto)</span>
-                    <span className="transition-transform group-hover:translate-x-0.5">→</span>
-                  </a>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
@@ -2778,7 +2752,7 @@ export default function PWAAppPage() {
                       <User className="w-5 h-5 text-yellow-500" />
                       <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Mi Cuenta</h2>
                     </div>
-                    {user.tipo !== 'admin' && (
+                    {user.tipo !== 'admin' && user.tipo !== 'superadmin' && (
                       <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
                         user.aprobado
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
@@ -2789,7 +2763,7 @@ export default function PWAAppPage() {
                     )}
                   </div>
 
-                  {!user.aprobado && user.tipo !== 'admin' && (
+                  {!user.aprobado && user.tipo !== 'admin' && user.tipo !== 'superadmin' && (
                     <div className="bg-yellow-500/5 border border-yellow-500/25 rounded-2xl p-5 mb-6 flex gap-3 text-xs text-yellow-400 font-semibold shadow-lg border-dashed">
                       <span className="text-xl animate-bounce">⚠️</span>
                       <div className="space-y-1 flex-1">
@@ -3064,31 +3038,63 @@ export default function PWAAppPage() {
           )}
 
           {/* --- VIEW 4: ADMIN PANEL --- */}
-          {activeTab === 'admin' && user.tipo === 'admin' && (
+          {activeTab === 'admin' && (user.tipo === 'admin' || user.tipo === 'superadmin') && (
             <section className="space-y-6">
-              
-              <div className="flex justify-between items-center">
+
+              <div className="flex justify-between items-center flex-wrap gap-3">
                 <div className="flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-yellow-500" />
-                  <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Panel de Control</h2>
+                  {user.tipo === 'superadmin'
+                    ? <ShieldAlert className="w-5 h-5 text-yellow-500" />
+                    : <Building2 className="w-5 h-5 text-yellow-500" />
+                  }
+                  <div>
+                    <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">
+                      {user.tipo === 'superadmin' ? 'Super Administrador' : 'Panel de Empresa'}
+                    </h2>
+                    <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">
+                      {user.tipo === 'superadmin' ? 'Control total del sistema' : 'Gestión de usuarios de tu empresa'}
+                    </p>
+                  </div>
                 </div>
-                <button
-                  onClick={handleRecalculateLeaderboard}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Recalcular Clasificación</span>
-                </button>
+                {user.tipo === 'superadmin' && (
+                  <button
+                    onClick={handleRecalculateLeaderboard}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Recalcular Clasificación</span>
+                  </button>
+                )}
               </div>
+
+              {/* ─── ESTADÍSTICAS DEL SISTEMA (solo superadmin) ─── */}
+              {user.tipo === 'superadmin' && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Total Usuarios', value: adminUsers.length, color: 'text-yellow-500' },
+                    { label: 'Empresas', value: companies.length, color: 'text-blue-400' },
+                    { label: 'Usuarios Activos', value: adminUsers.filter(u => u.activo).length, color: 'text-green-400' },
+                    { label: 'Partidos en Vivo', value: matches.filter(m => m.estado === 'live').length, color: 'text-red-400' },
+                  ].map((stat) => (
+                    <div key={stat.label} className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center gap-1">
+                      <span className={`text-2xl font-black ${stat.color}`}>{stat.value}</span>
+                      <span className="text-[9px] text-zinc-500 uppercase tracking-widest text-center">{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* ─── 1. GESTIÓN DE USUARIOS ─── */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
-                  <Users className="w-3.5 h-3.5" /> Gestión de Usuarios
+                  <Users className="w-3.5 h-3.5" />
+                  {user.tipo === 'superadmin' ? 'Todos los Usuarios del Sistema' : 'Usuarios de Mi Empresa'}
                 </h3>
 
                 <form onSubmit={handleCreateUser} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl shadow-lg">
-                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Crear Nuevo Usuario</div>
+                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                    {user.tipo === 'superadmin' ? 'Crear Nuevo Usuario / Administrador' : 'Agregar Usuario a Mi Empresa'}
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre Completo</label>
@@ -3102,13 +3108,25 @@ export default function PWAAppPage() {
                       <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Contraseña</label>
                       <input type="password" required value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full input-stitch px-3 py-2 text-xs" />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Rol</label>
-                      <select value={newUserTipo} onChange={(e) => setNewUserTipo(e.target.value as 'user' | 'admin')} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30">
-                        <option value="user">Usuario Común</option>
-                        <option value="admin">Administrador</option>
-                      </select>
-                    </div>
+                    {user.tipo === 'superadmin' && (
+                      <div className="space-y-1.5">
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Rol</label>
+                        <select value={newUserTipo} onChange={(e) => setNewUserTipo(e.target.value as 'user' | 'admin' | 'superadmin')} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30">
+                          <option value="user">Usuario Común</option>
+                          <option value="admin">Administrador de Empresa</option>
+                          <option value="superadmin">Super Administrador</option>
+                        </select>
+                      </div>
+                    )}
+                    {user.tipo === 'superadmin' && (newUserTipo === 'admin') && (
+                      <div className="space-y-1.5">
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Empresa a Gestionar</label>
+                        <select value={newUserCompanyId} onChange={(e) => setNewUserCompanyId(e.target.value ? parseInt(e.target.value) : '')} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30">
+                          <option value="">Sin empresa asignada</option>
+                          {companies.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-end pt-2">
                     <button type="submit" disabled={newUserSubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow">
@@ -3117,7 +3135,9 @@ export default function PWAAppPage() {
                   </div>
                 </form>
 
-                <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-black pt-2">Lista de Usuarios ({adminUsers.length})</div>
+                <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-black pt-2">
+                  {user.tipo === 'superadmin' ? `Todos los usuarios (${adminUsers.length})` : `Usuarios de mi empresa (${adminUsers.filter(u => u.id !== user.id).length})`}
+                </div>
                 <div className="bg-zinc-900/40 border border-zinc-900 divide-y divide-zinc-900 rounded-2xl overflow-hidden shadow-lg max-w-4xl">
                   {adminUsers.map((u) => (
                     <div key={u.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 text-xs gap-3">
@@ -3139,8 +3159,8 @@ export default function PWAAppPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-                        {/* Multi-company assignment */}
-                        {u.id !== user.id && companies.length > 0 && (
+                        {/* Multi-company assignment — superadmin only */}
+                        {user.tipo === 'superadmin' && u.id !== user.id && companies.length > 0 && (
                           <div className="flex gap-1 flex-wrap max-w-[200px]">
                             {companies.map((c) => {
                               const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
@@ -3160,7 +3180,7 @@ export default function PWAAppPage() {
                         )}
                         {u.id !== user.id ? (
                           <>
-                            {u.tipo !== 'admin' && (
+                            {u.tipo !== 'admin' && u.tipo !== 'superadmin' && (
                               <button onClick={() => handleToggleUserApproval(u.id, u.aprobado)} className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.aprobado ? 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border border-yellow-500/20' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border border-zinc-700'}`}>
                                 {u.aprobado ? <><Check className="w-3.5 h-3.5" /> Aprobado</> : <><Lock className="w-3.5 h-3.5 text-zinc-500 animate-pulse" /> Aprobar</>}
                               </button>
@@ -3170,7 +3190,9 @@ export default function PWAAppPage() {
                             </button>
                           </>
                         ) : (
-                          <span className="text-[10px] text-zinc-500 uppercase tracking-widest italic pr-4">Tú (Admin)</span>
+                          <span className="text-[10px] text-zinc-500 uppercase tracking-widest italic pr-4">
+                            {user.tipo === 'superadmin' ? 'Tú (Super Admin)' : 'Tú (Admin)'}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -3178,8 +3200,8 @@ export default function PWAAppPage() {
                 </div>
               </div>
 
-              {/* ─── 2. PERSONALIZACIÓN DEL SISTEMA ─── */}
-              <div className="space-y-4">
+              {/* ─── 2. PERSONALIZACIÓN DEL SISTEMA (solo superadmin) ─── */}
+              {user.tipo === 'superadmin' && <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
                   <Settings className="w-3.5 h-3.5" /> Personalización del Sistema
                 </h3>
@@ -3253,10 +3275,10 @@ export default function PWAAppPage() {
                     </button>
                   </div>
                 </form>
-              </div>
+              </div>}
 
-              {/* ─── 3. GESTIÓN DE EMPRESAS ─── */}
-              <div className="space-y-4">
+              {/* ─── 3. GESTIÓN DE EMPRESAS (solo superadmin) ─── */}
+              {user.tipo === 'superadmin' && <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
                   <Building2 className="w-3.5 h-3.5" /> Gestión de Empresas
                 </h3>
@@ -3298,10 +3320,10 @@ export default function PWAAppPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div>}
 
-              {/* ─── 4. GRUPOS DE USUARIOS ─── */}
-              <div className="space-y-4">
+              {/* ─── 4. GRUPOS DE USUARIOS (solo superadmin) ─── */}
+              {user.tipo === 'superadmin' && <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
                   <Users className="w-3.5 h-3.5" /> Grupos de Usuarios
                 </h3>
@@ -3351,7 +3373,7 @@ export default function PWAAppPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div>}
 
               {/* ─── 5. NOTIFICACIONES Y MENSAJES ─── */}
               <div className="space-y-4">
@@ -3418,8 +3440,8 @@ export default function PWAAppPage() {
                 </form>
               </div>
 
-              {/* ─── 6. SINCRONIZACIÓN EN VIVO ─── */}
-              <div className="space-y-4">
+              {/* ─── 6. SINCRONIZACIÓN EN VIVO (solo superadmin) ─── */}
+              {user.tipo === 'superadmin' && <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Sincronización en Vivo</h3>
                 <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4">
                   <div className="flex justify-between items-center">
@@ -3471,10 +3493,10 @@ export default function PWAAppPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </div>}
 
-              {/* ─── 7. MARCADORES EN VIVO (siempre al final) ─── */}
-              <div className="space-y-4">
+              {/* ─── 7. MARCADORES EN VIVO (solo superadmin) ─── */}
+              {user.tipo === 'superadmin' && <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Marcadores en Vivo</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {matches.map((m) => (
@@ -3493,7 +3515,7 @@ export default function PWAAppPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div>}
 
             </section>
           )}
@@ -3558,16 +3580,18 @@ export default function PWAAppPage() {
             <span className="text-[9px] font-bold tracking-wide uppercase">Mi Perfil</span>
           </button>
 
-          {/* Tab Admin (Visible to admin only!) */}
-          {user && user.tipo === 'admin' && (
+          {/* Tab Admin (Visible to admin and superadmin!) */}
+          {user && (user.tipo === 'admin' || user.tipo === 'superadmin') && (
             <button
               onClick={() => setActiveTab('admin')}
               className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
                 activeTab === 'admin' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              <Settings className="w-5 h-5" />
-              <span className="text-[9px] font-bold tracking-wide uppercase">Admin</span>
+              {user.tipo === 'superadmin' ? <ShieldAlert className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+              <span className="text-[9px] font-bold tracking-wide uppercase">
+                {user.tipo === 'superadmin' ? 'Sistema' : 'Empresa'}
+              </span>
             </button>
           )}
         </nav>

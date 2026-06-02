@@ -4,26 +4,50 @@ import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// GET: fetch all users for management
+// GET: fetch users for management — superadmin sees all, admin sees only their company's users
 export async function GET() {
   try {
     const user = await getSessionUser();
-    if (!user || user.tipo !== 'admin') {
+    if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    const res = await pool.query(
-      `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.created_at, u.telefono,
-              COALESCE(
-                json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
-                FILTER (WHERE c.id IS NOT NULL), '[]'
-              ) AS companies
-       FROM users u
-       LEFT JOIN user_companies uc ON uc.user_id = u.id
-       LEFT JOIN companies c ON c.id = uc.company_id
-       GROUP BY u.id
-       ORDER BY u.id ASC`
-    );
+    let res;
+    if (user.tipo === 'superadmin') {
+      res = await pool.query(
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.created_at, u.telefono,
+                COALESCE(
+                  json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
+                  FILTER (WHERE c.id IS NOT NULL), '[]'
+                ) AS companies
+         FROM users u
+         LEFT JOIN user_companies uc ON uc.user_id = u.id
+         LEFT JOIN companies c ON c.id = uc.company_id
+         GROUP BY u.id
+         ORDER BY u.id ASC`
+      );
+    } else {
+      // Company admin: only users in shared companies
+      res = await pool.query(
+        `SELECT DISTINCT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.created_at, u.telefono,
+                COALESCE(
+                  json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
+                  FILTER (WHERE c.id IS NOT NULL), '[]'
+                ) AS companies
+         FROM users u
+         LEFT JOIN user_companies uc ON uc.user_id = u.id
+         LEFT JOIN companies c ON c.id = uc.company_id
+         WHERE u.id IN (
+           SELECT uc2.user_id FROM user_companies uc2
+           WHERE uc2.company_id IN (
+             SELECT company_id FROM user_companies WHERE user_id = $1
+           )
+         ) OR u.id = $1
+         GROUP BY u.id
+         ORDER BY u.id ASC`,
+        [user.id]
+      );
+    }
     return NextResponse.json(res.rows);
   } catch (error: any) {
     console.error('Error fetching users:', error);
@@ -35,7 +59,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser();
-    if (!user || user.tipo !== 'admin') {
+    if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
@@ -66,9 +90,19 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'create') {
-      const { nombre, email, password, tipo } = body;
+      const { nombre, email, password } = body;
       if (!nombre || !email || !password) {
         return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
+      }
+
+      // Company admin can only create regular users
+      let tipoNuevo = body.tipo || 'user';
+      if (user.tipo === 'admin') {
+        tipoNuevo = 'user';
+      }
+      // Only superadmin can create superadmin accounts
+      if (tipoNuevo === 'superadmin' && user.tipo !== 'superadmin') {
+        return NextResponse.json({ error: 'No autorizado para crear superadministradores' }, { status: 403 });
       }
 
       // Check if email already exists
@@ -79,7 +113,7 @@ export async function POST(req: NextRequest) {
 
       const bcrypt = await import('bcryptjs');
       const passwordHash = await bcrypt.hash(password, 10);
-      const defaultAvatar = `/uploads/avatars/avatar_${Math.floor(Math.random() * 5) + 1}.png`; // seed random default avatar
+      const defaultAvatar = `/uploads/avatars/avatar_${Math.floor(Math.random() * 5) + 1}.png`;
 
       const insertQuery = `
         INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado)
@@ -91,9 +125,24 @@ export async function POST(req: NextRequest) {
         nombre.trim(),
         email.toLowerCase().trim(),
         passwordHash,
-        tipo || 'user',
+        tipoNuevo,
         defaultAvatar
       ]);
+
+      const newUserId = res.rows[0].id;
+
+      // Auto-assign new user to admin's companies (if company admin)
+      if (user.tipo === 'admin') {
+        const adminCompanies = await pool.query('SELECT company_id FROM user_companies WHERE user_id = $1', [user.id]);
+        for (const row of adminCompanies.rows) {
+          await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [newUserId, row.company_id]);
+        }
+      }
+
+      // If superadmin specifies a companyId for new admin user, assign it
+      if (user.tipo === 'superadmin' && body.companyId) {
+        await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [newUserId, body.companyId]);
+      }
 
       return NextResponse.json({ success: true, user: res.rows[0] });
     }
@@ -107,6 +156,14 @@ export async function POST(req: NextRequest) {
     // Don't allow admins to deactivate themselves
     if (parseInt(userId) === user.id) {
       return NextResponse.json({ error: 'No puedes desactivarte a ti mismo' }, { status: 400 });
+    }
+
+    // Company admin cannot modify other admins or superadmins
+    if (user.tipo === 'admin') {
+      const targetRes = await pool.query('SELECT tipo FROM users WHERE id = $1', [userId]);
+      if (targetRes.rows.length > 0 && (targetRes.rows[0].tipo === 'admin' || targetRes.rows[0].tipo === 'superadmin')) {
+        return NextResponse.json({ error: 'No autorizado para modificar administradores' }, { status: 403 });
+      }
     }
 
     const updateQuery = `

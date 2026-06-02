@@ -34,8 +34,8 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser();
-    if (!user || user.tipo !== 'admin') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    if (!user || user.tipo !== 'superadmin') {
+      return NextResponse.json({ error: 'Solo el super administrador puede gestionar empresas' }, { status: 403 });
     }
 
     await ensureCompaniesTable();

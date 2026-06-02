@@ -1,36 +1,45 @@
 import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 import pool from './db';
 
 export interface UserSession {
   id: number;
   nombre: string;
   email: string;
-  tipo: 'interno' | 'externo' | 'admin';
+  tipo: 'interno' | 'externo' | 'admin' | 'superadmin';
   avatar: string;
   aprobado: boolean;
+}
+
+const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12h
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET no configurado');
+  return secret;
 }
 
 export async function getSessionUser(): Promise<UserSession | null> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('apuestas_session');
-    if (!sessionCookie || !sessionCookie.value) return null;
+    if (!sessionCookie?.value) return null;
 
-    // Decode session payload
-    const payloadStr = Buffer.from(sessionCookie.value, 'base64').toString('utf-8');
-    const payload = JSON.parse(payloadStr);
+    let payload: { id: number; tipo: string };
+    try {
+      payload = jwt.verify(sessionCookie.value, getJwtSecret()) as { id: number; tipo: string };
+    } catch {
+      return null;
+    }
 
     if (!payload.id) return null;
 
-    // Fetch user from DB to verify they exist and are active
     const res = await pool.query(
       'SELECT id, nombre, email, tipo, avatar, activo, aprobado FROM users WHERE id = $1',
       [payload.id]
     );
 
-    if (res.rows.length === 0 || !res.rows[0].activo) {
-      return null;
-    }
+    if (res.rows.length === 0 || !res.rows[0].activo) return null;
 
     return {
       id: res.rows[0].id,
@@ -38,30 +47,33 @@ export async function getSessionUser(): Promise<UserSession | null> {
       email: res.rows[0].email,
       tipo: res.rows[0].tipo,
       avatar: res.rows[0].avatar,
-      aprobado: !!res.rows[0].aprobado
+      aprobado: !!res.rows[0].aprobado,
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }
 
-export async function setSession(user: { id: number; nombre: string; email: string; tipo: string; avatar: string }) {
-  const payloadStr = JSON.stringify({
-    id: user.id,
-    email: user.email,
-    tipo: user.tipo,
-    timestamp: Date.now()
-  });
+export async function setSession(user: {
+  id: number;
+  nombre: string;
+  email: string;
+  tipo: string;
+  avatar: string;
+}) {
+  const token = jwt.sign(
+    { id: user.id, email: user.email, tipo: user.tipo },
+    getJwtSecret(),
+    { expiresIn: SESSION_TTL_SECONDS }
+  );
 
-  const encodedPayload = Buffer.from(payloadStr).toString('base64');
   const cookieStore = await cookies();
-  
-  cookieStore.set('apuestas_session', encodedPayload, {
+  cookieStore.set('apuestas_session', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 30, // 30 days
-    path: '/'
+    sameSite: 'strict',
+    maxAge: SESSION_TTL_SECONDS,
+    path: '/',
   });
 }
 

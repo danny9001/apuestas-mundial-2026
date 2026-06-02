@@ -14,6 +14,7 @@ CREATE TABLE users (
   tipo VARCHAR(50) DEFAULT 'externo', -- 'interno', 'externo', 'admin'
   avatar TEXT,
   activo BOOLEAN DEFAULT TRUE,
+  aprobado BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -33,6 +34,7 @@ CREATE TABLE matches (
   grupo VARCHAR(10),
   estadio VARCHAR(255),
   stats JSONB DEFAULT '{}',
+  transmision_enlaces TEXT DEFAULT '',
   last_synced_at TIMESTAMP WITH TIME ZONE,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

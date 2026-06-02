@@ -66,7 +66,8 @@ export async function POST(req: NextRequest) {
       goles_local,
       goles_visitante,
       fase,
-      grupo
+      grupo,
+      transmision_enlaces
     } = body;
 
     let matchResult;
@@ -92,8 +93,9 @@ export async function POST(req: NextRequest) {
             goles_visitante = COALESCE($8, goles_visitante),
             fase = COALESCE($9, fase),
             grupo = COALESCE($10, grupo),
+            transmision_enlaces = COALESCE($11, transmision_enlaces),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $11
+        WHERE id = $12
         RETURNING *
       `;
       
@@ -101,7 +103,7 @@ export async function POST(req: NextRequest) {
         fecha, local, visitante, logo_local, logo_visitante, estado,
         goles_local !== undefined ? parseInt(goles_local) : null,
         goles_visitante !== undefined ? parseInt(goles_visitante) : null,
-        fase, grupo, id
+        fase, grupo, transmision_enlaces, id
       ]);
 
       const updatedMatch = matchResult.rows[0];
@@ -135,13 +137,13 @@ export async function POST(req: NextRequest) {
     } else {
       // CREATE MATCH
       const insertQuery = `
-        INSERT INTO matches (fecha, local, visitante, logo_local, logo_visitante, estado, goles_local, goles_visitante, fase, grupo)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        INSERT INTO matches (fecha, local, visitante, logo_local, logo_visitante, estado, goles_local, goles_visitante, fase, grupo, transmision_enlaces)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *
       `;
       matchResult = await pool.query(insertQuery, [
         fecha, local, visitante, logo_local || null, logo_visitante || null,
-        estado || 'upcoming', goles_local || 0, goles_visitante || 0, fase || 'Fase de Grupos', grupo || null
+        estado || 'upcoming', goles_local || 0, goles_visitante || 0, fase || 'Fase de Grupos', grupo || null, transmision_enlaces || ''
       ]);
 
       const createdMatch = matchResult.rows[0];

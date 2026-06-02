@@ -7,6 +7,7 @@ export interface UserSession {
   email: string;
   tipo: 'interno' | 'externo' | 'admin';
   avatar: string;
+  aprobado: boolean;
 }
 
 export async function getSessionUser(): Promise<UserSession | null> {
@@ -23,7 +24,7 @@ export async function getSessionUser(): Promise<UserSession | null> {
 
     // Fetch user from DB to verify they exist and are active
     const res = await pool.query(
-      'SELECT id, nombre, email, tipo, avatar, activo FROM users WHERE id = $1',
+      'SELECT id, nombre, email, tipo, avatar, activo, aprobado FROM users WHERE id = $1',
       [payload.id]
     );
 
@@ -36,7 +37,8 @@ export async function getSessionUser(): Promise<UserSession | null> {
       nombre: res.rows[0].nombre,
       email: res.rows[0].email,
       tipo: res.rows[0].tipo,
-      avatar: res.rows[0].avatar
+      avatar: res.rows[0].avatar,
+      aprobado: !!res.rows[0].aprobado
     };
   } catch (error) {
     return null;

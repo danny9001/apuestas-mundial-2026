@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch user
     const res = await pool.query(
-      'SELECT id, nombre, email, password_hash, tipo, avatar, activo FROM users WHERE email = $1',
+      'SELECT id, nombre, email, password_hash, tipo, avatar, activo, aprobado FROM users WHERE email = $1',
       [email.toLowerCase().trim()]
     );
 
@@ -55,7 +55,8 @@ export async function POST(req: NextRequest) {
       nombre: user.nombre,
       email: user.email,
       tipo: user.tipo,
-      avatar: user.avatar
+      avatar: user.avatar,
+      aprobado: !!user.aprobado
     };
 
     await setSession(sessionData);

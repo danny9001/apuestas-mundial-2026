@@ -55,6 +55,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
+    if (!user.aprobado) {
+      return NextResponse.json({ error: 'Tu cuenta está pendiente de aprobación por el administrador para participar.' }, { status: 403 });
+    }
+
     const body = await req.json();
 
     // Check if the request is a batch array

@@ -13,7 +13,7 @@ export async function GET() {
     }
 
     const res = await pool.query(
-      'SELECT id, nombre, email, tipo, avatar, activo, created_at FROM users ORDER BY id ASC'
+      'SELECT id, nombre, email, tipo, avatar, activo, aprobado, created_at FROM users ORDER BY id ASC'
     );
     return NextResponse.json(res.rows);
   } catch (error: any) {
@@ -50,9 +50,9 @@ export async function POST(req: NextRequest) {
       const defaultAvatar = `/uploads/avatars/avatar_${Math.floor(Math.random() * 5) + 1}.png`; // seed random default avatar
 
       const insertQuery = `
-        INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo)
-        VALUES ($1, $2, $3, $4, $5, true)
-        RETURNING id, nombre, email, tipo, avatar, activo, created_at
+        INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado)
+        VALUES ($1, $2, $3, $4, $5, true, true)
+        RETURNING id, nombre, email, tipo, avatar, activo, aprobado, created_at
       `;
 
       const res = await pool.query(insertQuery, [
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, user: res.rows[0] });
     }
 
-    const { userId, activo, tipo } = body;
+    const { userId, activo, tipo, aprobado } = body;
 
     if (userId === undefined) {
       return NextResponse.json({ error: 'Falta ID de usuario' }, { status: 400 });
@@ -80,14 +80,16 @@ export async function POST(req: NextRequest) {
     const updateQuery = `
       UPDATE users 
       SET activo = COALESCE($1, activo),
-          tipo = COALESCE($2, tipo)
-      WHERE id = $3
-      RETURNING id, nombre, email, tipo, avatar, activo
+          tipo = COALESCE($2, tipo),
+          aprobado = COALESCE($3, aprobado)
+      WHERE id = $4
+      RETURNING id, nombre, email, tipo, avatar, activo, aprobado
     `;
 
     const res = await pool.query(updateQuery, [
       activo !== undefined ? activo : null,
       tipo || null,
+      aprobado !== undefined ? aprobado : null,
       userId
     ]);
 

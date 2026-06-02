@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
     // Dynamic avatar seed from Dicebear
     const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(nombreTrim)}`;
 
-    // Insert user into PostgreSQL (type 'externo' by default)
+    // Insert user into PostgreSQL (type 'externo' by default, and pending approval)
     const insertRes = await pool.query(
-      'INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo) VALUES ($1, $2, $3, $4, $5, true) RETURNING id, nombre, email, tipo, avatar',
+      'INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado) VALUES ($1, $2, $3, $4, $5, true, false) RETURNING id, nombre, email, tipo, avatar, aprobado',
       [nombreTrim, emailTrim, passwordHash, 'externo', avatarUrl]
     );
 
@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
       nombre: newUser.nombre,
       email: newUser.email,
       tipo: newUser.tipo,
-      avatar: newUser.avatar
+      avatar: newUser.avatar,
+      aprobado: !!newUser.aprobado
     };
 
     await setSession(sessionData);

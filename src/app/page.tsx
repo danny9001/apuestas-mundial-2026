@@ -181,6 +181,10 @@ export default function PWAAppPage() {
       showToast('🔑 Por favor, inicia sesión para realizar tu apuesta.');
       return;
     }
+    if (!user.aprobado) {
+      showToast('⚠️ Tu cuenta está pendiente de aprobación por el administrador para participar.');
+      return;
+    }
     setBetModalMatch(m);
     setBetPredLocal(0);
     setBetPredVisitante(0);
@@ -191,6 +195,7 @@ export default function PWAAppPage() {
   const [adminGolesLocal, setAdminGolesLocal] = useState<number>(0);
   const [adminGolesVisitante, setAdminGolesVisitante] = useState<number>(0);
   const [adminEstado, setAdminEstado] = useState<'upcoming' | 'live' | 'finished'>('upcoming');
+  const [adminTransmisionEnlaces, setAdminTransmisionEnlaces] = useState<string>('');
   const [adminSubmitting, setAdminSubmitting] = useState(false);
 
   // Admin App Settings Form
@@ -777,7 +782,8 @@ export default function PWAAppPage() {
           id: adminMatchModal.id,
           goles_local: adminGolesLocal,
           goles_visitante: adminGolesVisitante,
-          estado: adminEstado
+          estado: adminEstado,
+          transmision_enlaces: adminTransmisionEnlaces
         })
       });
 
@@ -793,6 +799,29 @@ export default function PWAAppPage() {
       showToast('Error de red');
     } finally {
       setAdminSubmitting(false);
+    }
+  };
+
+  // Admin Toggle User Approval
+  const handleToggleUserApproval = async (userId: number, currentApproved: boolean) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, aprobado: !currentApproved })
+      });
+
+      if (res.ok) {
+        setAdminUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, aprobado: !currentApproved } : u))
+        );
+        showToast(`Usuario ${!currentApproved ? 'aprobado' : 'desaprobado'} para participar`);
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Error al cambiar aprobación del usuario');
+      }
+    } catch (e) {
+      showToast('Error de red');
     }
   };
 
@@ -2370,10 +2399,33 @@ export default function PWAAppPage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-2 mb-4">
-                    <User className="w-5 h-5 text-yellow-500" />
-                    <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Mi Cuenta</h2>
+                  <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <User className="w-5 h-5 text-yellow-500" />
+                      <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Mi Cuenta</h2>
+                    </div>
+                    {user.tipo !== 'admin' && (
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
+                        user.aprobado
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20 animate-pulse'
+                      }`}>
+                        {user.aprobado ? '✅ Cuenta Aprobada' : '⏳ Pendiente de Aprobación'}
+                      </span>
+                    )}
                   </div>
+
+                  {!user.aprobado && user.tipo !== 'admin' && (
+                    <div className="bg-yellow-500/5 border border-yellow-500/25 rounded-2xl p-5 mb-6 flex gap-3 text-xs text-yellow-400 font-semibold shadow-lg border-dashed">
+                      <span className="text-xl animate-bounce">⚠️</span>
+                      <div className="space-y-1 flex-1">
+                        <p className="font-extrabold uppercase text-[10px] tracking-wider text-yellow-500">Participación Pendiente de Aprobación</p>
+                        <p className="text-zinc-400 leading-relaxed text-[11px] font-medium">
+                          Tu registro fue exitoso pero el administrador aún debe aprobar tu cuenta antes de que puedas guardar pronósticos (apuestas). Mientras tanto, eres libre de explorar partidos, fixture y clasificaciones públicas.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
               {/* Interactive Profile Editor Card */}
               <div className="glass-card rounded-3xl p-6 md:p-8 shadow-2xl border border-zinc-800/80">
@@ -2790,6 +2842,7 @@ export default function PWAAppPage() {
                           setAdminGolesLocal(m.goles_local);
                           setAdminGolesVisitante(m.goles_visitante);
                           setAdminEstado(m.estado);
+                          setAdminTransmisionEnlaces(m.transmision_enlaces || '');
                         }}
                         className="bg-zinc-950 hover:bg-zinc-800 text-zinc-300 font-bold px-4 py-2 border border-zinc-800 hover:border-yellow-500/25 rounded-xl transition"
                       >
@@ -2886,24 +2939,50 @@ export default function PWAAppPage() {
                       </div>
 
                       {u.id !== user.id ? (
-                        <button
-                          onClick={() => handleToggleUserStatus(u.id, u.activo)}
-                          className={`font-bold py-2 px-4 rounded-xl flex items-center gap-1.5 transition ${
-                            u.activo 
-                              ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' 
-                              : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'
-                          }`}
-                        >
-                          {u.activo ? (
-                            <>
-                              <UserX className="w-4 h-4" /> Desactivar
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="w-4 h-4" /> Activar
-                            </>
+                        <div className="flex items-center gap-2">
+                          {/* Approval Status Toggle */}
+                          {u.tipo !== 'admin' && (
+                            <button
+                              onClick={() => handleToggleUserApproval(u.id, u.aprobado)}
+                              className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${
+                                u.aprobado
+                                  ? 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border border-yellow-500/20'
+                                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border border-zinc-700'
+                              }`}
+                              title={u.aprobado ? 'Aprobado para participar en quinielas' : 'Pendiente de aprobación'}
+                            >
+                              {u.aprobado ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5" /> Aprobado
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="w-3.5 h-3.5 text-zinc-500 animate-pulse" /> Aprobar
+                                </>
+                              )}
+                            </button>
                           )}
-                        </button>
+
+                          {/* Active Status Toggle */}
+                          <button
+                            onClick={() => handleToggleUserStatus(u.id, u.activo)}
+                            className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${
+                              u.activo 
+                                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' 
+                                : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'
+                            }`}
+                          >
+                            {u.activo ? (
+                              <>
+                                <UserX className="w-3.5 h-3.5" /> Desactivar
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="w-3.5 h-3.5" /> Activar
+                              </>
+                            )}
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-[10px] text-zinc-500 uppercase tracking-widest italic pr-4">Tú (Admin)</span>
                       )}
@@ -3149,6 +3228,18 @@ export default function PWAAppPage() {
                 </select>
               </div>
 
+              {/* Streaming Links Input */}
+              <div>
+                <label className="block text-zinc-400 text-xs font-bold uppercase tracking-wide mb-2">Enlaces de Transmisión (separados por coma)</label>
+                <textarea
+                  value={adminTransmisionEnlaces}
+                  onChange={(e) => setAdminTransmisionEnlaces(e.target.value)}
+                  placeholder="ej: Bolivia TV: https://boliviatv.bo, Unitel: https://unitel.tv, Red Uno"
+                  rows={2}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-xs text-zinc-300 outline-none transition focus:border-yellow-500/35 resize-none placeholder-zinc-700 font-mono"
+                />
+              </div>
+
               {/* Save action button */}
               <button
                 onClick={handleAdminUpdateMatch}
@@ -3267,6 +3358,51 @@ export default function PWAAppPage() {
                   )}
                 </div>
               </div>
+
+              {/* Transmission Links - Only for registered users! */}
+              {summaryModalMatch.transmision_enlaces && summaryModalMatch.transmision_enlaces.trim() !== '' && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center border-b border-zinc-800 pb-1.5">
+                    <h4 className="text-xs font-black text-zinc-400 uppercase tracking-widest">Dónde Ver el Partido</h4>
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Enlaces Oficiales</span>
+                  </div>
+                  {!user ? (
+                    <div className="bg-zinc-950/40 border border-dashed border-zinc-800 rounded-2xl p-4 text-center">
+                      <p className="text-[11px] text-zinc-400 font-medium">
+                        🔒 <span className="text-yellow-500">Inicia sesión</span> para acceder a los enlaces oficiales de transmisión de este partido.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-zinc-950 border border-zinc-850 p-4 rounded-2xl flex flex-wrap gap-2">
+                      {summaryModalMatch.transmision_enlaces.split(',').map((linkPair: string, idx: number) => {
+                        const parts = linkPair.split(':');
+                        const name = parts[0]?.trim();
+                        const url = parts.slice(1).join(':')?.trim();
+                        if (!name) return null;
+                        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                          return (
+                            <a
+                              key={idx}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-zinc-900 hover:bg-yellow-500 hover:text-zinc-950 border border-zinc-850 hover:border-yellow-500 text-zinc-300 text-[10px] font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 active:scale-[0.98] select-none"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              🎥 <span>{name}</span>
+                            </a>
+                          );
+                        }
+                        return (
+                          <span key={idx} className="bg-zinc-900 border border-zinc-850 text-zinc-400 text-[10px] px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 select-none">
+                            📺 <span>{name}</span> {url ? <span className="text-zinc-550 font-normal">({url})</span> : ''}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Tactical News and Stadium Info Block in Spanish (Give Voice to Football API) */}
               <div className="space-y-4">

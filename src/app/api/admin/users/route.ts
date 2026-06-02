@@ -27,7 +27,7 @@ export async function GET() {
          ORDER BY u.id ASC`
       );
     } else {
-      // Company admin: only users in shared companies
+      // Company admin: only users in shared companies OR users with no company assigned (pending approval)
       res = await pool.query(
         `SELECT DISTINCT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.created_at, u.telefono,
                 COALESCE(
@@ -42,7 +42,7 @@ export async function GET() {
            WHERE uc2.company_id IN (
              SELECT company_id FROM user_companies WHERE user_id = $1
            )
-         ) OR u.id = $1
+         ) OR u.id = $1 OR NOT EXISTS (SELECT 1 FROM user_companies uc3 WHERE uc3.user_id = u.id)
          GROUP BY u.id
          ORDER BY u.id ASC`,
         [user.id]
@@ -70,6 +70,18 @@ export async function POST(req: NextRequest) {
       // Toggle: add if not member, remove if already member
       const { userId: targetUserId, companyId, assign } = body;
       if (!targetUserId || !companyId) return NextResponse.json({ error: 'userId y companyId requeridos' }, { status: 400 });
+      
+      // If company admin, they can only assign/remove companies they belong to
+      if (user.tipo === 'admin') {
+        const checkAdminCompany = await pool.query(
+          'SELECT 1 FROM user_companies WHERE user_id = $1 AND company_id = $2',
+          [user.id, companyId]
+        );
+        if (checkAdminCompany.rows.length === 0) {
+          return NextResponse.json({ error: 'No autorizado para gestionar esta empresa' }, { status: 403 });
+        }
+      }
+
       if (assign) {
         await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [targetUserId, companyId]);
       } else {
@@ -79,7 +91,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'setCompanies') {
-      // Replace all companies for a user
+      // Replace all companies for a user (superadmin only)
+      if (user.tipo !== 'superadmin') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
       const { userId: targetUserId, companyIds } = body;
       if (!targetUserId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
       await pool.query('DELETE FROM user_companies WHERE user_id = $1', [targetUserId]);

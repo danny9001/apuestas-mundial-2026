@@ -2902,31 +2902,7 @@ export default function PWAAppPage() {
                         <p className="text-[10px] text-zinc-600 mt-1">Opcional · Para recibir avisos por WhatsApp</p>
                       </div>
 
-                      {/* Empresa(s) — multi-select */}
-                      {companies.length > 0 && (
-                        <div>
-                          <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-2">Empresa(s) — opcional</label>
-                          <div className="flex flex-wrap gap-2">
-                            {companies.filter((c) => c.activo).map((c) => {
-                              const selected = registerCompanyIds.includes(c.id);
-                              return (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onClick={() => setRegisterCompanyIds((prev) =>
-                                    selected ? prev.filter((id) => id !== c.id) : [...prev, c.id]
-                                  )}
-                                  className={`text-xs px-3 py-1.5 rounded-full border font-bold transition ${selected ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
-                                  style={{ color: c.color, borderColor: c.color + '60', backgroundColor: selected ? c.color + '20' : 'transparent' }}
-                                >
-                                  {selected ? '✓ ' : ''}{c.nombre}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <p className="text-[10px] text-zinc-600 mt-1.5">Puedes seleccionar múltiples empresas</p>
-                        </div>
-                      )}
+
 
                       {registerError && (
                         <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
@@ -3372,11 +3348,16 @@ export default function PWAAppPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-                        {/* Multi-company assignment — superadmin only */}
-                        {user.tipo === 'superadmin' && u.id !== user.id && companies.length > 0 && (
+                        {/* Company assignment — superadmin or company admin */}
+                        {(user.tipo === 'superadmin' || user.tipo === 'admin') && u.id !== user.id && companies.length > 0 && (
                           <div className="flex gap-1 flex-wrap max-w-[200px]">
-                            {companies.map((c) => {
-                              const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
+                            {companies
+                              .filter((c) => {
+                                if (user.tipo === 'superadmin') return true;
+                                return (user.companies || []).some((ac: any) => ac.id === c.id);
+                              })
+                              .map((c) => {
+                                const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
                               return (
                                 <button
                                   key={c.id}

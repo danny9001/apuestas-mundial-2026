@@ -7,6 +7,8 @@ import {
   Trophy, 
   Calendar, 
   User, 
+  Sun,
+  Moon,
   Settings, 
   LogOut, 
   Lock, 
@@ -126,6 +128,8 @@ export default function PWAAppPage() {
 
   // Group remaining matches toggle
   const [groupRemaining, setGroupRemaining] = useState(false);
+  const [compactView, setCompactView] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   // Application Data States
   const [matches, setMatches] = useState<any[]>([]);
@@ -136,6 +140,10 @@ export default function PWAAppPage() {
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [syncLoading, setSyncLoading] = useState(false);
   const [myStats, setMyStats] = useState<any>(null);
+
+  // Application settings states
+  const [appName, setAppName] = useState('Mundial 2026');
+  const [appLogo, setAppLogo] = useState('🏆');
 
 
   // Live Goal Overlay & Success Notifications
@@ -155,6 +163,13 @@ export default function PWAAppPage() {
   const [adminGolesVisitante, setAdminGolesVisitante] = useState<number>(0);
   const [adminEstado, setAdminEstado] = useState<'upcoming' | 'live' | 'finished'>('upcoming');
   const [adminSubmitting, setAdminSubmitting] = useState(false);
+
+  // Admin App Settings Form
+  const [editAppName, setEditAppName] = useState('');
+  const [editLogoType, setEditLogoType] = useState<'emoji' | 'file'>('emoji');
+  const [editLogoEmoji, setEditLogoEmoji] = useState('🏆');
+  const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
+  const [settingsSubmitting, setSettingsSubmitting] = useState(false);
 
   // Match Summary & Statistics Modal
   const [summaryModalMatch, setSummaryModalMatch] = useState<any | null>(null);
@@ -178,6 +193,20 @@ export default function PWAAppPage() {
   // Filters for Matches
   const [filterGrupo, setFilterGrupo] = useState<string>('ALL');
   const [filterFase, setFilterFase] = useState<string>('ALL');
+
+  // Load App Settings
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch(`/api/settings?t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.app_name) setAppName(data.app_name);
+        if (data.app_logo) setAppLogo(data.app_logo);
+      }
+    } catch (e) {
+      console.error('Failed to fetch settings:', e);
+    }
+  };
 
   // Load Session on Mount
   const checkSession = async () => {
@@ -455,6 +484,18 @@ export default function PWAAppPage() {
     if (user && activeTab === 'admin') fetchSyncStatus();
   }, [activeTab, user]);
 
+  useEffect(() => {
+    if (user && activeTab === 'admin') {
+      setEditAppName(appName);
+      if (appLogo.startsWith('/') || appLogo.startsWith('http')) {
+        setEditLogoType('file');
+      } else {
+        setEditLogoType('emoji');
+        setEditLogoEmoji(appLogo);
+      }
+    }
+  }, [activeTab, appName, appLogo, user]);
+
   // Load personal stats when profile tab is opened
   useEffect(() => {
     if (user && activeTab === 'perfil') fetchMyStats();
@@ -462,7 +503,26 @@ export default function PWAAppPage() {
 
   useEffect(() => {
     checkSession();
+    fetchSettings();
   }, []);
+
+  // Theme Sync and Persistence
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+    const root = window.document.documentElement;
+    if (theme === 'light') {
+      root.classList.add('light');
+    } else {
+      root.classList.remove('light');
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (user) {
@@ -708,6 +768,51 @@ export default function PWAAppPage() {
     }
   };
 
+  // Save App Settings
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editAppName.trim()) {
+      showToast('⚠️ El nombre de la aplicación es requerido');
+      return;
+    }
+    
+    setSettingsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('app_name', editAppName);
+      formData.append('logo_type', editLogoType);
+      
+      if (editLogoType === 'emoji') {
+        formData.append('logo_emoji', editLogoEmoji);
+      } else if (editLogoFile) {
+        formData.append('logo_file', editLogoFile);
+      }
+
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setAppName(data.settings.app_name);
+          setAppLogo(data.settings.app_logo);
+          showToast('✅ Configuración de la aplicación guardada con éxito');
+        } else {
+          showToast(`Error: ${data.error}`);
+        }
+      } else {
+        const data = await res.json();
+        showToast(`Error: ${data.error || 'No se pudo guardar la configuración'}`);
+      }
+    } catch (err: any) {
+      showToast('Error de red al guardar la configuración');
+    } finally {
+      setSettingsSubmitting(false);
+    }
+  };
+
   // Rendering Helpers
   if (!authChecked) {
     return (
@@ -730,10 +835,14 @@ export default function PWAAppPage() {
           
           {/* Logo Splash */}
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="h-16 w-16 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-inner animate-pulse">
-              🏆
+            <div className="h-16 w-16 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-inner animate-pulse overflow-hidden p-1">
+              {appLogo.startsWith('/') || appLogo.startsWith('http') ? (
+                <img src={appLogo} className="h-full w-full object-contain rounded-xl" alt="logo" />
+              ) : (
+                <span>{appLogo}</span>
+              )}
             </div>
-            <h1 className="text-2xl font-black tracking-wider text-zinc-100 uppercase">Mundial 2026</h1>
+            <h1 className="text-2xl font-black tracking-wider text-zinc-100 uppercase">{appName}</h1>
             <p className="text-zinc-400 text-xs tracking-widest uppercase mt-1">Plataforma de Apuestas y Quiniela</p>
           </div>
 
@@ -904,12 +1013,16 @@ export default function PWAAppPage() {
     <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row w-full pb-safe">
       
       {/* 💻 DESKTOP LAYOUT LEFT SIDEBAR NAVIGATION */}
-      <aside className="hidden md:flex md:w-64 bg-zinc-900/40 border-r border-zinc-900/60 flex-col justify-between p-6">
+      <aside className="hidden md:flex md:w-64 bg-zinc-900/40 border-r border-zinc-900/60 flex-col justify-between p-6 md:sticky md:top-0 md:h-screen">
         <div className="space-y-8">
           {/* Logo */}
-          <div className="flex items-center gap-2 px-2">
-            <span className="text-2xl">🏆</span>
-            <span className="font-black tracking-wider text-sm uppercase text-zinc-100">MUNDIAL 2026</span>
+          <div className="flex items-center gap-2.5 px-2">
+            {appLogo.startsWith('/') || appLogo.startsWith('http') ? (
+              <img src={appLogo} className="w-7 h-7 object-contain rounded-md flex-shrink-0" alt="logo" />
+            ) : (
+              <span className="text-2xl flex-shrink-0">{appLogo}</span>
+            )}
+            <span className="font-black tracking-wider text-sm uppercase text-zinc-100 truncate">{appName}</span>
           </div>
 
           {/* Navigation Links */}
@@ -1007,8 +1120,15 @@ export default function PWAAppPage() {
               <div className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">{user.tipo}</div>
             </div>
             <button 
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="text-zinc-500 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
+              title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
+            >
+              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
+            <button 
               onClick={handleLogout}
-              className="text-zinc-500 hover:text-red-400 p-1.5 transition"
+              className="text-zinc-500 hover:text-red-400 p-1.5 transition flex-shrink-0"
               title="Cerrar Sesión"
             >
               <LogOut className="w-4 h-4" />
@@ -1050,11 +1170,15 @@ export default function PWAAppPage() {
 
         {/* HEADER BAR FOR MOBILE (Hidden on desktop) */}
         <header className="sticky top-0 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900/60 px-4 py-4 flex justify-between items-center z-30 pt-safe md:hidden">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🏆</span>
-            <span className="font-black tracking-wider text-sm uppercase text-zinc-100">MUNDIAL 2026</span>
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {appLogo.startsWith('/') || appLogo.startsWith('http') ? (
+              <img src={appLogo} className="w-6 h-6 object-contain rounded-md flex-shrink-0" alt="logo" />
+            ) : (
+              <span className="text-xl flex-shrink-0">{appLogo}</span>
+            )}
+            <span className="font-black tracking-wider text-sm uppercase text-zinc-100 truncate">{appName}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Direct link for TV screen */}
             <a
               href="/tv"
@@ -1064,6 +1188,14 @@ export default function PWAAppPage() {
             >
               📺
             </a>
+            {/* Theme Toggle Button */}
+            <button 
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-yellow-500 p-2 rounded-lg border border-zinc-800 transition flex items-center justify-center"
+              title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
+            >
+              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
             <div className="bg-zinc-900 border border-zinc-800 rounded-full px-3 py-1 flex items-center gap-1.5 text-xs text-zinc-300">
               <img src={user.avatar} className="w-4 h-4 rounded-full" alt="avatar" />
               <span className="font-bold max-w-[80px] truncate">{user.nombre.split(' ')[0]}</span>
@@ -1078,6 +1210,21 @@ export default function PWAAppPage() {
           {activeTab === 'partidos' && (
             <section className="space-y-6">
               
+              {/* Header Bar — Filtros y Vistas */}
+              <div className="flex justify-between items-center gap-4 border-b border-zinc-900 pb-2">
+                <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Filtrar Partidos</div>
+                <button
+                  onClick={() => setCompactView(!compactView)}
+                  className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition border ${
+                    compactView 
+                      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40 shadow-[0_0_12px_rgba(234,179,8,0.1)]' 
+                      : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:border-yellow-500/30 hover:text-zinc-300'
+                  }`}
+                >
+                  {compactView ? '📱 Vista Normal' : '🔍 Vista Compacta'}
+                </button>
+              </div>
+
               {/* Filtros pill — Fases */}
               <div className="space-y-3">
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
@@ -1117,7 +1264,7 @@ export default function PWAAppPage() {
                     <button
                       onClick={() => { const v = !groupRemaining; setGroupRemaining(v); if (v) { setFilterFase('Fase de Grupos'); setFilterGrupo('ALL'); } }}
                       className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition border ${
-                        groupRemaining ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:border-yellow-500/30'
+                        groupRemaining ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' : 'bg-zinc-900 text-zinc-555 border-zinc-800 hover:border-yellow-500/30'
                       }`}
                     >📂 Agrupar</button>
                   </div>
@@ -1125,13 +1272,85 @@ export default function PWAAppPage() {
               </div>
               {/* Cards de partidos */}
               {!groupRemaining && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
                   {matches
                     .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
                     .filter((m) => filterFase === 'ALL' || m.fase === filterFase)
                     .map((m) => {
                       const myPred = predictions.find((p) => p.match_id === m.id);
                       const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+                      if (compactView) {
+                        return (
+                          <div 
+                            key={m.id}
+                            onClick={() => {
+                              setSummaryModalMatch(m);
+                              fetchCommunityBets(m.id);
+                            }}
+                            className={`bg-zinc-900/50 hover:bg-zinc-900 border ${m.estado === 'live' ? 'border-red-500/40 bg-red-950/5 shadow-[0_0_15px_rgba(239,68,68,0.08)]' : 'border-zinc-850 hover:border-zinc-700/60'} rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 transition cursor-pointer relative`}
+                          >
+                            {/* Left: Info badge + Time */}
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded font-mono flex-shrink-0 ${m.estado === 'live' ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' : 'bg-zinc-800/80 text-zinc-400'}`}>
+                                {m.estado === 'live' ? 'VIVO' : `G${m.grupo}`}
+                              </span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[10px] font-bold text-zinc-355 truncate">{m.fase}</span>
+                                <span className="text-[9px] text-zinc-500 font-mono truncate">
+                                  {m.estado === 'upcoming' ? new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : m.estado === 'live' ? 'Jugándose' : 'Finalizado'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Middle: Teams and Score */}
+                            <div className="flex items-center justify-center gap-2 flex-grow-[2] w-[45%] text-xs font-bold text-zinc-200">
+                              <div className="flex items-center gap-1.5 w-[42%] justify-end min-w-0">
+                                <span className="truncate uppercase text-[11px] text-zinc-300 text-right">{m.local}</span>
+                                <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
+                              </div>
+                              
+                              <div className="px-2 py-0.5 bg-zinc-950/95 border border-zinc-850 rounded font-mono text-[11px] font-black text-center min-w-[38px] flex-shrink-0">
+                                {m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}
+                              </div>
+
+                              <div className="flex items-center gap-1.5 w-[42%] justify-start min-w-0">
+                                <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                                <span className="truncate uppercase text-[11px] text-zinc-300 text-left">{m.visitante}</span>
+                              </div>
+                            </div>
+
+                            {/* Right: User bet / Button */}
+                            <div className="flex items-center justify-end gap-2 text-right min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
+                              {myPred ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="text-[9px] text-zinc-500 font-medium">Mi apuesta</span>
+                                  <span className="font-bold text-zinc-200 text-xs font-mono">{myPred.pred_local} - {myPred.pred_visitante}</span>
+                                </div>
+                              ) : isClosed ? (
+                                <span className="text-[9px] text-zinc-500 italic">Sin apuesta</span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setBetModalMatch(m);
+                                    setBetPredLocal(0);
+                                    setBetPredVisitante(0);
+                                  }}
+                                  className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase"
+                                >
+                                  Apostar
+                                </button>
+                              )}
+
+                              {isClosed && myPred && myPred.puntos !== null && (
+                                <span className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-1 py-0.5 rounded text-[8px] font-black font-mono flex-shrink-0">
+                                  +{myPred.puntos}P
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div 
                           key={m.id} 
@@ -1284,10 +1503,77 @@ export default function PWAAppPage() {
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
                             {grpMatches.map((m) => {
                               const myPred = predictions.find((p) => p.match_id === m.id);
                               const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+                              
+                              if (compactView) {
+                                return (
+                                  <div 
+                                    key={m.id}
+                                    onClick={() => {
+                                      setSummaryModalMatch(m);
+                                      fetchCommunityBets(m.id);
+                                    }}
+                                    className={`bg-zinc-900/50 hover:bg-zinc-900 border border-zinc-850 hover:border-zinc-700/60 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 transition cursor-pointer relative`}
+                                  >
+                                    {/* Left: Info badge + Time */}
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded font-mono flex-shrink-0 bg-zinc-800/80 text-zinc-400`}>
+                                        G{m.grupo}
+                                      </span>
+                                      <div className="flex flex-col min-w-0">
+                                        <span className="text-[10px] font-bold text-zinc-355 truncate">{m.fase}</span>
+                                        <span className="text-[9px] text-zinc-500 font-mono truncate">
+                                          {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Middle: Teams and Score */}
+                                    <div className="flex items-center justify-center gap-2 flex-grow-[2] w-[45%] text-xs font-bold text-zinc-200">
+                                      <div className="flex items-center gap-1.5 w-[42%] justify-end min-w-0">
+                                        <span className="truncate uppercase text-[11px] text-zinc-300 text-right">{m.local}</span>
+                                        <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
+                                      </div>
+                                      
+                                      <div className="px-2 py-0.5 bg-zinc-950/95 border border-zinc-850 rounded font-mono text-[11px] font-black text-center min-w-[38px] flex-shrink-0">
+                                        VS
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5 w-[42%] justify-start min-w-0">
+                                        <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                                        <span className="truncate uppercase text-[11px] text-zinc-300 text-left">{m.visitante}</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Right: User bet / Button */}
+                                    <div className="flex items-center justify-end gap-2 text-right min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
+                                      {myPred ? (
+                                        <div className="flex flex-col items-end">
+                                          <span className="text-[9px] text-zinc-500 font-medium">Mi apuesta</span>
+                                          <span className="font-bold text-zinc-200 text-xs font-mono">{myPred.pred_local} - {myPred.pred_visitante}</span>
+                                        </div>
+                                      ) : isClosed ? (
+                                        <span className="text-[9px] text-zinc-550 italic">Sin apuesta</span>
+                                      ) : (
+                                        <button
+                                          onClick={() => {
+                                            setBetModalMatch(m);
+                                            setBetPredLocal(0);
+                                            setBetPredVisitante(0);
+                                          }}
+                                          className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase"
+                                        >
+                                          Apostar
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
                               return (
                                 <div 
                                   key={m.id} 
@@ -1612,9 +1898,21 @@ export default function PWAAppPage() {
                   <Trophy className="w-5 h-5 text-yellow-500 animate-pulse" />
                   <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Bracket Eliminatorias</h2>
                 </div>
-                <span className="text-[10px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider font-mono font-bold">
-                  FIFA 2026
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCompactView(!compactView)}
+                    className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition border ${
+                      compactView 
+                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40 shadow-[0_0_12px_rgba(234,179,8,0.1)]' 
+                        : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:border-yellow-500/30 hover:text-zinc-300'
+                    }`}
+                  >
+                    {compactView ? '📱 Vista Normal' : '🔍 Vista Compacta'}
+                  </button>
+                  <span className="text-[10px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider font-mono font-bold">
+                    FIFA 2026
+                  </span>
+                </div>
               </div>
 
               {/* FUNNEL — cada etapa más estrecha */}
@@ -1634,45 +1932,47 @@ export default function PWAAppPage() {
                     </div>
                     {/* Match grid — width narrows to simulate funnel */}
                     <div className="w-full transition-all duration-300" style={{ maxWidth: pct === '100%' ? '100%' : pct }}>
-                      <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${cols > 2 ? 2 : cols}, 1fr)` }}>
+                      <div className={`grid ${compactView ? 'gap-1.5' : 'gap-2'}`} style={{ gridTemplateColumns: `repeat(${cols > 2 ? 2 : cols}, 1fr)` }}>
                         {/* On md+ screens show all cols */}
                         {faseMatches.map((m) => (
                           <div
                             key={m.id}
                             onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                            className={`bg-zinc-900 border ${border} rounded-xl p-2.5 cursor-pointer hover:bg-zinc-800/80 transition group`}
+                            className={`bg-zinc-900 border ${border} ${compactView ? 'p-1.5 rounded-lg' : 'p-2.5 rounded-xl'} cursor-pointer hover:bg-zinc-800/80 transition group`}
                           >
                             {/* Team 1 */}
                             <div className="flex items-center justify-between gap-1 text-[11px]">
                               <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
-                                <span className="font-bold text-zinc-300 truncate uppercase text-[10px]">{m.local}</span>
+                                {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>}
+                                <span className={`font-bold text-zinc-300 truncate uppercase ${compactView ? 'text-[9px]' : 'text-[10px]'}`}>{m.local}</span>
                               </div>
-                              <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                              <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
                                 {m.estado !== 'upcoming' ? m.goles_local : '-'}
                               </span>
                             </div>
                             {/* Team 2 */}
-                            <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
+                            <div className={`flex items-center justify-between gap-1 text-[11px] ${compactView ? 'mt-0.5 pt-0.5 border-t border-zinc-850' : 'mt-1.5 pt-1.5 border-t border-zinc-800/60'}`}>
                               <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                                <span className="font-bold text-zinc-400 truncate uppercase text-[10px]">{m.visitante}</span>
+                                {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>}
+                                <span className={`font-bold text-zinc-400 truncate uppercase ${compactView ? 'text-[9px]' : 'text-[10px]'}`}>{m.visitante}</span>
                               </div>
-                              <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                              <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
                                 {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
                               </span>
                             </div>
-                            {/* Date + estado */}
-                            <div className="flex justify-between items-center mt-1.5 pt-1 border-t border-zinc-800/40">
-                              <span className="text-[8px] text-zinc-600 font-mono">
-                                {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                              </span>
-                              <span className={`text-[8px] font-black uppercase tracking-wider ${
-                                m.estado === 'live' ? 'text-red-400' : m.estado === 'finished' ? 'text-zinc-500' : 'text-zinc-600'
-                              }`}>
-                                {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FIN' : 'PRÓX'}
-                              </span>
-                            </div>
+                            {/* Date + estado (Hidden in compact view) */}
+                            {!compactView && (
+                              <div className="flex justify-between items-center mt-1.5 pt-1 border-t border-zinc-800/40">
+                                <span className="text-[8px] text-zinc-600 font-mono">
+                                  {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                                </span>
+                                <span className={`text-[8px] font-black uppercase tracking-wider ${
+                                  m.estado === 'live' ? 'text-red-400' : m.estado === 'finished' ? 'text-zinc-500' : 'text-zinc-600'
+                                }`}>
+                                  {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FIN' : 'PRÓX'}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1985,6 +2285,91 @@ export default function PWAAppPage() {
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Recalcular Clasificación</span>
                 </button>
+              </div>
+
+              {/* Configuración de la Aplicación */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Personalización de la Aplicación</h3>
+                <form onSubmit={handleSaveSettings} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* App Name */}
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre de la Quiniela</label>
+                      <input 
+                        type="text"
+                        required
+                        value={editAppName}
+                        onChange={(e) => setEditAppName(e.target.value)}
+                        placeholder="Nombre de la Quiniela"
+                        className="w-full input-stitch px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    {/* Logo Type */}
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Tipo de Logo</label>
+                      <select 
+                        value={editLogoType}
+                        onChange={(e) => setEditLogoType(e.target.value as 'emoji' | 'file')}
+                        className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30"
+                      >
+                        <option value="emoji">Emoji o Símbolo</option>
+                        <option value="file">Imagen Personalizada (Subir)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {editLogoType === 'emoji' ? (
+                    <div className="space-y-1.5 max-w-xs">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Emoji o Icono Texto</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          required
+                          value={editLogoEmoji}
+                          onChange={(e) => setEditLogoEmoji(e.target.value)}
+                          placeholder="ej: 🏆 o ⚽ o 🎫"
+                          className="w-full input-stitch px-3 py-2 text-xs"
+                        />
+                        <div className="w-9 h-9 bg-zinc-950 border border-zinc-850 rounded-xl flex items-center justify-center text-xl select-none flex-shrink-0">
+                          {editLogoEmoji}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Archivo de Logo (PNG / JPG / SVG)</label>
+                      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                        <input 
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setEditLogoFile(e.target.files[0]);
+                            }
+                          }}
+                          className="text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-zinc-950 file:text-yellow-500 hover:file:bg-zinc-900 file:cursor-pointer"
+                        />
+                        {appLogo.startsWith('/') && (
+                          <div className="flex items-center gap-2 bg-zinc-950/60 border border-zinc-850 p-2 rounded-xl">
+                            <span className="text-[9px] text-zinc-500">Logo actual:</span>
+                            <img src={appLogo} className="w-8 h-8 object-contain rounded" alt="logo actual" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-2 border-t border-zinc-950">
+                    <button
+                      type="submit"
+                      disabled={settingsSubmitting}
+                      className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
+                    >
+                      <span>{settingsSubmitting ? 'Guardando...' : 'Guardar Cambios'}</span>
+                    </button>
+                  </div>
+                </form>
               </div>
 
               {/* Sync Dashboard */}

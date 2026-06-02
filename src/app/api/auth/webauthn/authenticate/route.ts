@@ -17,6 +17,27 @@ const challengeStore = new Map<string, string>();
 // POST /api/auth/webauthn/authenticate?step=options|verify
 export async function POST(req: NextRequest) {
   try {
+    const requestUrl = new URL(req.url);
+    let resolvedOrigin = req.headers.get('origin') || req.headers.get('referer') || requestUrl.origin;
+    try {
+      const parsed = new URL(resolvedOrigin);
+      resolvedOrigin = parsed.origin;
+    } catch {
+      resolvedOrigin = requestUrl.origin;
+    }
+    const resolvedRpID = new URL(resolvedOrigin).hostname;
+
+    const envRpID = process.env.WEBAUTHN_RP_ID;
+    const envOrigin = process.env.WEBAUTHN_ORIGIN;
+    let finalRpID = resolvedRpID;
+    let finalOrigin = resolvedOrigin;
+    if (envRpID && envRpID !== 'localhost' && resolvedRpID !== 'localhost' && resolvedRpID !== '127.0.0.1') {
+      finalRpID = envRpID;
+    }
+    if (envOrigin && !envOrigin.includes('localhost') && !resolvedRpID.includes('localhost') && resolvedRpID !== '127.0.0.1') {
+      finalOrigin = envOrigin;
+    }
+
     const { searchParams } = new URL(req.url);
     const step = searchParams.get('step');
 
@@ -49,7 +70,7 @@ export async function POST(req: NextRequest) {
       }));
 
       const options = await generateAuthenticationOptions({
-        rpID,
+        rpID: finalRpID,
         userVerification: 'preferred',
         allowCredentials,
       });
@@ -87,8 +108,8 @@ export async function POST(req: NextRequest) {
         verification = await verifyAuthenticationResponse({
           response: body,
           expectedChallenge,
-          expectedOrigin: origin,
-          expectedRPID: rpID,
+          expectedOrigin: finalOrigin,
+          expectedRPID: finalRpID,
           credential: {
             id: pk.credential_id,
             publicKey: new Uint8Array(pk.public_key),

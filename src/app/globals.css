@@ -17,6 +17,45 @@
   
   --outline: #9b8f79;
   --outline-variant: #4f4633;
+
+  /* Custom Zinc Variable mappings for Dark Mode */
+  --zinc-100: #f4f4f5;
+  --zinc-200: #e4e4e7;
+  --zinc-300: #d4d4d8;
+  --zinc-400: #a1a1aa;
+  --zinc-500: #71717a;
+  --zinc-600: #52525b;
+  --zinc-700: #3f3f46;
+  --zinc-800: #27272a;
+}
+
+.light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --primary: #ca8a04;
+  --primary-container: #eab308;
+  
+  --surface: #f1f5f9;
+  --surface-card: #ffffff;
+  --surface-bright: #e2e8f0;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f8fafc;
+  --surface-container: #f1f5f9;
+  --surface-container-high: #e2e8f0;
+  --surface-container-highest: #cbd5e1;
+  
+  --outline: #eab308;
+  --outline-variant: #fef08a;
+
+  /* Custom Zinc Variable Inversions for Light Mode */
+  --zinc-100: #0f172a; /* text-zinc-100 becomes extremely dark */
+  --zinc-200: #1e293b; /* text-zinc-200 becomes dark slate */
+  --zinc-300: #334155; /* text-zinc-300 becomes slate-700 */
+  --zinc-400: #475569; /* text-zinc-400 becomes slate-600 */
+  --zinc-500: #64748b; /* text-zinc-500 becomes slate-500 */
+  --zinc-600: #cbd5e1; /* border becomes light grey border */
+  --zinc-700: #cbd5e1; /* border-zinc-700 becomes light */
+  --zinc-800: #e2e8f0; /* border-zinc-800 becomes light gray */
 }
 
 @theme inline {
@@ -24,11 +63,19 @@
   --color-foreground: var(--foreground);
   --color-primary-yellow: var(--primary);
   
-  /* Redefine Tailwind Zinc colors to match the obsidian surface specs */
+  /* Redefine Tailwind Zinc colors to match dynamic variables */
   --color-zinc-950: var(--surface);
   --color-zinc-900: var(--surface-card);
-  --color-zinc-800: #27272a;
-  --color-zinc-700: #3f3f46;
+  --color-zinc-850: var(--surface-bright);
+  
+  --color-zinc-800: var(--zinc-800);
+  --color-zinc-700: var(--zinc-700);
+  --color-zinc-600: var(--zinc-600);
+  --color-zinc-500: var(--zinc-500);
+  --color-zinc-400: var(--zinc-400);
+  --color-zinc-300: var(--zinc-300);
+  --color-zinc-200: var(--zinc-200);
+  --color-zinc-100: var(--zinc-100);
   
   /* Map Yellow values to Gold accents */
   --color-yellow-500: var(--primary);
@@ -321,4 +368,70 @@ body {
 }
 .pt-safe {
   padding-top: env(safe-area-inset-top);
+}
+
+/* --- LIGHT MODE COMPONENT OVERRIDES --- */
+.light .glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(203, 213, 225, 0.6);
+}
+.light .table-header-frost {
+  background: rgba(241, 245, 249, 0.85);
+  border-bottom-color: rgba(203, 213, 225, 0.7);
+}
+.light .btn-secondary-stitch {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+.light .btn-secondary-stitch:hover:not(:disabled) {
+  border-color: #ca8a04;
+  background: rgba(202, 138, 4, 0.05);
+}
+.light .input-stitch {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+.light .input-stitch:focus {
+  background-color: #f8fafc;
+  border-color: #ca8a04;
+  box-shadow: 0 0 8px rgba(202, 138, 4, 0.25);
+}
+.light .btn-odds-stitch {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #ca8a04;
+}
+.light .btn-odds-stitch:hover {
+  border-color: #ca8a04;
+  background: rgba(202, 138, 4, 0.05);
+}
+.light .bottom-nav-glass {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(203, 213, 225, 0.8);
+}
+.light .bottom-nav-active-pill {
+  color: #ca8a04 !important;
+}
+.light .bottom-nav-active-pill::before {
+  background: rgba(202, 138, 4, 0.08);
+  border-color: rgba(202, 138, 4, 0.15);
+}
+.light .match-card-stitch {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+.light .split-flap-cell {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+  color: #ca8a04;
+  text-shadow: 0 0 5px rgba(202, 138, 4, 0.25);
+}
+.light .split-flap-cell::after {
+  background: rgba(203, 213, 225, 0.95);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.light ::placeholder {
+  color: #94a3b8;
 }

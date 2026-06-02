@@ -30,7 +30,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    const { userId, activo, tipo } = await req.json();
+    const body = await req.json();
+    const { action } = body;
+
+    if (action === 'create') {
+      const { nombre, email, password, tipo } = body;
+      if (!nombre || !email || !password) {
+        return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
+      }
+
+      // Check if email already exists
+      const checkRes = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+      if (checkRes.rows.length > 0) {
+        return NextResponse.json({ error: 'El correo electrónico ya está registrado' }, { status: 400 });
+      }
+
+      const bcrypt = await import('bcryptjs');
+      const passwordHash = await bcrypt.hash(password, 10);
+      const defaultAvatar = `/uploads/avatars/avatar_${Math.floor(Math.random() * 5) + 1}.png`; // seed random default avatar
+
+      const insertQuery = `
+        INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo)
+        VALUES ($1, $2, $3, $4, $5, true)
+        RETURNING id, nombre, email, tipo, avatar, activo, created_at
+      `;
+
+      const res = await pool.query(insertQuery, [
+        nombre.trim(),
+        email.toLowerCase().trim(),
+        passwordHash,
+        tipo || 'user',
+        defaultAvatar
+      ]);
+
+      return NextResponse.json({ success: true, user: res.rows[0] });
+    }
+
+    const { userId, activo, tipo } = body;
 
     if (userId === undefined) {
       return NextResponse.json({ error: 'Falta ID de usuario' }, { status: 400 });

@@ -98,6 +98,24 @@ function getTeamFlag(name: string): string {
   return TEAM_FLAGS[name] || '🏳️';
 }
 
+function formatPlaceholderText(name: string): string {
+  if (!name) return '';
+  const clean = name.trim();
+  if (/^[1-3][A-L]$/.test(clean)) {
+    return `${clean[0]}° del Grupo ${clean[1]}`;
+  }
+  if (clean.startsWith('3') && clean.includes('/')) {
+    return `Mejor 3° Grupo ${clean.substring(1)}`;
+  }
+  if (/^[G][0-9]+$/.test(clean)) {
+    return `Ganador Partido ${clean.substring(1)}`;
+  }
+  if (/^[P][0-9]+$/.test(clean)) {
+    return `Perdedor Partido ${clean.substring(1)}`;
+  }
+  return '';
+}
+
 export default function PWAAppPage() {
   // Session & Authentication
   const [authChecked, setAuthChecked] = useState(false);
@@ -128,8 +146,8 @@ export default function PWAAppPage() {
 
   // Group remaining matches toggle
   const [groupRemaining, setGroupRemaining] = useState(false);
-  const [compactView, setCompactView] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [compactView, setCompactView] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Application Data States
   const [matches, setMatches] = useState<any[]>([]);
@@ -171,6 +189,13 @@ export default function PWAAppPage() {
   const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
   const [settingsSubmitting, setSettingsSubmitting] = useState(false);
 
+  // Admin User Creator Form
+  const [newUserNombre, setNewUserNombre] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserTipo, setNewUserTipo] = useState<'user' | 'admin'>('user');
+  const [newUserSubmitting, setNewUserSubmitting] = useState(false);
+
   // Match Summary & Statistics Modal
   const [summaryModalMatch, setSummaryModalMatch] = useState<any | null>(null);
   const [communityBets, setCommunityBets] = useState<any[]>([]);
@@ -193,6 +218,9 @@ export default function PWAAppPage() {
   // Filters for Matches
   const [filterGrupo, setFilterGrupo] = useState<string>('ALL');
   const [filterFase, setFilterFase] = useState<string>('ALL');
+
+  // Kickoff Countdown State (Kickoff June 11, 2026 16:00:00 Bolivia Time - UTC-4)
+  const [kickoffTimeLeft, setKickoffTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   // Load App Settings
   const fetchSettings = async () => {
@@ -501,6 +529,30 @@ export default function PWAAppPage() {
     if (user && activeTab === 'perfil') fetchMyStats();
   }, [activeTab, user]);
 
+  // Kickoff Countdown Timer Effect
+  useEffect(() => {
+    const targetDate = new Date('2026-06-11T16:00:00-04:00'); // Bolivia Time Kickoff
+    
+    const updateTimer = () => {
+      const diff = targetDate.getTime() - Date.now();
+      if (diff <= 0) {
+        setKickoffTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      setKickoffTimeLeft({ days, hours, minutes, seconds });
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     checkSession();
     fetchSettings();
@@ -511,6 +563,8 @@ export default function PWAAppPage() {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     if (savedTheme) {
       setTheme(savedTheme);
+    } else {
+      setTheme('light');
     }
   }, []);
 
@@ -810,6 +864,52 @@ export default function PWAAppPage() {
       showToast('Error de red al guardar la configuración');
     } finally {
       setSettingsSubmitting(false);
+    }
+  };
+
+  // Create New User (Admin only)
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserNombre.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
+      showToast('⚠️ Todos los campos son obligatorios');
+      return;
+    }
+
+    setNewUserSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          nombre: newUserNombre,
+          email: newUserEmail,
+          password: newUserPassword,
+          tipo: newUserTipo
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('👤 ¡Usuario creado con éxito!');
+        // Refresh the users list
+        const uRes = await fetch(`/api/admin/users?t=${Date.now()}`);
+        if (uRes.ok) {
+          const uData = await uRes.json();
+          setAdminUsers(uData);
+        }
+        // Reset form
+        setNewUserNombre('');
+        setNewUserEmail('');
+        setNewUserPassword('');
+        setNewUserTipo('user');
+      } else {
+        showToast(`Error: ${data.error || 'No se pudo crear el usuario'}`);
+      }
+    } catch (err: any) {
+      showToast('Error de red al crear el usuario');
+    } finally {
+      setNewUserSubmitting(false);
     }
   };
 
@@ -1210,6 +1310,171 @@ export default function PWAAppPage() {
           {activeTab === 'partidos' && (
             <section className="space-y-6">
               
+              {/* --- STUNNING KICKOFF DASHBOARD & TRANSMISSION NEWS PANEL --- */}
+              <div className="glass-card rounded-3xl p-5 md:p-6 border border-zinc-800/80 shadow-2xl relative overflow-hidden space-y-5 animate-fade-in">
+                {/* Ambient decorative background glow */}
+                <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-red-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-zinc-850">
+                  <div className="flex items-center gap-2.5">
+                    <div className="relative">
+                      <Trophy className="w-6 h-6 text-yellow-500 animate-bounce" />
+                      <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                      </span>
+                    </div>
+                    <div>
+                      <h2 className="text-sm md:text-base font-black uppercase tracking-wider text-zinc-100">
+                        Dashboard Mundial 2026 · Bolivia
+                      </h2>
+                      <p className="text-[10px] text-zinc-500 font-semibold">
+                        Transmisiones oficiales, noticias clave y estado del portal
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Portal Link */}
+                  <a 
+                    href="/tv" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 border border-red-500/20 text-[10px] font-black uppercase tracking-wider transition duration-300 shadow-[0_0_15px_rgba(239,68,68,0.08)] group"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                    <span>Ver Portal en Vivo (TV Aeropuerto)</span>
+                    <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                  </a>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                  
+                  {/* Left Column: Countdown Widget */}
+                  <div className="lg:col-span-5 flex flex-col justify-between bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 relative">
+                    <div className="text-[9px] font-black text-yellow-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
+                      Cronómetro de Inicio Oficial (Bolivia)
+                    </div>
+                    
+                    {/* Countdown Digits */}
+                    <div className="flex items-center justify-between gap-2 py-2">
+                      {[
+                        { label: 'DÍAS', value: kickoffTimeLeft.days },
+                        { label: 'HORAS', value: kickoffTimeLeft.hours },
+                        { label: 'MINUTOS', value: kickoffTimeLeft.minutes },
+                        { label: 'SEGUNDOS', value: kickoffTimeLeft.seconds },
+                      ].map((item, idx) => (
+                        <React.Fragment key={item.label}>
+                          <div className="flex flex-col items-center flex-1">
+                            <div className="w-full h-14 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center font-mono font-black text-2xl text-yellow-500 shadow-inner select-none relative overflow-hidden">
+                              {/* Horizontal line simulating split flap */}
+                              <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-black/60 z-10"></div>
+                              <span className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse">
+                                {String(item.value).padStart(2, '0')}
+                              </span>
+                            </div>
+                            <span className="text-[8px] font-black text-zinc-500 tracking-widest mt-1.5">
+                              {item.label}
+                            </span>
+                          </div>
+                          {idx < 3 && (
+                            <span className="text-yellow-500/40 font-mono font-black text-xl mb-3 animate-pulse">
+                              :
+                            </span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 text-[8.5px] text-zinc-500 font-bold bg-zinc-950/90 border border-zinc-900 rounded-lg p-2 text-center">
+                      📍 Kickoff: <span className="text-zinc-350">11 de Junio, 2026 · 16:00 (Hora Bolivia)</span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Transmission & News Panel */}
+                  <div className="lg:col-span-7 flex flex-col justify-between gap-3">
+                    <div className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-zinc-400"></span>
+                      ¿Dónde ver los partidos en Bolivia?
+                    </div>
+                    
+                    {/* Broadcast Cards Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                      
+                      {/* Card 1: Unitel */}
+                      <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">UNITEL</span>
+                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[7px] font-black tracking-widest uppercase">Gratis</span>
+                          </div>
+                          <p className="text-[8.5px] text-zinc-500 font-semibold leading-relaxed">
+                            Señal abierta de TV pública. Transmite el partido inaugural, partidos clave, semifinales y la gran final.
+                          </p>
+                        </div>
+                        <a 
+                          href="https://www.unitel.bo" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase"
+                        >
+                          Ir a Unitel.bo <span>→</span>
+                        </a>
+                      </div>
+
+                      {/* Card 2: Tigo Sports */}
+                      <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">TIGO SPORTS</span>
+                            <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 text-[7px] font-black tracking-widest uppercase">Premium</span>
+                          </div>
+                          <p className="text-[8.5px] text-zinc-500 font-semibold leading-relaxed">
+                            Televisión de pago / cable. Cobertura completa de los 64 partidos en vivo, análisis tácticos y alta definición.
+                          </p>
+                        </div>
+                        <a 
+                          href="https://www.tigosports.com.bo" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase"
+                        >
+                          Sitio Web <span>→</span>
+                        </a>
+                      </div>
+
+                      {/* Card 3: Online / Streams */}
+                      <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">EN LÍNEA</span>
+                            <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 text-[7px] font-black tracking-widest uppercase">Streaming</span>
+                          </div>
+                          <p className="text-[8.5px] text-zinc-500 font-semibold leading-relaxed">
+                            FIFA+ para transmisiones móviles gratuitas, Unitel App y Tigo Sports App para celulares y tabletas.
+                          </p>
+                        </div>
+                        <a 
+                          href="https://plus.fifa.com" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase"
+                        >
+                          Abrir FIFA+ <span>→</span>
+                        </a>
+                      </div>
+                      
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
               {/* Header Bar — Filtros y Vistas */}
               <div className="flex justify-between items-center gap-4 border-b border-zinc-900 pb-2">
                 <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Filtrar Partidos</div>
@@ -1305,7 +1570,7 @@ export default function PWAAppPage() {
                             {/* Middle: Teams and Score */}
                             <div className="flex items-center justify-center gap-2 flex-grow-[2] w-[45%] text-xs font-bold text-zinc-200">
                               <div className="flex items-center gap-1.5 w-[42%] justify-end min-w-0">
-                                <span className="truncate uppercase text-[11px] text-zinc-300 text-right">{m.local}</span>
+                                <span className="truncate uppercase text-xs font-black text-zinc-100 text-right">{m.local}</span>
                                 <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
                               </div>
                               
@@ -1315,7 +1580,7 @@ export default function PWAAppPage() {
 
                               <div className="flex items-center gap-1.5 w-[42%] justify-start min-w-0">
                                 <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                                <span className="truncate uppercase text-[11px] text-zinc-300 text-left">{m.visitante}</span>
+                                <span className="truncate uppercase text-xs font-black text-zinc-100 text-left">{m.visitante}</span>
                               </div>
                             </div>
 
@@ -1534,7 +1799,7 @@ export default function PWAAppPage() {
                                     {/* Middle: Teams and Score */}
                                     <div className="flex items-center justify-center gap-2 flex-grow-[2] w-[45%] text-xs font-bold text-zinc-200">
                                       <div className="flex items-center gap-1.5 w-[42%] justify-end min-w-0">
-                                        <span className="truncate uppercase text-[11px] text-zinc-300 text-right">{m.local}</span>
+                                        <span className="truncate uppercase text-xs font-black text-zinc-100 text-right">{m.local}</span>
                                         <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
                                       </div>
                                       
@@ -1544,7 +1809,7 @@ export default function PWAAppPage() {
 
                                       <div className="flex items-center gap-1.5 w-[42%] justify-start min-w-0">
                                         <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                                        <span className="truncate uppercase text-[11px] text-zinc-300 text-left">{m.visitante}</span>
+                                        <span className="truncate uppercase text-xs font-black text-zinc-100 text-left">{m.visitante}</span>
                                       </div>
                                     </div>
 
@@ -1944,7 +2209,14 @@ export default function PWAAppPage() {
                             <div className="flex items-center justify-between gap-1 text-[11px]">
                               <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                 {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>}
-                                <span className={`font-bold text-zinc-300 truncate uppercase ${compactView ? 'text-[9px]' : 'text-[10px]'}`}>{m.local}</span>
+                                <div className="flex flex-col min-w-0">
+                                  <span className={`font-black text-zinc-100 truncate uppercase ${compactView ? 'text-[10px]' : 'text-[11px]'}`}>{m.local}</span>
+                                  {formatPlaceholderText(m.local) && (
+                                    <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                      ({formatPlaceholderText(m.local)})
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
                                 {m.estado !== 'upcoming' ? m.goles_local : '-'}
@@ -1954,25 +2226,28 @@ export default function PWAAppPage() {
                             <div className={`flex items-center justify-between gap-1 text-[11px] ${compactView ? 'mt-0.5 pt-0.5 border-t border-zinc-850' : 'mt-1.5 pt-1.5 border-t border-zinc-800/60'}`}>
                               <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                 {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>}
-                                <span className={`font-bold text-zinc-400 truncate uppercase ${compactView ? 'text-[9px]' : 'text-[10px]'}`}>{m.visitante}</span>
+                                <div className="flex flex-col min-w-0">
+                                  <span className={`font-black text-zinc-100 truncate uppercase ${compactView ? 'text-[10px]' : 'text-[11px]'}`}>{m.visitante}</span>
+                                  {formatPlaceholderText(m.visitante) && (
+                                    <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                      ({formatPlaceholderText(m.visitante)})
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
                                 {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
                               </span>
                             </div>
-                            {/* Date + estado (Hidden in compact view) */}
-                            {!compactView && (
-                              <div className="flex justify-between items-center mt-1.5 pt-1 border-t border-zinc-800/40">
-                                <span className="text-[8px] text-zinc-600 font-mono">
-                                  {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                                </span>
-                                <span className={`text-[8px] font-black uppercase tracking-wider ${
-                                  m.estado === 'live' ? 'text-red-400' : m.estado === 'finished' ? 'text-zinc-500' : 'text-zinc-600'
-                                }`}>
-                                  {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FIN' : 'PRÓX'}
-                                </span>
-                              </div>
-                            )}
+                            {/* Date + Venue Footer (Always visible for maximum details) */}
+                            <div className="flex justify-between items-center mt-1.5 pt-1 border-t border-zinc-800/40">
+                              <span className="text-[8px] text-zinc-500 font-semibold truncate max-w-[65%]">
+                                📍 {m.estadio || 'Por definir'}
+                              </span>
+                              <span className="text-[8px] text-zinc-500 font-mono flex-shrink-0">
+                                {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2002,13 +2277,36 @@ export default function PWAAppPage() {
                       <div className="flex items-center justify-between gap-1 text-[11px]">
                         <div className="flex items-center gap-1.5 flex-1 min-w-0">
                           <span className="text-base">{getTeamFlag(m.local)}</span>
-                          <span className="font-bold text-zinc-300 truncate uppercase text-[10px]">{m.local}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-black text-zinc-100 truncate uppercase text-[10px]">{m.local}</span>
+                            {formatPlaceholderText(m.local) && (
+                              <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                ({formatPlaceholderText(m.local)})
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <span className="font-black font-mono text-zinc-500">{m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}</span>
+                        <span className="font-black font-mono text-zinc-500 mx-2">{m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}</span>
                         <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-                          <span className="font-bold text-zinc-300 truncate uppercase text-[10px] text-right">{m.visitante}</span>
+                          <div className="flex flex-col min-w-0 items-end">
+                            <span className="font-black text-zinc-100 truncate uppercase text-[10px] text-right">{m.visitante}</span>
+                            {formatPlaceholderText(m.visitante) && (
+                              <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                ({formatPlaceholderText(m.visitante)})
+                              </span>
+                            )}
+                          </div>
                           <span className="text-base">{getTeamFlag(m.visitante)}</span>
                         </div>
+                      </div>
+                      {/* Venue Footer */}
+                      <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
+                        <span className="text-[8px] text-zinc-500 font-semibold truncate max-w-[65%]">
+                          📍 {m.estadio || 'Sede por definir'}
+                        </span>
+                        <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400' : 'text-zinc-500'}`}>
+                          {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FINAL' : 'PRÓX'}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -2020,17 +2318,40 @@ export default function PWAAppPage() {
                       onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
                       className="bg-zinc-950 border-2 border-yellow-500 rounded-xl p-3 cursor-pointer hover:shadow-[0_0_20px_rgba(234,179,8,0.2)] transition relative"
                     >
-                      <div className="text-[8px] text-yellow-500 font-black uppercase tracking-widest mb-2 text-center">🏆 GRAN FINAL · 19 Jul · MetLife Stadium</div>
+                      <div className="text-[8px] text-yellow-500 font-black uppercase tracking-widest mb-2 text-center">🏆 GRAN FINAL · 19 Jul</div>
                       <div className="flex items-center justify-between gap-1 text-[11px]">
                         <div className="flex items-center gap-1.5 flex-1 min-w-0">
                           <span className="text-base">{getTeamFlag(m.local)}</span>
-                          <span className="font-bold text-zinc-100 truncate uppercase text-[10px]">{m.local}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-black text-zinc-100 truncate uppercase text-[10px]">{m.local}</span>
+                            {formatPlaceholderText(m.local) && (
+                              <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                ({formatPlaceholderText(m.local)})
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <span className="font-black font-mono text-yellow-500 text-sm">{m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}</span>
+                        <span className="font-black font-mono text-yellow-500 text-sm mx-2">{m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}</span>
                         <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-                          <span className="font-bold text-zinc-100 truncate uppercase text-[10px] text-right">{m.visitante}</span>
+                          <div className="flex flex-col min-w-0 items-end">
+                            <span className="font-black text-zinc-100 truncate uppercase text-[10px] text-right">{m.visitante}</span>
+                            {formatPlaceholderText(m.visitante) && (
+                              <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                ({formatPlaceholderText(m.visitante)})
+                              </span>
+                            )}
+                          </div>
                           <span className="text-base">{getTeamFlag(m.visitante)}</span>
                         </div>
+                      </div>
+                      {/* Venue Footer */}
+                      <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
+                        <span className="text-[8px] text-yellow-500/80 font-semibold truncate max-w-[65%]">
+                          📍 {m.estadio || 'MetLife Stadium'}
+                        </span>
+                        <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-yellow-500'}`}>
+                          {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FINAL' : 'PRÓX'}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -2475,6 +2796,76 @@ export default function PWAAppPage() {
               {/* Admin User Activation Manager list */}
               <div className="space-y-4 max-w-2xl">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Gestión de Usuarios</h3>
+
+                {/* Formulario de creación de usuario */}
+                <form onSubmit={handleCreateUser} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 shadow-lg">
+                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Crear Nuevo Usuario</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Nombre */}
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Nombre Completo</label>
+                      <input 
+                        type="text"
+                        required
+                        value={newUserNombre}
+                        onChange={(e) => setNewUserNombre(e.target.value)}
+                        placeholder="Nombre completo"
+                        className="w-full input-stitch px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    {/* Email */}
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Correo Electrónico</label>
+                      <input 
+                        type="email"
+                        required
+                        value={newUserEmail}
+                        onChange={(e) => setNewUserEmail(e.target.value)}
+                        placeholder="ej: usuario@mundial.com"
+                        className="w-full input-stitch px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    {/* Password */}
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Contraseña</label>
+                      <input 
+                        type="password"
+                        required
+                        value={newUserPassword}
+                        onChange={(e) => setNewUserPassword(e.target.value)}
+                        placeholder="Contraseña (mín. 6 caracteres)"
+                        className="w-full input-stitch px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    {/* Role / Tipo */}
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Rol del Usuario</label>
+                      <select 
+                        value={newUserTipo}
+                        onChange={(e) => setNewUserTipo(e.target.value as 'user' | 'admin')}
+                        className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30"
+                      >
+                        <option value="user">Usuario Común</option>
+                        <option value="admin">Administrador</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      disabled={newUserSubmitting}
+                      className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
+                    >
+                      <span>{newUserSubmitting ? 'Creando...' : 'Crear Usuario'}</span>
+                    </button>
+                  </div>
+                </form>
+
+                <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-black pt-2">Lista de Usuarios</div>
 
                 <div className="bg-zinc-900/40 border border-zinc-900 divide-y divide-zinc-900 rounded-2xl overflow-hidden shadow-lg">
                   {adminUsers.map((u) => (

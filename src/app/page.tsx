@@ -304,13 +304,9 @@ export default function PWAAppPage() {
         const data = await res.json();
         if (data.app_name) setAppName(data.app_name);
         if (data.app_logo) setAppLogo(data.app_logo);
-        if (data.primary_color) setEditPrimaryColor(data.primary_color);
         if (data.app_subtitle) setEditSubtitle(data.app_subtitle);
         if (data.contact_whatsapp) setEditContactWhatsapp(data.contact_whatsapp);
         if (data.contact_email) setEditContactEmail(data.contact_email);
-        if (data.primary_color) {
-          document.documentElement.style.setProperty('--primary', data.primary_color);
-        }
       }
     } catch (e) {
       console.error('Failed to fetch settings:', e);
@@ -1306,9 +1302,6 @@ export default function PWAAppPage() {
         if (data.success) {
           setAppName(data.settings.app_name);
           setAppLogo(data.settings.app_logo);
-          if (data.settings.primary_color) {
-            document.documentElement.style.setProperty('--primary', data.settings.primary_color);
-          }
           showToast('✅ Configuración de la aplicación guardada con éxito');
         } else {
           showToast(`Error: ${data.error}`);

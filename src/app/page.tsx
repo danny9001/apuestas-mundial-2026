@@ -33,75 +33,86 @@ import {
   Users,
   MessageSquare,
   Trash2,
-  LayoutDashboard
+  LayoutDashboard,
+  Home
 } from 'lucide-react';
 
-// Team flags helper map — 48 equipos Mundial 2026
-const TEAM_FLAGS: { [key: string]: string } = {
+const TEAM_CODES: { [key: string]: string } = {
   // Grupo A
-  'México': '🇲🇽',
-  'Sudáfrica': '🇿🇦',
-  'Corea del Sur': '🇰🇷',
-  'República Checa': '🇨🇿',
+  'México': 'mx',
+  'Sudáfrica': 'za',
+  'Corea del Sur': 'kr',
+  'República Checa': 'cz',
   // Grupo B
-  'Canadá': '🇨🇦',
-  'Bosnia y Herzegovina': '🇧🇦',
-  'Qatar': '🇶🇦',
-  'Suiza': '🇨🇭',
+  'Canadá': 'ca',
+  'Bosnia y Herzegovina': 'ba',
+  'Qatar': 'qa',
+  'Suiza': 'ch',
   // Grupo C
-  'Brasil': '🇧🇷',
-  'Marruecos': '🇲🇦',
-  'Haití': '🇭🇹',
-  'Escocia': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+  'Brasil': 'br',
+  'Marruecos': 'ma',
+  'Haití': 'ht',
+  'Escocia': 'gb-sct',
   // Grupo D
-  'Estados Unidos': '🇺🇸',
-  'Paraguay': '🇵🇾',
-  'Australia': '🇦🇺',
-  'Turquía': '🇹🇷',
+  'Estados Unidos': 'us',
+  'Paraguay': 'py',
+  'Australia': 'au',
+  'Turquía': 'tr',
   // Grupo E
-  'Alemania': '🇩🇪',
-  'Curazao': '🇨🇼',
-  'Costa de Marfil': '🇨🇮',
-  'Ecuador': '🇪🇨',
+  'Alemania': 'de',
+  'Curazao': 'cw',
+  'Costa de Marfil': 'ci',
+  'Ecuador': 'ec',
   // Grupo F
-  'Países Bajos': '🇳🇱',
-  'Japón': '🇯🇵',
-  'Suecia': '🇸🇪',
-  'Túnez': '🇹🇳',
+  'Países Bajos': 'nl',
+  'Japón': 'jp',
+  'Suecia': 'se',
+  'Túnez': 'tn',
   // Grupo G
-  'Bélgica': '🇧🇪',
-  'Egipto': '🇪🇬',
-  'Irán': '🇮🇷',
-  'Nueva Zelanda': '🇳🇿',
+  'Bélgica': 'be',
+  'Egipto': 'eg',
+  'Irán': 'ir',
+  'Nueva Zelanda': 'nz',
   // Grupo H
-  'España': '🇪🇸',
-  'Cabo Verde': '🇨🇻',
-  'Arabia Saudita': '🇸🇦',
-  'Uruguay': '🇺🇾',
+  'España': 'es',
+  'Cabo Verde': 'cv',
+  'Arabia Saudita': 'sa',
+  'Uruguay': 'uy',
   // Grupo I
-  'Francia': '🇫🇷',
-  'Senegal': '🇸🇳',
-  'Irak': '🇮🇶',
-  'Noruega': '🇳🇴',
+  'Francia': 'fr',
+  'Senegal': 'sn',
+  'Irak': 'iq',
+  'Noruega': 'no',
   // Grupo J
-  'Argentina': '🇦🇷',
-  'Argelia': '🇩🇿',
-  'Austria': '🇦🇹',
-  'Jordania': '🇯🇴',
+  'Argentina': 'ar',
+  'Argelia': 'dz',
+  'Austria': 'at',
+  'Jordania': 'jo',
   // Grupo K
-  'Portugal': '🇵🇹',
-  'RD Congo': '🇨🇩',
-  'Uzbekistán': '🇺🇿',
-  'Colombia': '🇨🇴',
+  'Portugal': 'pt',
+  'RD Congo': 'cd',
+  'Uzbekistán': 'uz',
+  'Colombia': 'co',
   // Grupo L
-  'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-  'Croacia': '🇭🇷',
-  'Ghana': '🇬🇭',
-  'Panamá': '🇵🇦',
+  'Inglaterra': 'gb-eng',
+  'Croacia': 'hr',
+  'Ghana': 'gh',
+  'Panamá': 'pa',
 };
 
-function getTeamFlag(name: string): string {
-  return TEAM_FLAGS[name] || '🏳️';
+function getTeamFlag(name: string): React.ReactNode {
+  if (!name) return '🏳️';
+  const code = TEAM_CODES[name];
+  if (code) {
+    return (
+      <img
+        src={`https://flagcdn.com/w40/${code}.png`}
+        alt={name}
+        className="inline-block align-middle w-[1.3em] h-[0.9em] object-cover rounded-[0.15em] shadow-sm border border-zinc-850/60 flex-shrink-0"
+      />
+    );
+  }
+  return '🏳️';
 }
 
 function formatPlaceholderText(name: string): string {
@@ -1543,8 +1554,8 @@ export default function PWAAppPage() {
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent'
                 }`}
               >
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Dashboard</span>
+                <Home className="w-4 h-4" />
+                <span>Inicio</span>
               </button>
             )}
             <button
@@ -3719,6 +3730,19 @@ export default function PWAAppPage() {
         {/* BOTTOM MOBILE APP NAVIGATION (Hidden on Desktop) */}
         <nav className="fixed bottom-0 left-0 right-0 z-50 bottom-nav-glass shadow-[0_-2px_24px_rgba(0,0,0,0.6)] flex items-center justify-around py-3 px-2 md:hidden" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
           
+          {/* Tab Inicio (Visible if logged in) */}
+          {user && (
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`flex flex-col items-center gap-1 py-1 transition flex-1 text-center select-none ${
+                activeTab === 'dashboard' ? 'bottom-nav-active-pill font-black scale-105' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Home className="w-5 h-5" />
+              <span className="text-[9px] font-bold tracking-wide uppercase">Inicio</span>
+            </button>
+          )}
+
           {/* Tab Partidos */}
           <button
             onClick={() => setActiveTab('partidos')}

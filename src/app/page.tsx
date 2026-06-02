@@ -163,7 +163,8 @@ export default function PWAAppPage() {
 
   // Active Bottom Tab
   const [activeTab, setActiveTab] = useState<'dashboard' | 'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture' | 'reglas'>('dashboard');
-  const [groupDate, setGroupDate] = useState(false);
+  const [groupDate, setGroupDate] = useState(true);
+  const [fixtureGroupDate, setFixtureGroupDate] = useState(true);
 
   // Group remaining matches toggle
   const [groupRemaining, setGroupRemaining] = useState(false);
@@ -2694,6 +2695,16 @@ export default function PWAAppPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => setFixtureGroupDate(!fixtureGroupDate)}
+                    className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition border ${
+                      fixtureGroupDate 
+                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40 shadow-[0_0_12px_rgba(234,179,8,0.1)]' 
+                        : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:border-yellow-500/30 hover:text-zinc-300'
+                    }`}
+                  >
+                    {fixtureGroupDate ? '📅 Por Fecha' : '🏆 Bracket'}
+                  </button>
+                  <button
                     onClick={() => setCompactView(!compactView)}
                     className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition border ${
                       compactView 
@@ -2709,207 +2720,295 @@ export default function PWAAppPage() {
                 </div>
               </div>
 
-              {/* FUNNEL — cada etapa más estrecha */}
-              {([
-                { fase: 'Ronda de 32',     label: 'RONDA DE 32',     border: 'border-zinc-700/60',        badge: 'text-zinc-500', mwClass: 'max-w-full' },
-                { fase: 'Octavos de Final',label: 'OCTAVOS DE FINAL',border: 'border-zinc-600/60',        badge: 'text-zinc-400', mwClass: 'max-w-full sm:max-w-[88%]'  },
-                { fase: 'Cuartos de Final',label: 'CUARTOS DE FINAL',border: 'border-amber-600/40',       badge: 'text-amber-400', mwClass: 'max-w-full sm:max-w-[68%]'  },
-                { fase: 'Semifinal',       label: 'SEMIFINAL',       border: 'border-orange-500/50',      badge: 'text-orange-400', mwClass: 'max-w-full sm:max-w-[50%]'  },
-              ] as const).map(({ fase, label, border, badge, mwClass }) => {
-                const faseMatches = matches.filter(m => m.fase === fase);
-                if (faseMatches.length === 0) return null;
-                return (
-                  <div key={fase} className="flex flex-col items-center gap-0 w-full">
-                    {/* Stage label pill */}
-                    <div className={`text-[9px] font-black uppercase tracking-widest ${badge} bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2 z-10`}>
-                      {label} · {faseMatches.length} partidos
-                    </div>
-                    {/* Match grid — width narrows to simulate funnel */}
-                    <div className={`w-full transition-all duration-300 ${mwClass}`}>
-                      <div className={`grid grid-cols-1 sm:grid-cols-2 ${compactView ? 'gap-1.5' : 'gap-2'}`}>
-                        {/* On md+ screens show all cols */}
-                        {faseMatches.map((m) => (
-                          <div
-                            key={m.id}
-                            onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                            className={`bg-zinc-900 border ${border} ${compactView ? 'p-1.5 rounded-lg' : 'p-2.5 rounded-xl'} cursor-pointer hover:bg-zinc-800/80 transition group`}
-                          >
-                            {/* Team 1 */}
-                            <div className="flex items-center justify-between gap-1 text-[11px]">
-                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>}
-                                <div className="flex flex-col min-w-0">
-                                  <span className={`font-black text-zinc-100 truncate uppercase ${compactView ? 'text-[10px]' : 'text-[11px]'}`}>{m.local}</span>
-                                  {formatPlaceholderText(m.local) && (
-                                    <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                      ({formatPlaceholderText(m.local)})
-                                    </span>
-                                  )}
+              {fixtureGroupDate ? (
+                /* --- VISTA CRONOLÓGICA POR FECHA --- */
+                <div className="space-y-8 animate-fade-in">
+                  {(() => {
+                    const knockoutPhases = ['Ronda de 32', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'];
+                    const knockoutMatches = matches.filter(m => knockoutPhases.includes(m.fase));
+                    const grouped = getMatchesByDate(knockoutMatches);
+                    if (grouped.length === 0) {
+                      return (
+                        <div className="py-20 text-center text-zinc-500">
+                          <p>No hay partidos de eliminatoria programados.</p>
+                        </div>
+                      );
+                    }
+                    return grouped.map((g) => (
+                      <div key={g.dateStr} className="space-y-4">
+                        <div className="flex items-center gap-2 border-b border-zinc-850 pb-2">
+                          <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                            {g.dateStr}
+                          </span>
+                          <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider">
+                            ({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})
+                          </span>
+                        </div>
+                        <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+                          {g.matches.map((m) => (
+                            <div
+                              key={m.id}
+                              onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
+                              className={`bg-zinc-900 border border-zinc-850 hover:border-zinc-700/60 ${compactView ? 'p-2.5 rounded-lg' : 'p-3.5 rounded-xl'} cursor-pointer hover:bg-zinc-800/80 transition flex flex-col justify-between gap-2 shadow-md relative`}
+                            >
+                              <div className="flex items-center justify-between gap-2 border-b border-zinc-850/60 pb-1.5 mb-1">
+                                <span className="text-[8px] font-black text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded font-mono uppercase tracking-wider">
+                                  {m.fase}
+                                </span>
+                                <span className="text-[8.5px] text-zinc-500 font-mono">
+                                  {new Date(m.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              {/* Teams */}
+                              <div className="space-y-1.5">
+                                {/* Local */}
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="font-extrabold text-zinc-150 uppercase truncate">{m.local}</span>
+                                      {formatPlaceholderText(m.local) && (
+                                        <span className="text-[8px] text-zinc-500 truncate">({formatPlaceholderText(m.local)})</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className={`font-mono font-black ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-zinc-200'}`}>
+                                    {m.estado !== 'upcoming' ? m.goles_local : '-'}
+                                  </span>
+                                </div>
+                                {/* Visitante */}
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="font-extrabold text-zinc-150 uppercase truncate">{m.visitante}</span>
+                                      {formatPlaceholderText(m.visitante) && (
+                                        <span className="text-[8px] text-zinc-500 truncate">({formatPlaceholderText(m.visitante)})</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className={`font-mono font-black ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-zinc-200'}`}>
+                                    {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
+                                  </span>
                                 </div>
                               </div>
-                              <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
-                                {m.estado !== 'upcoming' ? m.goles_local : '-'}
-                              </span>
-                            </div>
-                            {/* Team 2 */}
-                            <div className={`flex items-center justify-between gap-1 text-[11px] ${compactView ? 'mt-0.5 pt-0.5 border-t border-zinc-850' : 'mt-1.5 pt-1.5 border-t border-zinc-800/60'}`}>
-                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>}
-                                <div className="flex flex-col min-w-0">
-                                  <span className={`font-black text-zinc-100 truncate uppercase ${compactView ? 'text-[10px]' : 'text-[11px]'}`}>{m.visitante}</span>
-                                  {formatPlaceholderText(m.visitante) && (
-                                    <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                      ({formatPlaceholderText(m.visitante)})
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
-                                {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
-                              </span>
-                            </div>
-                            {/* Date + Venue Footer (Always visible for maximum details) */}
-                            <div className="flex justify-between items-center mt-1.5 pt-1 border-t border-zinc-800/40">
-                              <span className="text-[8px] text-zinc-500 font-semibold truncate max-w-[65%]">
+                              {/* Stadium */}
+                              <div className="text-[8px] text-zinc-500 truncate pt-1 border-t border-zinc-850/40">
                                 📍 {m.estadio || 'Por definir'}
-                              </span>
-                              <span className="text-[8px] text-zinc-500 font-mono flex-shrink-0">
-                                {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                              </span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    {/* Funnel connector arrow */}
-                    <div className="flex flex-col items-center py-1 text-zinc-700">
-                      <div className="w-px h-3 bg-zinc-700"></div>
-                      <div className="text-zinc-600 text-xs">▼</div>
+                    ));
+                  })()}
+                </div>
+              ) : (
+                /* --- VISTA ORIGINAL DE BRACKET / FUNNEL --- */
+                <div className="space-y-1">
+                  {/* FUNNEL — cada etapa más estrecha */}
+                  {([
+                    { fase: 'Ronda de 32',     label: 'RONDA DE 32',     border: 'border-zinc-700/60',        badge: 'text-zinc-500', mwClass: 'max-w-full' },
+                    { fase: 'Octavos de Final',label: 'OCTAVOS DE FINAL',border: 'border-zinc-600/60',        badge: 'text-zinc-400', mwClass: 'max-w-full sm:max-w-[88%]'  },
+                    { fase: 'Cuartos de Final',label: 'CUARTOS DE FINAL',border: 'border-amber-600/40',       badge: 'text-amber-400', mwClass: 'max-w-full sm:max-w-[68%]'  },
+                    { fase: 'Semifinal',       label: 'SEMIFINAL',       border: 'border-orange-500/50',      badge: 'text-orange-400', mwClass: 'max-w-full sm:max-w-[50%]'  },
+                  ] as const).map(({ fase, label, border, badge, mwClass }) => {
+                    const faseMatches = matches.filter(m => m.fase === fase);
+                    if (faseMatches.length === 0) return null;
+                    return (
+                      <div key={fase} className="flex flex-col items-center gap-0 w-full">
+                        {/* Stage label pill */}
+                        <div className={`text-[9px] font-black uppercase tracking-widest ${badge} bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2 z-10`}>
+                          {label} · {faseMatches.length} partidos
+                        </div>
+                        {/* Match grid — width narrows to simulate funnel */}
+                        <div className={`w-full transition-all duration-300 ${mwClass}`}>
+                          <div className={`grid grid-cols-1 sm:grid-cols-2 ${compactView ? 'gap-1.5' : 'gap-2'}`}>
+                            {/* On md+ screens show all cols */}
+                            {faseMatches.map((m) => (
+                              <div
+                                key={m.id}
+                                onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
+                                className={`bg-zinc-900 border ${border} ${compactView ? 'p-1.5 rounded-lg' : 'p-2.5 rounded-xl'} cursor-pointer hover:bg-zinc-800/80 transition group`}
+                              >
+                                {/* Team 1 */}
+                                <div className="flex items-center justify-between gap-1 text-[11px]">
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                    {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>}
+                                    <div className="flex flex-col min-w-0">
+                                      <span className={`font-black text-zinc-100 truncate uppercase ${compactView ? 'text-[10px]' : 'text-[11px]'}`}>{m.local}</span>
+                                      {formatPlaceholderText(m.local) && (
+                                        <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                          ({formatPlaceholderText(m.local)})
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                                    {m.estado !== 'upcoming' ? m.goles_local : '-'}
+                                  </span>
+                                </div>
+                                {/* Team 2 */}
+                                <div className={`flex items-center justify-between gap-1 text-[11px] ${compactView ? 'mt-0.5 pt-0.5 border-t border-zinc-850' : 'mt-1.5 pt-1.5 border-t border-zinc-800/60'}`}>
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                    {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>}
+                                    <div className="flex flex-col min-w-0">
+                                      <span className={`font-black text-zinc-100 truncate uppercase ${compactView ? 'text-[10px]' : 'text-[11px]'}`}>{m.visitante}</span>
+                                      {formatPlaceholderText(m.visitante) && (
+                                        <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                          ({formatPlaceholderText(m.visitante)})
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                                    {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
+                                  </span>
+                                </div>
+                                {/* Date + Venue Footer (Always visible for maximum details) */}
+                                <div className="flex justify-between items-center mt-1.5 pt-1 border-t border-zinc-800/40">
+                                  <span className="text-[8px] text-zinc-500 font-semibold truncate max-w-[65%]">
+                                    📍 {m.estadio || 'Por definir'}
+                                  </span>
+                                  <span className="text-[8px] text-zinc-500 font-mono flex-shrink-0">
+                                    {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Funnel connector arrow */}
+                        <div className="flex flex-col items-center py-1 text-zinc-700">
+                          <div className="w-px h-3 bg-zinc-700"></div>
+                          <div className="text-zinc-600 text-xs">▼</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Bottom: 3er Puesto + Gran Final */}
+                  <div className="flex flex-col items-center gap-1 w-full">
+                    <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2">FINAL</div>
+                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-full sm:max-w-[42%]">
+
+                      {/* Tercer Puesto */}
+                      {matches.filter(m => m.fase === 'Tercer Puesto').map(m => (
+                        <div
+                          key={m.id}
+                          onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
+                          className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-3 cursor-pointer hover:bg-zinc-800/80 transition"
+                        >
+                          <div className="text-[8px] text-zinc-500 font-black uppercase tracking-widest mb-2 text-center">🥉 Tercer Puesto · 18 Jul</div>
+                          
+                          {/* Team 1 */}
+                          <div className="flex items-center justify-between gap-1 text-[11px]">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.local}</span>
+                                {formatPlaceholderText(m.local) && (
+                                  <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                    ({formatPlaceholderText(m.local)})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-650'}`}>
+                              {m.estado !== 'upcoming' ? m.goles_local : '-'}
+                            </span>
+                          </div>
+
+                          {/* Team 2 */}
+                          <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.visitante}</span>
+                                {formatPlaceholderText(m.visitante) && (
+                                  <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                    ({formatPlaceholderText(m.visitante)})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-650'}`}>
+                              {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
+                            </span>
+                          </div>
+
+                          {/* Venue Footer */}
+                          <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
+                            <span className="text-[8px] text-zinc-500 font-semibold truncate max-w-[65%]">
+                              📍 {m.estadio || 'Sede por definir'}
+                            </span>
+                            <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-zinc-500'}`}>
+                              {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FINAL' : 'PRÓX'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Gran Final */}
+                      {matches.filter(m => m.fase === 'Final').map(m => (
+                        <div
+                          key={m.id}
+                          onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
+                          className="bg-zinc-950 border-2 border-yellow-500 rounded-xl p-3 cursor-pointer hover:shadow-[0_0_20px_rgba(234,179,8,0.2)] transition relative"
+                        >
+                          <div className="text-[8px] text-yellow-500 font-black uppercase tracking-widest mb-2 text-center">🏆 GRAN FINAL · 19 Jul</div>
+                          
+                          {/* Team 1 */}
+                          <div className="flex items-center justify-between gap-1 text-[11px]">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.local}</span>
+                                {formatPlaceholderText(m.local) && (
+                                  <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                    ({formatPlaceholderText(m.local)})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-yellow-500 font-bold' : 'text-zinc-650'}`}>
+                              {m.estado !== 'upcoming' ? m.goles_local : '-'}
+                            </span>
+                          </div>
+
+                          {/* Team 2 */}
+                          <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.visitante}</span>
+                                {formatPlaceholderText(m.visitante) && (
+                                  <span className="text-[7.5px] text-zinc-500 font-bold truncate">
+                                    ({formatPlaceholderText(m.visitante)})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-yellow-500 font-bold' : 'text-zinc-650'}`}>
+                              {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
+                            </span>
+                          </div>
+
+                          {/* Venue Footer */}
+                          <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
+                            <span className="text-[8px] text-yellow-500/80 font-semibold truncate max-w-[65%]">
+                              📍 {m.estadio || 'MetLife Stadium'}
+                            </span>
+                            <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-yellow-500'}`}>
+                              {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FINAL' : 'PRÓX'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                );
-              })}
-
-              {/* Bottom: 3er Puesto + Gran Final */}
-              <div className="flex flex-col items-center gap-1 w-full">
-                <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2">FINAL</div>
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-full sm:max-w-[42%]">
-
-                  {/* Tercer Puesto */}
-                  {matches.filter(m => m.fase === 'Tercer Puesto').map(m => (
-                    <div
-                      key={m.id}
-                      onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                      className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-3 cursor-pointer hover:bg-zinc-800/80 transition"
-                    >
-                      <div className="text-[8px] text-zinc-500 font-black uppercase tracking-widest mb-2 text-center">🥉 Tercer Puesto · 18 Jul</div>
-                      
-                      {/* Team 1 */}
-                      <div className="flex items-center justify-between gap-1 text-[11px]">
-                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                          <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.local}</span>
-                            {formatPlaceholderText(m.local) && (
-                              <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                ({formatPlaceholderText(m.local)})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-650'}`}>
-                          {m.estado !== 'upcoming' ? m.goles_local : '-'}
-                        </span>
-                      </div>
-
-                      {/* Team 2 */}
-                      <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
-                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                          <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.visitante}</span>
-                            {formatPlaceholderText(m.visitante) && (
-                              <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                ({formatPlaceholderText(m.visitante)})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-650'}`}>
-                          {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
-                        </span>
-                      </div>
-
-                      {/* Venue Footer */}
-                      <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
-                        <span className="text-[8px] text-zinc-500 font-semibold truncate max-w-[65%]">
-                          📍 {m.estadio || 'Sede por definir'}
-                        </span>
-                        <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-zinc-500'}`}>
-                          {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FINAL' : 'PRÓX'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Gran Final */}
-                  {matches.filter(m => m.fase === 'Final').map(m => (
-                    <div
-                      key={m.id}
-                      onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                      className="bg-zinc-950 border-2 border-yellow-500 rounded-xl p-3 cursor-pointer hover:shadow-[0_0_20px_rgba(234,179,8,0.2)] transition relative"
-                    >
-                      <div className="text-[8px] text-yellow-500 font-black uppercase tracking-widest mb-2 text-center">🏆 GRAN FINAL · 19 Jul</div>
-                      
-                      {/* Team 1 */}
-                      <div className="flex items-center justify-between gap-1 text-[11px]">
-                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                          <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.local}</span>
-                            {formatPlaceholderText(m.local) && (
-                              <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                ({formatPlaceholderText(m.local)})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-yellow-500 font-bold' : 'text-zinc-650'}`}>
-                          {m.estado !== 'upcoming' ? m.goles_local : '-'}
-                        </span>
-                      </div>
-
-                      {/* Team 2 */}
-                      <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
-                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                          <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.visitante}</span>
-                            {formatPlaceholderText(m.visitante) && (
-                              <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                ({formatPlaceholderText(m.visitante)})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-yellow-500 font-bold' : 'text-zinc-650'}`}>
-                          {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
-                        </span>
-                      </div>
-
-                      {/* Venue Footer */}
-                      <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
-                        <span className="text-[8px] text-yellow-500/80 font-semibold truncate max-w-[65%]">
-                          📍 {m.estadio || 'MetLife Stadium'}
-                        </span>
-                        <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-yellow-500'}`}>
-                          {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FINAL' : 'PRÓX'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              </div>
+              )}
 
             </section>
           )}

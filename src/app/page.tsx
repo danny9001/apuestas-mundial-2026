@@ -32,7 +32,8 @@ import {
   Building2,
   Users,
   MessageSquare,
-  Trash2
+  Trash2,
+  LayoutDashboard
 } from 'lucide-react';
 
 // Team flags helper map — 48 equipos Mundial 2026
@@ -150,7 +151,8 @@ export default function PWAAppPage() {
   const [registerLoading, setRegisterLoading] = useState(false);
 
   // Active Bottom Tab
-  const [activeTab, setActiveTab] = useState<'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture' | 'reglas'>('partidos');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture' | 'reglas'>('partidos');
+  const [groupDate, setGroupDate] = useState(false);
 
   // Group remaining matches toggle
   const [groupRemaining, setGroupRemaining] = useState(false);
@@ -303,6 +305,230 @@ export default function PWAAppPage() {
     }
   };
 
+  // Group matches by date helper
+  const getMatchesByDate = (matchesList: any[]) => {
+    const sorted = [...matchesList].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+    const groups: { dateStr: string; matches: any[] }[] = [];
+    sorted.forEach((m) => {
+      const d = new Date(m.fecha);
+      const dateStr = d.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      const capitalized = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+      
+      const nowStr = new Date().toLocaleDateString('es-ES');
+      const matchDayStr = d.toLocaleDateString('es-ES');
+      
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toLocaleDateString('es-ES');
+      
+      let relativeLabel = '';
+      if (matchDayStr === nowStr) {
+        relativeLabel = ' (HOY)';
+      } else if (matchDayStr === tomorrowStr) {
+        relativeLabel = ' (MAÑANA)';
+      }
+
+      let group = groups.find((g) => g.dateStr === (capitalized + relativeLabel));
+      if (!group) {
+        group = { dateStr: capitalized + relativeLabel, matches: [] };
+        groups.push(group);
+      }
+      group.matches.push(m);
+    });
+    return groups;
+  };
+
+  // Helper to render a single match card
+  const renderMatchCard = (m: any) => {
+    const myPred = predictions.find((p) => p.match_id === m.id);
+    const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+    
+    if (compactView) {
+      return (
+        <div 
+          key={m.id}
+          onClick={() => {
+            setSummaryModalMatch(m);
+            fetchCommunityBets(m.id);
+          }}
+          className={`bg-zinc-900/50 hover:bg-zinc-900 border ${m.estado === 'live' ? 'border-red-500/40 bg-red-950/5 shadow-[0_0_15px_rgba(239,68,68,0.08)]' : 'border-zinc-850 hover:border-zinc-700/60'} rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 transition cursor-pointer relative`}
+        >
+          {/* Left: Info badge + Time */}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded font-mono flex-shrink-0 ${m.estado === 'live' ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' : 'bg-zinc-800/80 text-zinc-400'}`}>
+              {m.estado === 'live' ? 'VIVO' : `G${m.grupo}`}
+            </span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] font-bold text-zinc-355 truncate">{m.fase}</span>
+              <span className="text-[9px] text-zinc-500 font-mono truncate">
+                {m.estado === 'upcoming' ? new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : m.estado === 'live' ? 'Jugándose' : 'Finalizado'}
+              </span>
+            </div>
+          </div>
+
+          {/* Middle: Teams and Score */}
+          <div className="flex items-center justify-center gap-2 flex-grow-[2] w-[45%] text-xs font-bold text-zinc-200">
+            <div className="flex items-center gap-1.5 w-[42%] justify-end min-w-0">
+              <span className="truncate uppercase text-xs font-black text-zinc-100 text-right">{m.local}</span>
+              <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
+            </div>
+            
+            <div className="px-2 py-0.5 bg-zinc-950/95 border border-zinc-850 rounded font-mono text-[11px] font-black text-center min-w-[38px] flex-shrink-0">
+              {m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}
+            </div>
+
+            <div className="flex items-center gap-1.5 w-[42%] justify-start min-w-0">
+              <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+              <span className="truncate uppercase text-xs font-black text-zinc-100 text-left">{m.visitante}</span>
+            </div>
+          </div>
+
+          {/* Right: User bet / Button */}
+          <div className="flex items-center justify-end gap-2 text-right min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
+            {myPred ? (
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] text-zinc-500 font-medium">Mi apuesta</span>
+                <span className="font-bold text-zinc-200 text-xs font-mono">{myPred.pred_local} - {myPred.pred_visitante}</span>
+              </div>
+            ) : isClosed ? (
+              <span className="text-[9px] text-zinc-500 italic">Sin apuesta</span>
+            ) : (
+              <button
+                onClick={() => openBetModalForMatch(m)}
+                className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase"
+              >
+                Apostar
+              </button>
+            )}
+
+            {isClosed && myPred && myPred.puntos !== null && (
+              <span className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-1 py-0.5 rounded text-[8px] font-black font-mono flex-shrink-0">
+                +{myPred.puntos}P
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div 
+        key={m.id} 
+        className={`match-card-stitch p-5 shadow-lg flex flex-col justify-between gap-4 cursor-pointer relative ${
+          m.estado === 'live' 
+            ? 'match-card-live-stitch shadow-[0_0_18px_rgba(239,68,68,0.15)]' 
+            : ''
+        }`}
+        onClick={() => {
+          setSummaryModalMatch(m);
+          fetchCommunityBets(m.id);
+        }}
+      >
+        {/* Top Header Card */}
+        <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3 text-[11px] font-bold tracking-wider text-zinc-400" onClick={(e) => e.stopPropagation()}>
+          <span>{m.fase.toUpperCase()} - GRP {m.grupo}</span>
+          
+          {m.estado === 'live' && (
+            <span className="text-red-500 font-extrabold flex items-center gap-1 text-[10px]">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span> EN VIVO
+            </span>
+          )}
+
+          {m.estado === 'finished' && (
+            <span className="text-zinc-550 font-semibold uppercase text-[10px]">FINALIZADO</span>
+          )}
+
+          {m.estado === 'upcoming' && (
+            <span className="text-zinc-550 font-semibold text-[10px]">
+              {new Date(m.fecha).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </span>
+          )}
+        </div>
+
+        {/* Teams and Score rows */}
+        <div className="flex flex-col gap-3 py-1">
+          {/* Local */}
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-xl select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
+              <span className="font-extrabold text-zinc-100 uppercase truncate">{m.local}</span>
+            </div>
+            {m.estado !== 'upcoming' && (
+              <span className="font-black text-base font-mono text-zinc-100">{m.goles_local}</span>
+            )}
+          </div>
+
+          {/* Visitante */}
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-xl select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+              <span className="font-extrabold text-zinc-100 uppercase truncate">{m.visitante}</span>
+            </div>
+            {m.estado !== 'upcoming' && (
+              <span className="font-black text-base font-mono text-zinc-100">{m.goles_visitante}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Footer Card action */}
+        <div 
+          className="flex justify-between items-center border-t border-zinc-800/40 pt-3 text-xs" 
+          onClick={(e) => e.stopPropagation()}
+        >
+          {myPred ? (
+            <div className="flex items-center justify-between w-full">
+              <div className="flex flex-col">
+                <span className="text-[9px] text-zinc-555 font-semibold uppercase tracking-wider">Mi apuesta</span>
+                <span className="font-bold text-zinc-200 text-sm font-mono mt-0.5">{myPred.pred_local} - {myPred.pred_visitante}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {isClosed ? (
+                  <span className="text-[9px] text-zinc-555 font-semibold uppercase tracking-wider italic">Apuestas Cerradas</span>
+                ) : (
+                  <button 
+                    onClick={() => openBetModalForMatch(m)}
+                    className="text-[10px] font-black text-yellow-500 hover:text-yellow-400 uppercase tracking-wider"
+                  >
+                    Editar
+                  </button>
+                )}
+                {isClosed && myPred.puntos !== null && (
+                  <span className="bg-yellow-500 text-zinc-950 font-black px-2.5 py-1 rounded text-[10px] font-mono shadow-[0_0_12px_rgba(234,179,8,0.2)]">
+                    +{myPred.puntos} PTS
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[9px] text-zinc-555 font-semibold uppercase tracking-wider">Sin apuesta registrada</span>
+              {isClosed ? (
+                <span className="text-[9px] text-red-500/80 font-black uppercase tracking-wider">Apuesta Cerrada</span>
+              ) : (
+                <button 
+                  onClick={() => openBetModalForMatch(m)}
+                  className="btn-primary-stitch px-3.5 py-1.5 text-[9.5px] tracking-wider uppercase font-black"
+                >
+                  Apostar
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Load Session on Mount
   const checkSession = async () => {
     try {
@@ -310,6 +536,7 @@ export default function PWAAppPage() {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        setActiveTab('dashboard');
       }
     } catch (e) {
       console.error('Session check failed:', e);
@@ -815,6 +1042,7 @@ export default function PWAAppPage() {
       const data = await res.json();
       if (res.ok) {
         setUser(data.user);
+        setActiveTab('dashboard');
       } else {
         setLoginError(data.error || 'Credenciales inválidas');
       }
@@ -852,6 +1080,7 @@ export default function PWAAppPage() {
       const data = await res.json();
       if (res.ok) {
         setUser(data.user);
+        setActiveTab('dashboard');
         showToast('¡Registro exitoso! Bienvenido.');
         // Clean form states
         setRegisterNombre('');
@@ -1305,6 +1534,19 @@ export default function PWAAppPage() {
 
           {/* Navigation Links */}
           <nav className="flex flex-col gap-2">
+            {user && (
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
+                  activeTab === 'dashboard' 
+                    ? 'btn-primary-stitch shadow-md' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Dashboard</span>
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('partidos')}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition ${
@@ -1513,161 +1755,297 @@ export default function PWAAppPage() {
         {/* MAIN VIEW CONTROLLER */}
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8 overflow-y-auto pb-24 md:pb-8">
           
+          {/* --- VIEW 0: DASHBOARD --- */}
+          {activeTab === 'dashboard' && user && (() => {
+            const myRank = leaderboard.find(row => row.user_id === user.id);
+            const userPredictionsCount = predictions.length;
+            const userExactsCount = predictions.filter(p => p.puntos === 3).length;
+
+            return (
+              <section className="space-y-6 max-w-5xl mx-auto">
+                {/* Welcome Card */}
+                <div className="bg-gradient-to-r from-yellow-500/15 via-amber-500/5 to-transparent border border-yellow-500/20 rounded-3xl p-6 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg animate-fade-in">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                  <div>
+                    <div className="text-[10px] text-yellow-500 font-black uppercase tracking-widest">Resumen de Quiniela</div>
+                    <h2 className="text-2xl font-black text-zinc-100 mt-1">¡Hola, {user.nombre}! 👋</h2>
+                    <p className="text-zinc-400 text-xs mt-1">
+                      Aquí tienes el estado actual de tus predicciones, tu ranking y las novedades del torneo.
+                    </p>
+                  </div>
+                  {user.companies && user.companies.length > 0 && (
+                    <div className="flex gap-2 flex-wrap">
+                      {user.companies.map((c: any) => (
+                        <span key={c.id} className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border"
+                              style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '15' }}>
+                          🏢 {c.nombre}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Stats cards grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Card 1: Points */}
+                  <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Puntos Totales</span>
+                    <div className="mt-3 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-mono font-black text-yellow-500">{myRank ? myRank.puntos_totales : 0}</span>
+                      <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider">pts</span>
+                    </div>
+                    <span className="text-[9px] text-zinc-500 mt-2">Acumulados en todos los partidos</span>
+                  </div>
+
+                  {/* Card 2: Ranking Position */}
+                  <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Posición General</span>
+                    <div className="mt-3 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-mono font-black text-amber-500">
+                        {myRank && myRank.posicion !== 9999 ? `#${myRank.posicion}` : '--'}
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-zinc-500 mt-2">
+                      {myRank && myRank.tendencia === 'up' && '▲ Subiendo posiciones'}
+                      {myRank && myRank.tendencia === 'down' && '▼ Bajando posiciones'}
+                      {myRank && myRank.tendencia === 'same' && '● Manteniendo posición'}
+                      {!myRank && 'Aún sin clasificar'}
+                    </span>
+                  </div>
+
+                  {/* Card 3: Predictions Made */}
+                  <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Predicciones Hechas</span>
+                    <div className="mt-3 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-mono font-black text-zinc-100">{userPredictionsCount}</span>
+                      <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider">apuestas</span>
+                    </div>
+                    <span className="text-[9px] text-zinc-500 mt-2">Total de marcadores ingresados</span>
+                  </div>
+
+                  {/* Card 4: Exact scores */}
+                  <div className="glass-card p-5 border border-zinc-800/80 rounded-2xl flex flex-col justify-between shadow-md">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Aciertos Exactos</span>
+                    <div className="mt-3 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-mono font-black text-emerald-500">
+                        {myRank ? myRank.exactos : userExactsCount}
+                      </span>
+                      <span className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider">marcas</span>
+                    </div>
+                    <span className="text-[9px] text-zinc-500 mt-2">Marcadores idénticos acertados (+3 pts)</span>
+                  </div>
+                </div>
+
+                {/* Ambient Decorative Widgets (Official Streams & Countdown Widget) */}
+                <div className="glass-card rounded-3xl p-5 md:p-6 border border-zinc-800/80 shadow-2xl relative overflow-hidden space-y-5">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                  
+                  {/* Header */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-zinc-850">
+                    <div className="flex items-center gap-2.5">
+                      <Trophy className="w-5 h-5 text-yellow-500 animate-bounce" />
+                      <div>
+                        <h2 className="text-xs md:text-sm font-black uppercase tracking-wider text-zinc-100">
+                          Estadísticas y Novedades Mundial 2026
+                        </h2>
+                        <p className="text-[9px] text-zinc-500 font-semibold">
+                          Información de transmisiones y cronómetro de inicio oficial
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                    {/* Countdown Widget */}
+                    <div className="lg:col-span-5 flex flex-col justify-between bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 relative">
+                      <div className="text-[9px] font-black text-yellow-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
+                        Cronómetro de Inicio Oficial (Bolivia)
+                      </div>
+                      
+                      <div className="flex items-center justify-between gap-2 py-2">
+                        {[
+                          { label: 'DÍAS', value: kickoffTimeLeft.days },
+                          { label: 'HORAS', value: kickoffTimeLeft.hours },
+                          { label: 'MINUTOS', value: kickoffTimeLeft.minutes },
+                          { label: 'SEGUNDOS', value: kickoffTimeLeft.seconds },
+                        ].map((item, idx) => (
+                          <React.Fragment key={item.label}>
+                            <div className="flex flex-col items-center flex-1">
+                              <div className="w-full h-14 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center font-mono font-black text-xl text-yellow-500 shadow-inner select-none relative overflow-hidden">
+                                <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-black/60 z-10"></div>
+                                <span className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                                  {String(item.value).padStart(2, '0')}
+                                </span>
+                              </div>
+                              <span className="text-[8px] text-zinc-500 font-black uppercase tracking-wider mt-1">{item.label}</span>
+                            </div>
+                            {idx < 3 && <span className="text-yellow-500/40 font-mono font-black text-lg select-none">:</span>}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Previews and Streams column */}
+                    <div className="lg:col-span-7 flex flex-col justify-between bg-zinc-950/20 border border-zinc-900 rounded-2xl p-4">
+                      <div className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-3 flex items-center justify-between">
+                        <span>Canales y Transmisión Autorizada</span>
+                        <span className="text-yellow-500 font-mono">100% Legal</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">BOLIVIA</span>
+                              <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 text-[7px] font-black tracking-widest uppercase">Televisión</span>
+                            </div>
+                            <p className="text-[8.5px] text-zinc-550 font-semibold leading-relaxed">
+                              Unitel transmitirá 30 partidos abiertos en televisión abierta para todo el país, incluyendo inauguración, semifinales y la gran final.
+                            </p>
+                          </div>
+                          <a href="https://www.unitel.bo" target="_blank" rel="noopener noreferrer" className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase">
+                            Sitio Web <span>→</span>
+                          </a>
+                        </div>
+
+                        <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">CABLE (TIGO)</span>
+                              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[7px] font-black tracking-widest uppercase">Completo</span>
+                            </div>
+                            <p className="text-[8.5px] text-zinc-550 font-semibold leading-relaxed">
+                              Tigo Sports transmitirá en exclusiva por cable los 104 partidos del Mundial, incluyendo canales HD y cobertura especial.
+                            </p>
+                          </div>
+                          <a href="https://tigosports.com.bo" target="_blank" rel="noopener noreferrer" className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase">
+                            Sitio Web <span>→</span>
+                          </a>
+                        </div>
+
+                        <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">MÓVIL / APP</span>
+                              <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 text-[7px] font-black tracking-widest uppercase">Streaming</span>
+                            </div>
+                            <p className="text-[8.5px] text-zinc-550 font-semibold leading-relaxed">
+                              FIFA+ habilitará streams gratuitos en vivo de partidos seleccionados y resúmenes extendidos de 5 minutos al instante.
+                            </p>
+                          </div>
+                          <a href="https://plus.fifa.com" target="_blank" rel="noopener noreferrer" className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase">
+                            Abrir FIFA+ <span>→</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notifications and Quick Links grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Notifications box */}
+                  <div className="glass-card border border-zinc-850 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-4 border-b border-zinc-850 pb-3">
+                        <Bell className="w-4 h-4 text-yellow-500" />
+                        <h3 className="text-xs font-black uppercase tracking-wider text-zinc-100">Notificaciones Recientes</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {notifications.slice(0, 3).map((n) => (
+                          <div 
+                            key={n.id} 
+                            onClick={() => handleMarkNotificationRead(n.id)}
+                            className={`p-3 rounded-xl border transition cursor-pointer text-xs ${
+                              !n.leido 
+                                ? 'bg-yellow-500/5 border-yellow-500/20 text-zinc-200' 
+                                : 'bg-zinc-950/20 border-zinc-850 text-zinc-400 hover:text-zinc-300'
+                            }`}
+                          >
+                            <div className="flex justify-between items-center font-bold">
+                              <span>{n.titulo}</span>
+                              {!n.leido && <span className="h-1.5 w-1.5 rounded-full bg-yellow-500"></span>}
+                            </div>
+                            <p className="text-[10px] text-zinc-550 mt-1 leading-relaxed">{n.contenido}</p>
+                          </div>
+                        ))}
+                        {notifications.length === 0 && (
+                          <div className="py-8 text-center text-zinc-500 text-xs italic">
+                            No tienes notificaciones pendientes.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {notifications.length > 0 && (
+                      <button 
+                        onClick={() => setNotifPanelOpen(true)}
+                        className="text-[9px] font-black text-yellow-500 hover:text-yellow-400 uppercase tracking-widest mt-4 text-left"
+                      >
+                        Ver todas las notificaciones ({notifications.length})
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Quick links & tips box */}
+                  <div className="glass-card border border-zinc-850 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-4 border-b border-zinc-850 pb-3">
+                        <Activity className="w-4 h-4 text-yellow-500" />
+                        <h3 className="text-xs font-black uppercase tracking-wider text-zinc-100">Enlaces Rápidos</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => setActiveTab('partidos')}
+                          className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
+                        >
+                          <div className="text-xl mb-1">⚽</div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Ver Partidos</span>
+                          <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Predice y haz apuestas de grupo o ronda.</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab('ranking')}
+                          className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
+                        >
+                          <div className="text-xl mb-1">📊</div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Tabla de Posiciones</span>
+                          <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Revisa el pozo acumulado y tu puesto.</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab('fixture')}
+                          className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
+                        >
+                          <div className="text-xl mb-1">🌲</div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Fase Eliminatoria</span>
+                          <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Bracket interactivo rumbo a la Copa.</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab('perfil')}
+                          className="bg-zinc-950/30 hover:bg-zinc-950/60 border border-zinc-850 hover:border-zinc-700 p-4 rounded-xl text-left transition active:scale-[0.98] group"
+                        >
+                          <div className="text-xl mb-1">🔑</div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 block group-hover:text-yellow-500 transition">Ajustes & Passkeys</span>
+                          <span className="text-[8px] text-zinc-500 block mt-0.5 leading-tight">Configura tu perfil y llaves de acceso.</span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-yellow-500/5 border border-yellow-500/15 rounded-xl p-3 mt-4 text-[9px] text-zinc-400 font-semibold leading-relaxed">
+                      💡 **Consejo Táctico**: Las apuestas se cierran automáticamente al momento del kickoff oficial de cada partido. ¡No olvides ingresar tus marcadores a tiempo!
+                    </div>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
+
           {/* --- VIEW 1: PARTIDOS (MATCHES & BETTING CARDS) --- */}
           {activeTab === 'partidos' && (
             <section className="space-y-6">
               
-              {/* --- STUNNING KICKOFF DASHBOARD & TRANSMISSION NEWS PANEL --- */}
-              <div className="glass-card rounded-3xl p-5 md:p-6 border border-zinc-800/80 shadow-2xl relative overflow-hidden space-y-5 animate-fade-in">
-                {/* Ambient decorative background glow */}
-                <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-red-500/5 rounded-full blur-3xl pointer-events-none"></div>
-
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-zinc-850">
-                  <div className="flex items-center gap-2.5">
-                    <div className="relative">
-                      <Trophy className="w-6 h-6 text-yellow-500 animate-bounce" />
-                      <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                      </span>
-                    </div>
-                    <div>
-                      <h2 className="text-sm md:text-base font-black uppercase tracking-wider text-zinc-100">
-                        Dashboard Mundial 2026 · Bolivia
-                      </h2>
-                      <p className="text-[10px] text-zinc-500 font-semibold">
-                        Transmisiones oficiales, noticias clave y estado del portal
-                      </p>
-                    </div>
-                  </div>
-                  
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-                  
-                  {/* Left Column: Countdown Widget */}
-                  <div className="lg:col-span-5 flex flex-col justify-between bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 relative">
-                    <div className="text-[9px] font-black text-yellow-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
-                      Cronómetro de Inicio Oficial (Bolivia)
-                    </div>
-                    
-                    {/* Countdown Digits */}
-                    <div className="flex items-center justify-between gap-2 py-2">
-                      {[
-                        { label: 'DÍAS', value: kickoffTimeLeft.days },
-                        { label: 'HORAS', value: kickoffTimeLeft.hours },
-                        { label: 'MINUTOS', value: kickoffTimeLeft.minutes },
-                        { label: 'SEGUNDOS', value: kickoffTimeLeft.seconds },
-                      ].map((item, idx) => (
-                        <React.Fragment key={item.label}>
-                          <div className="flex flex-col items-center flex-1">
-                            <div className="w-full h-14 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center font-mono font-black text-2xl text-yellow-500 shadow-inner select-none relative overflow-hidden">
-                              {/* Horizontal line simulating split flap */}
-                              <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-black/60 z-10"></div>
-                              <span className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse">
-                                {String(item.value).padStart(2, '0')}
-                              </span>
-                            </div>
-                            <span className="text-[8px] font-black text-zinc-500 tracking-widest mt-1.5">
-                              {item.label}
-                            </span>
-                          </div>
-                          {idx < 3 && (
-                            <span className="text-yellow-500/40 font-mono font-black text-xl mb-3 animate-pulse">
-                              :
-                            </span>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </div>
-
-                    <div className="mt-3 text-[8.5px] text-zinc-500 font-bold bg-zinc-950/90 border border-zinc-900 rounded-lg p-2 text-center">
-                      📍 Kickoff: <span className="text-zinc-350">11 de Junio, 2026 · 16:00 (Hora Bolivia)</span>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Transmission & News Panel */}
-                  <div className="lg:col-span-7 flex flex-col justify-between gap-3">
-                    <div className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-zinc-400"></span>
-                      ¿Dónde ver los partidos en Bolivia?
-                    </div>
-                    
-                    {/* Broadcast Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                      
-                      {/* Card 1: Unitel */}
-                      <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">UNITEL</span>
-                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[7px] font-black tracking-widest uppercase">Gratis</span>
-                          </div>
-                          <p className="text-[8.5px] text-zinc-500 font-semibold leading-relaxed">
-                            Señal abierta de TV pública. Transmite el partido inaugural, partidos clave, semifinales y la gran final.
-                          </p>
-                        </div>
-                        <a 
-                          href="https://www.unitel.bo" 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase"
-                        >
-                          Ir a Unitel.bo <span>→</span>
-                        </a>
-                      </div>
-
-                      {/* Card 2: Tigo Sports */}
-                      <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">TIGO SPORTS</span>
-                            <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 text-[7px] font-black tracking-widest uppercase">Premium</span>
-                          </div>
-                          <p className="text-[8.5px] text-zinc-500 font-semibold leading-relaxed">
-                            Televisión de pago / cable. Cobertura completa de los 64 partidos en vivo, análisis tácticos y alta definición.
-                          </p>
-                        </div>
-                        <a 
-                          href="https://www.tigosports.com.bo" 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase"
-                        >
-                          Sitio Web <span>→</span>
-                        </a>
-                      </div>
-
-                      {/* Card 3: Online / Streams */}
-                      <div className="bg-zinc-950/20 border border-zinc-850 hover:border-yellow-500/20 rounded-xl p-3 flex flex-col justify-between transition group">
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">EN LÍNEA</span>
-                            <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 text-[7px] font-black tracking-widest uppercase">Streaming</span>
-                          </div>
-                          <p className="text-[8.5px] text-zinc-500 font-semibold leading-relaxed">
-                            FIFA+ para transmisiones móviles gratuitas, Unitel App y Tigo Sports App para celulares y tabletas.
-                          </p>
-                        </div>
-                        <a 
-                          href="https://plus.fifa.com" 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="text-[8px] font-black text-yellow-500 group-hover:text-yellow-400 flex items-center gap-1 mt-2 tracking-wider uppercase"
-                        >
-                          Abrir FIFA+ <span>→</span>
-                        </a>
-                      </div>
-                      
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
               {/* Header Bar — Filtros y Vistas */}
               <div className="flex justify-between items-center gap-4 border-b border-zinc-900 pb-2">
                 <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Filtrar Partidos</div>
@@ -1698,7 +2076,7 @@ export default function PWAAppPage() {
                   ].map(({ v, l }) => (
                     <button
                       key={v}
-                      onClick={() => { setFilterFase(v); if (v !== 'Fase de Grupos') setGroupRemaining(false); }}
+                      onClick={() => { setFilterFase(v); if (v !== 'Fase de Grupos') { setGroupRemaining(false); setGroupDate(false); } }}
                       className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition ${
                         filterFase === v ? 'bg-yellow-500 text-zinc-950' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-yellow-500/40 hover:text-zinc-200'
                       }`}
@@ -1712,220 +2090,74 @@ export default function PWAAppPage() {
                     {['ALL', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].map(g => (
                       <button
                         key={g}
-                        onClick={() => { setFilterGrupo(g); if (g !== 'ALL') setGroupRemaining(false); }}
-                        disabled={groupRemaining}
+                        onClick={() => { setFilterGrupo(g); if (g !== 'ALL') { setGroupRemaining(false); setGroupDate(false); } }}
+                        disabled={groupRemaining || groupDate}
                         className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition disabled:opacity-40 ${
                           filterGrupo === g ? 'bg-yellow-500 text-zinc-950' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-yellow-500/40 hover:text-zinc-200'
                         }`}
                       >{g === 'ALL' ? 'Grp' : g}</button>
                     ))}
                     <button
-                      onClick={() => { const v = !groupRemaining; setGroupRemaining(v); if (v) { setFilterFase('Fase de Grupos'); setFilterGrupo('ALL'); } }}
+                      onClick={() => { const v = !groupRemaining; setGroupRemaining(v); if (v) { setFilterFase('Fase de Grupos'); setFilterGrupo('ALL'); setGroupDate(false); } }}
                       className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition border ${
                         groupRemaining ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' : 'bg-zinc-900 text-zinc-555 border-zinc-800 hover:border-yellow-500/30'
                       }`}
-                    >📂 Agrupar</button>
+                    >📂 Por Grupo</button>
+                    <button
+                      onClick={() => { const v = !groupDate; setGroupDate(v); if (v) { setGroupRemaining(false); } }}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition border ${
+                        groupDate ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' : 'bg-zinc-900 text-zinc-555 border-zinc-800 hover:border-yellow-500/30'
+                      }`}
+                    >📅 Por Fecha</button>
                   </div>
                 )}
               </div>
+              
               {/* Cards de partidos */}
-              {!groupRemaining && (
+              {!groupRemaining && !groupDate && (
                 <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
                   {matches
                     .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
                     .filter((m) => filterFase === 'ALL' || m.fase === filterFase)
-                    .map((m) => {
-                      const myPred = predictions.find((p) => p.match_id === m.id);
-                      const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
-                      if (compactView) {
-                        return (
-                          <div 
-                            key={m.id}
-                            onClick={() => {
-                              setSummaryModalMatch(m);
-                              fetchCommunityBets(m.id);
-                            }}
-                            className={`bg-zinc-900/50 hover:bg-zinc-900 border ${m.estado === 'live' ? 'border-red-500/40 bg-red-950/5 shadow-[0_0_15px_rgba(239,68,68,0.08)]' : 'border-zinc-850 hover:border-zinc-700/60'} rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 transition cursor-pointer relative`}
-                          >
-                            {/* Left: Info badge + Time */}
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded font-mono flex-shrink-0 ${m.estado === 'live' ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' : 'bg-zinc-800/80 text-zinc-400'}`}>
-                                {m.estado === 'live' ? 'VIVO' : `G${m.grupo}`}
-                              </span>
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-[10px] font-bold text-zinc-355 truncate">{m.fase}</span>
-                                <span className="text-[9px] text-zinc-500 font-mono truncate">
-                                  {m.estado === 'upcoming' ? new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : m.estado === 'live' ? 'Jugándose' : 'Finalizado'}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Middle: Teams and Score */}
-                            <div className="flex items-center justify-center gap-2 flex-grow-[2] w-[45%] text-xs font-bold text-zinc-200">
-                              <div className="flex items-center gap-1.5 w-[42%] justify-end min-w-0">
-                                <span className="truncate uppercase text-xs font-black text-zinc-100 text-right">{m.local}</span>
-                                <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
-                              </div>
-                              
-                              <div className="px-2 py-0.5 bg-zinc-950/95 border border-zinc-850 rounded font-mono text-[11px] font-black text-center min-w-[38px] flex-shrink-0">
-                                {m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}
-                              </div>
-
-                              <div className="flex items-center gap-1.5 w-[42%] justify-start min-w-0">
-                                <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                                <span className="truncate uppercase text-xs font-black text-zinc-100 text-left">{m.visitante}</span>
-                              </div>
-                            </div>
-
-                            {/* Right: User bet / Button */}
-                            <div className="flex items-center justify-end gap-2 text-right min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
-                              {myPred ? (
-                                <div className="flex flex-col items-end">
-                                  <span className="text-[9px] text-zinc-500 font-medium">Mi apuesta</span>
-                                  <span className="font-bold text-zinc-200 text-xs font-mono">{myPred.pred_local} - {myPred.pred_visitante}</span>
-                                </div>
-                              ) : isClosed ? (
-                                <span className="text-[9px] text-zinc-500 italic">Sin apuesta</span>
-                              ) : (
-                                <button
-                                  onClick={() => openBetModalForMatch(m)}
-                                  className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase"
-                                >
-                                  Apostar
-                                </button>
-                              )}
-
-                              {isClosed && myPred && myPred.puntos !== null && (
-                                <span className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-1 py-0.5 rounded text-[8px] font-black font-mono flex-shrink-0">
-                                  +{myPred.puntos}P
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div 
-                          key={m.id} 
-                          className={`match-card-stitch p-5 shadow-lg flex flex-col justify-between gap-4 cursor-pointer relative ${
-                            m.estado === 'live' 
-                              ? 'match-card-live-stitch shadow-[0_0_18px_rgba(239,68,68,0.15)]' 
-                              : ''
-                          }`}
-                          onClick={() => {
-                            setSummaryModalMatch(m);
-                            fetchCommunityBets(m.id);
-                          }}
-                        >
-                          {/* Top Header Card */}
-                          <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3 text-[11px] font-bold tracking-wider text-zinc-400" onClick={(e) => e.stopPropagation()}>
-                            <span>{m.fase.toUpperCase()} - GRP {m.grupo}</span>
-                            
-                            {m.estado === 'live' && (
-                              <span className="text-red-500 font-extrabold flex items-center gap-1 text-[10px]">
-                                <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span> EN VIVO
-                              </span>
-                            )}
-
-                            {m.estado === 'finished' && (
-                              <span className="text-zinc-500 font-semibold uppercase text-[10px]">FINALIZADO</span>
-                            )}
-
-                            {m.estado === 'upcoming' && (
-                              <span className="text-zinc-550 font-semibold text-[10px]">
-                                {new Date(m.fecha).toLocaleDateString('es-ES', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Scores and Country Details */}
-                          <div className="flex justify-between items-center py-2 px-1">
-                            {/* Local Team */}
-                            <div className="flex items-center gap-3 w-[40%]">
-                              <div className="w-9 h-9 rounded-full bg-zinc-950/80 border border-zinc-800 flex items-center justify-center text-xl shadow-inner select-none flex-shrink-0">
-                                {getTeamFlag(m.local)}
-                              </div>
-                              <span className="font-extrabold text-xs text-zinc-200 uppercase truncate">{m.local}</span>
-                            </div>
-
-                            {/* Scores displays */}
-                            <div className="flex items-center justify-center bg-zinc-950/70 border border-zinc-800 rounded-lg px-3 py-1.5 font-mono font-black text-lg gap-2 min-w-[70px] shadow-inner select-none">
-                              {m.estado !== 'upcoming' ? (
-                                <>
-                                  <span className={m.estado === 'live' ? 'text-red-500 animate-pulse' : 'text-zinc-200'}>{m.goles_local}</span>
-                                  <span className="text-zinc-700 font-mono">:</span>
-                                  <span className={m.estado === 'live' ? 'text-red-500 animate-pulse' : 'text-zinc-200'}>{m.goles_visitante}</span>
-                                </>
-                              ) : (
-                                <span className="text-zinc-650 text-[10px] tracking-widest uppercase font-mono font-bold">VS</span>
-                              )}
-                            </div>
-
-                            {/* Visitante Team */}
-                            <div className="flex items-center justify-end gap-3 w-[40%] text-right">
-                              <span className="font-extrabold text-xs text-zinc-200 uppercase truncate">{m.visitante}</span>
-                              <div className="w-9 h-9 rounded-full bg-zinc-950/80 border border-zinc-800 flex items-center justify-center text-xl shadow-inner select-none flex-shrink-0">
-                                {getTeamFlag(m.visitante)}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* User's Prediction Footer Card */}
-                          <div className="bg-zinc-950/40 rounded-xl border border-zinc-800/40 p-3 mt-1 flex justify-between items-center text-xs" onClick={(e) => e.stopPropagation()}>
-                            <div>
-                              <span className="text-zinc-500">Mi apuesta: </span>
-                              {myPred ? (
-                                <span className="font-bold text-zinc-200 font-mono">
-                                  {myPred.pred_local} - {myPred.pred_visitante}
-                                </span>
-                              ) : (
-                                <span className="text-zinc-650 italic">Sin pronóstico</span>
-                              )}
-                            </div>
-
-                            {/* Bet Action Trigger button */}
-                            {isClosed ? (
-                              <div className="flex items-center gap-1.5">
-                                {myPred && myPred.puntos !== null && (
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                                    myPred.puntos === 3 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                                    myPred.puntos === 1 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                                    'bg-zinc-800 text-zinc-400'
-                                  }`}>
-                                    +{myPred.puntos} PTS
-                                  </span>
-                                )}
-                                <span className="text-zinc-600 text-[10px] uppercase font-bold flex items-center gap-1">
-                                  <Lock className="w-3 h-3" /> Cerrado
-                                </span>
-                              </div>
-                            ) : myPred ? (
-                              <span className="text-emerald-500 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg">
-                                <Check className="w-3.5 h-3.5" /> Confirmado
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => openBetModalForMatch(m)}
-                                className="btn-primary-stitch px-3 py-1.5 text-[10px] tracking-wider uppercase z-10"
-                              >
-                                Pronosticar
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    .map((m) => renderMatchCard(m))}
                   {matches.length === 0 && (
                     <div className="py-20 text-center text-zinc-500 col-span-2">
                       <p>Cargando lista de partidos...</p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {groupDate && (
+                <div className="space-y-8">
+                  {(() => {
+                    const filtered = matches
+                      .filter((m) => filterGrupo === 'ALL' || m.grupo === filterGrupo)
+                      .filter((m) => filterFase === 'ALL' || m.fase === filterFase);
+                    const grouped = getMatchesByDate(filtered);
+                    if (grouped.length === 0) {
+                      return (
+                        <div className="py-20 text-center text-zinc-500">
+                          <p>No hay partidos que coincidan con los filtros.</p>
+                        </div>
+                      );
+                    }
+                    return grouped.map((g) => (
+                      <div key={g.dateStr} className="space-y-4">
+                        <div className="flex items-center gap-2 border-b border-zinc-850 pb-2">
+                          <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                            {g.dateStr}
+                          </span>
+                          <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider">
+                            ({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})
+                          </span>
+                        </div>
+                        <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+                          {g.matches.map((m) => renderMatchCard(m))}
+                        </div>
+                      </div>
+                    ));
+                  })()}
                 </div>
               )}
 
@@ -1945,7 +2177,7 @@ export default function PWAAppPage() {
                       return (
                         <div key={grp} className="space-y-4">
                           <div className="flex items-center gap-2 border-b border-zinc-850 pb-2">
-                            <span className="text-yellow-500 font-extrabold text-[11px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded">
+                            <span className="text-yellow-500 font-extrabold text-[11px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-0.5 rounded">
                               GRUPO {grp}
                             </span>
                             <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider">
@@ -1954,146 +2186,7 @@ export default function PWAAppPage() {
                           </div>
 
                           <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
-                            {grpMatches.map((m) => {
-                              const myPred = predictions.find((p) => p.match_id === m.id);
-                              const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
-                              
-                              if (compactView) {
-                                return (
-                                  <div 
-                                    key={m.id}
-                                    onClick={() => {
-                                      setSummaryModalMatch(m);
-                                      fetchCommunityBets(m.id);
-                                    }}
-                                    className={`bg-zinc-900/50 hover:bg-zinc-900 border border-zinc-850 hover:border-zinc-700/60 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 transition cursor-pointer relative`}
-                                  >
-                                    {/* Left: Info badge + Time */}
-                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded font-mono flex-shrink-0 bg-zinc-800/80 text-zinc-400`}>
-                                        G{m.grupo}
-                                      </span>
-                                      <div className="flex flex-col min-w-0">
-                                        <span className="text-[10px] font-bold text-zinc-355 truncate">{m.fase}</span>
-                                        <span className="text-[9px] text-zinc-500 font-mono truncate">
-                                          {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                      </div>
-                                    </div>
-
-                                    {/* Middle: Teams and Score */}
-                                    <div className="flex items-center justify-center gap-2 flex-grow-[2] w-[45%] text-xs font-bold text-zinc-200">
-                                      <div className="flex items-center gap-1.5 w-[42%] justify-end min-w-0">
-                                        <span className="truncate uppercase text-xs font-black text-zinc-100 text-right">{m.local}</span>
-                                        <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
-                                      </div>
-                                      
-                                      <div className="px-2 py-0.5 bg-zinc-950/95 border border-zinc-850 rounded font-mono text-[11px] font-black text-center min-w-[38px] flex-shrink-0">
-                                        VS
-                                      </div>
-
-                                      <div className="flex items-center gap-1.5 w-[42%] justify-start min-w-0">
-                                        <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                                        <span className="truncate uppercase text-xs font-black text-zinc-100 text-left">{m.visitante}</span>
-                                      </div>
-                                    </div>
-
-                                    {/* Right: User bet / Button */}
-                                    <div className="flex items-center justify-end gap-2 text-right min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
-                                      {myPred ? (
-                                        <div className="flex flex-col items-end">
-                                          <span className="text-[9px] text-zinc-500 font-medium">Mi apuesta</span>
-                                          <span className="font-bold text-zinc-200 text-xs font-mono">{myPred.pred_local} - {myPred.pred_visitante}</span>
-                                        </div>
-                                      ) : isClosed ? (
-                                        <span className="text-[9px] text-zinc-550 italic">Sin apuesta</span>
-                                      ) : (
-                                        <button
-                                          onClick={() => openBetModalForMatch(m)}
-                                          className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase"
-                                        >
-                                          Apostar
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              }
-
-                              return (
-                                <div 
-                                  key={m.id} 
-                                  className="match-card-stitch p-5 shadow-lg flex flex-col justify-between gap-4 cursor-pointer relative"
-                                  onClick={() => {
-                                    setSummaryModalMatch(m);
-                                    fetchCommunityBets(m.id);
-                                  }}
-                                >
-                                  {/* Top Header Card */}
-                                  <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3 text-[11px] font-bold tracking-wider text-zinc-400" onClick={(e) => e.stopPropagation()}>
-                                    <span>{m.fase.toUpperCase()} - GRP {m.grupo}</span>
-                                    <span className="text-zinc-550 font-semibold text-[10px]">
-                                      {new Date(m.fecha).toLocaleDateString('es-ES', {
-                                        day: '2-digit',
-                                        month: 'short',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      })}
-                                    </span>
-                                  </div>
-
-                                  {/* Scores and Country Details */}
-                                  <div className="flex justify-between items-center py-2 px-1">
-                                    <div className="flex items-center gap-3 w-[40%]">
-                                      <div className="w-9 h-9 rounded-full bg-zinc-950/80 border border-zinc-800 flex items-center justify-center text-xl shadow-inner select-none flex-shrink-0">
-                                        {getTeamFlag(m.local)}
-                                      </div>
-                                      <span className="font-extrabold text-xs text-zinc-200 uppercase truncate">{m.local}</span>
-                                    </div>
-                                    <div className="flex items-center justify-center bg-zinc-950/70 border border-zinc-800 rounded-lg px-3 py-1.5 font-mono font-black text-lg gap-2 min-w-[70px] shadow-inner select-none">
-                                      <span className="text-zinc-650 text-[10px] tracking-widest uppercase font-mono font-bold">VS</span>
-                                    </div>
-                                    <div className="flex items-center justify-end gap-3 w-[40%] text-right">
-                                      <span className="font-extrabold text-xs text-zinc-200 uppercase truncate">{m.visitante}</span>
-                                      <div className="w-9 h-9 rounded-full bg-zinc-950/80 border border-zinc-800 flex items-center justify-center text-xl shadow-inner select-none flex-shrink-0">
-                                        {getTeamFlag(m.visitante)}
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* User's Prediction Footer Card */}
-                                  <div className="bg-zinc-950/40 rounded-xl border border-zinc-800/40 p-3 mt-1 flex justify-between items-center text-xs" onClick={(e) => e.stopPropagation()}>
-                                    <div>
-                                      <span className="text-zinc-500">Mi apuesta: </span>
-                                      {myPred ? (
-                                        <span className="font-bold text-zinc-200 font-mono">
-                                          {myPred.pred_local} - {myPred.pred_visitante}
-                                        </span>
-                                      ) : (
-                                        <span className="text-zinc-650 italic">Sin pronóstico</span>
-                                      )}
-                                    </div>
-
-                                    {isClosed ? (
-                                      <span className="text-zinc-650 text-[10px] uppercase font-bold flex items-center gap-1">
-                                        <Lock className="w-3 h-3" /> Cerrado
-                                      </span>
-                                    ) : myPred ? (
-                                      <span className="text-emerald-500 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg">
-                                        <Check className="w-3.5 h-3.5" /> Confirmado
-                                      </span>
-                                    ) : (
-                                      <button
-                                        onClick={() => openBetModalForMatch(m)}
-                                        className="btn-primary-stitch px-3 py-1.5 text-[10px] tracking-wider uppercase z-10"
-                                      >
-                                        Pronosticar
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
+                            {grpMatches.map((m) => renderMatchCard(m))}
                           </div>
                         </div>
                       );
@@ -2443,22 +2536,22 @@ export default function PWAAppPage() {
 
               {/* FUNNEL — cada etapa más estrecha */}
               {([
-                { fase: 'Ronda de 32',     label: 'RONDA DE 32',     cols: 4, border: 'border-zinc-700/60',        badge: 'text-zinc-500', pct: '100%' },
-                { fase: 'Octavos de Final',label: 'OCTAVOS DE FINAL',cols: 4, border: 'border-zinc-600/60',        badge: 'text-zinc-400', pct: '88%'  },
-                { fase: 'Cuartos de Final',label: 'CUARTOS DE FINAL',cols: 2, border: 'border-amber-600/40',       badge: 'text-amber-400', pct: '68%'  },
-                { fase: 'Semifinal',       label: 'SEMIFINAL',       cols: 2, border: 'border-orange-500/50',      badge: 'text-orange-400', pct: '50%'  },
-              ] as const).map(({ fase, label, cols, border, badge, pct }) => {
+                { fase: 'Ronda de 32',     label: 'RONDA DE 32',     border: 'border-zinc-700/60',        badge: 'text-zinc-500', mwClass: 'max-w-full' },
+                { fase: 'Octavos de Final',label: 'OCTAVOS DE FINAL',border: 'border-zinc-600/60',        badge: 'text-zinc-400', mwClass: 'max-w-full sm:max-w-[88%]'  },
+                { fase: 'Cuartos de Final',label: 'CUARTOS DE FINAL',border: 'border-amber-600/40',       badge: 'text-amber-400', mwClass: 'max-w-full sm:max-w-[68%]'  },
+                { fase: 'Semifinal',       label: 'SEMIFINAL',       border: 'border-orange-500/50',      badge: 'text-orange-400', mwClass: 'max-w-full sm:max-w-[50%]'  },
+              ] as const).map(({ fase, label, border, badge, mwClass }) => {
                 const faseMatches = matches.filter(m => m.fase === fase);
                 if (faseMatches.length === 0) return null;
                 return (
-                  <div key={fase} className="flex flex-col items-center gap-0">
+                  <div key={fase} className="flex flex-col items-center gap-0 w-full">
                     {/* Stage label pill */}
                     <div className={`text-[9px] font-black uppercase tracking-widest ${badge} bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2 z-10`}>
                       {label} · {faseMatches.length} partidos
                     </div>
                     {/* Match grid — width narrows to simulate funnel */}
-                    <div className="w-full transition-all duration-300" style={{ maxWidth: pct === '100%' ? '100%' : pct }}>
-                      <div className={`grid ${compactView ? 'gap-1.5' : 'gap-2'}`} style={{ gridTemplateColumns: `repeat(${cols > 2 ? 2 : cols}, 1fr)` }}>
+                    <div className={`w-full transition-all duration-300 ${mwClass}`}>
+                      <div className={`grid grid-cols-1 sm:grid-cols-2 ${compactView ? 'gap-1.5' : 'gap-2'}`}>
                         {/* On md+ screens show all cols */}
                         {faseMatches.map((m) => (
                           <div
@@ -2523,9 +2616,9 @@ export default function PWAAppPage() {
               })}
 
               {/* Bottom: 3er Puesto + Gran Final */}
-              <div className="flex flex-col items-center gap-1">
+              <div className="flex flex-col items-center gap-1 w-full">
                 <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2">FINAL</div>
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ maxWidth: '42%' }}>
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-full sm:max-w-[42%]">
 
                   {/* Tercer Puesto */}
                   {matches.filter(m => m.fase === 'Tercer Puesto').map(m => (
@@ -2535,11 +2628,13 @@ export default function PWAAppPage() {
                       className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-3 cursor-pointer hover:bg-zinc-800/80 transition"
                     >
                       <div className="text-[8px] text-zinc-500 font-black uppercase tracking-widest mb-2 text-center">🥉 Tercer Puesto · 18 Jul</div>
+                      
+                      {/* Team 1 */}
                       <div className="flex items-center justify-between gap-1 text-[11px]">
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                          <span className="text-base">{getTeamFlag(m.local)}</span>
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-black text-zinc-100 truncate uppercase text-[10px]">{m.local}</span>
+                            <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.local}</span>
                             {formatPlaceholderText(m.local) && (
                               <span className="text-[7.5px] text-zinc-500 font-bold truncate">
                                 ({formatPlaceholderText(m.local)})
@@ -2547,25 +2642,35 @@ export default function PWAAppPage() {
                             )}
                           </div>
                         </div>
-                        <span className="font-black font-mono text-zinc-500 mx-2">{m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}</span>
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-                          <div className="flex flex-col min-w-0 items-end">
-                            <span className="font-black text-zinc-100 truncate uppercase text-[10px] text-right">{m.visitante}</span>
+                        <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-650'}`}>
+                          {m.estado !== 'upcoming' ? m.goles_local : '-'}
+                        </span>
+                      </div>
+
+                      {/* Team 2 */}
+                      <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.visitante}</span>
                             {formatPlaceholderText(m.visitante) && (
                               <span className="text-[7.5px] text-zinc-500 font-bold truncate">
                                 ({formatPlaceholderText(m.visitante)})
                               </span>
                             )}
                           </div>
-                          <span className="text-base">{getTeamFlag(m.visitante)}</span>
                         </div>
+                        <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-650'}`}>
+                          {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
+                        </span>
                       </div>
+
                       {/* Venue Footer */}
                       <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
                         <span className="text-[8px] text-zinc-500 font-semibold truncate max-w-[65%]">
                           📍 {m.estadio || 'Sede por definir'}
                         </span>
-                        <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400' : 'text-zinc-500'}`}>
+                        <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-zinc-500'}`}>
                           {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FINAL' : 'PRÓX'}
                         </span>
                       </div>
@@ -2580,11 +2685,13 @@ export default function PWAAppPage() {
                       className="bg-zinc-950 border-2 border-yellow-500 rounded-xl p-3 cursor-pointer hover:shadow-[0_0_20px_rgba(234,179,8,0.2)] transition relative"
                     >
                       <div className="text-[8px] text-yellow-500 font-black uppercase tracking-widest mb-2 text-center">🏆 GRAN FINAL · 19 Jul</div>
+                      
+                      {/* Team 1 */}
                       <div className="flex items-center justify-between gap-1 text-[11px]">
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                          <span className="text-base">{getTeamFlag(m.local)}</span>
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-black text-zinc-100 truncate uppercase text-[10px]">{m.local}</span>
+                            <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.local}</span>
                             {formatPlaceholderText(m.local) && (
                               <span className="text-[7.5px] text-zinc-500 font-bold truncate">
                                 ({formatPlaceholderText(m.local)})
@@ -2592,19 +2699,29 @@ export default function PWAAppPage() {
                             )}
                           </div>
                         </div>
-                        <span className="font-black font-mono text-yellow-500 text-sm mx-2">{m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}</span>
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-                          <div className="flex flex-col min-w-0 items-end">
-                            <span className="font-black text-zinc-100 truncate uppercase text-[10px] text-right">{m.visitante}</span>
+                        <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-yellow-500 font-bold' : 'text-zinc-650'}`}>
+                          {m.estado !== 'upcoming' ? m.goles_local : '-'}
+                        </span>
+                      </div>
+
+                      {/* Team 2 */}
+                      <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.visitante}</span>
                             {formatPlaceholderText(m.visitante) && (
                               <span className="text-[7.5px] text-zinc-500 font-bold truncate">
                                 ({formatPlaceholderText(m.visitante)})
                               </span>
                             )}
                           </div>
-                          <span className="text-base">{getTeamFlag(m.visitante)}</span>
                         </div>
+                        <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-yellow-500 font-bold' : 'text-zinc-650'}`}>
+                          {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
+                        </span>
                       </div>
+
                       {/* Venue Footer */}
                       <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
                         <span className="text-[8px] text-yellow-500/80 font-semibold truncate max-w-[65%]">

@@ -2209,16 +2209,12 @@ export default function PWAAppPage() {
 
               {/* Organizers card */}
               <div className="glass-card border border-zinc-800/80 rounded-2xl p-5 space-y-2">
-                <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Organizadores</h3>
-                <div className="flex flex-wrap gap-3 pt-1">
-                  {['Marco Pabon', 'Wilber Calle', 'Daniel Landivar'].map((name) => (
-                    <span key={name} className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs font-bold px-3 py-1.5 rounded-lg">
-                      {name}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-zinc-500 text-xs leading-relaxed pt-1">
-                  Quiniela abierta a compañeros, familiares y amigos. Convocatoria oficial: 18 mayo 2026.
+                <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Sobre la Quiniela</h3>
+                <p className="text-zinc-200 text-xs leading-relaxed pt-1 font-medium">
+                  Esta plataforma está diseñada para pronosticar los resultados de los partidos del Mundial 2026, competir amigablemente en clasificaciones generales o por empresas, y seguir todo el torneo en tiempo real.
+                </p>
+                <p className="text-zinc-500 text-[11px] leading-relaxed pt-1">
+                  Quiniela abierta a compañeros, familiares y amigos. Convocatoria oficial: 18 de mayo de 2026.
                 </p>
               </div>
 

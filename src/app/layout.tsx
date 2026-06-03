@@ -1,16 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Apuestas Mundial 2026",
@@ -66,7 +55,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} h-full bg-zinc-950 text-zinc-100 antialiased overflow-x-hidden`}>
+      <body className={`h-full bg-neutral-950 text-neutral-100 antialiased overflow-x-hidden`}>
         {children}
       </body>
     </html>

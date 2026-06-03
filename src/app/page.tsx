@@ -3055,41 +3055,55 @@ export default function PWAAppPage() {
           {activeTab === 'fixture' && (
             <section className="space-y-1 select-none pb-4">
 
-              {/* Header */}
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-500 animate-pulse" />
-                  <h2 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Bracket Eliminatorias</h2>
+              {/* ── CYBER HEADER ── */}
+              <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
+                <div className="flex items-center gap-3">
+                  {/* Animated trophy icon */}
+                  <div className="relative flex-shrink-0">
+                    <div className="absolute inset-0 rounded-lg bg-yellow-500/20 blur-md animate-pulse" />
+                    <div className="relative h-8 w-8 rounded-lg bg-[#0c0a00] border border-yellow-500/40 flex items-center justify-center shadow-[0_0_12px_rgba(234,179,8,0.25)]">
+                      <Trophy className="w-4 h-4 text-yellow-400" />
+                    </div>
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black tracking-[0.15em] text-zinc-100 uppercase leading-none">Eliminatorias</h2>
+                    <p className="text-[9px] font-bold tracking-[0.22em] text-cyan-500/80 uppercase mt-0.5">FIFA World Cup 2026</p>
+                  </div>
+                  {/* Live count indicator */}
+                  {matches.filter(m => m.estado === 'live').length > 0 && (
+                    <span className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.20)]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot flex-shrink-0" />
+                      {matches.filter(m => m.estado === 'live').length} EN VIVO
+                    </span>
+                  )}
                 </div>
+                {/* Filter controls — cyber pill style */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setFixtureGroupDate(!fixtureGroupDate)}
-                    className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition border ${
-                      fixtureGroupDate 
-                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40 shadow-[0_0_12px_rgba(234,179,8,0.1)]' 
-                        : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:border-yellow-500/30 hover:text-zinc-300'
+                    className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition border ${
+                      fixtureGroupDate
+                        ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
+                        : 'bg-zinc-950 text-zinc-500 border-zinc-800 hover:border-cyan-500/30 hover:text-zinc-300'
                     }`}
                   >
                     {fixtureGroupDate ? '📅 Por Fecha' : '🏆 Bracket'}
                   </button>
                   <button
                     onClick={() => setCompactView(!compactView)}
-                    className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition border ${
-                      compactView 
-                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40 shadow-[0_0_12px_rgba(234,179,8,0.1)]' 
-                        : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:border-yellow-500/30 hover:text-zinc-300'
+                    className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition border ${
+                      compactView
+                        ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
+                        : 'bg-zinc-950 text-zinc-500 border-zinc-800 hover:border-cyan-500/30 hover:text-zinc-300'
                     }`}
                   >
-                    {compactView ? '📱 Vista Normal' : '🔍 Vista Compacta'}
+                    {compactView ? '▦ Normal' : '▤ Compact'}
                   </button>
-                  <span className="text-[10px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider font-mono font-bold">
-                    FIFA 2026
-                  </span>
                 </div>
               </div>
 
               {fixtureGroupDate ? (
-                /* --- VISTA CRONOLÓGICA POR FECHA --- */
+                /* --- VISTA CRONOLÓGICA POR FECHA — CYBER STYLE --- */
                 <div className="space-y-8 animate-fade-in">
                   {(() => {
                     const knockoutPhases = ['Ronda de 32', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'];
@@ -3097,72 +3111,73 @@ export default function PWAAppPage() {
                     const grouped = getMatchesByDate(knockoutMatches);
                     if (grouped.length === 0) {
                       return (
-                        <div className="py-20 text-center text-zinc-500">
-                          <p>No hay partidos de eliminatoria programados.</p>
+                        <div className="py-20 text-center">
+                          <div className="text-4xl mb-3 opacity-30">🏟️</div>
+                          <p className="text-zinc-600 text-xs uppercase tracking-widest font-bold">Sin partidos eliminatorios programados</p>
                         </div>
                       );
                     }
                     return grouped.map((g) => (
-                      <div key={g.dateStr} className="space-y-4">
-                        <div className="flex items-center gap-2 border-b border-zinc-850 pb-2">
-                          <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">
-                            {g.dateStr}
+                      <div key={g.dateStr} className="space-y-3">
+                        {/* Date group header — cyber ticker style */}
+                        <div className="flex items-center gap-3">
+                          <div className="h-px flex-1 bg-gradient-to-r from-cyan-500/30 to-transparent" />
+                          <span className="flex items-center gap-1.5 text-cyan-400 font-black text-[10px] font-mono bg-cyan-500/8 border border-cyan-500/25 px-3 py-1 rounded-full uppercase tracking-wider shadow-[0_0_10px_rgba(34,211,238,0.10)]">
+                            📅 {g.dateStr}
+                            <span className="text-cyan-500/60">· {g.matches.length}P</span>
                           </span>
-                          <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider">
-                            ({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})
-                          </span>
+                          <div className="h-px flex-1 bg-gradient-to-l from-cyan-500/30 to-transparent" />
                         </div>
-                        <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+                        <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
                           {g.matches.map((m) => (
                             <div
                               key={m.id}
                               onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                              className={`bg-zinc-900 border border-zinc-850 hover:border-zinc-700/60 ${compactView ? 'p-2.5 rounded-lg' : 'p-3.5 rounded-xl'} cursor-pointer hover:bg-zinc-800/80 transition flex flex-col justify-between gap-2 shadow-md relative`}
+                              className={`cursor-pointer ${compactView ? 'p-2.5' : 'p-4'} ${m.estado === 'live' ? 'cyber-match-card-live' : 'cyber-match-card'} relative overflow-hidden`}
                             >
-                              <div className="flex items-center justify-between gap-2 border-b border-zinc-850/60 pb-1.5 mb-1">
-                                <span className="text-[8px] font-black text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded font-mono uppercase tracking-wider">
-                                  {m.fase}
-                                </span>
-                                <span className="text-[8.5px] text-zinc-500 font-mono">
-                                  {new Date(m.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                              {/* Card header */}
+                              <div className="flex items-center justify-between gap-2 mb-2.5">
+                                <span className="cyber-phase-badge">{m.fase}</span>
+                                {m.estado === 'live' ? (
+                                  <span className="flex items-center gap-1 text-[9px] font-black text-red-400 uppercase tracking-wider">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot" />
+                                    EN VIVO
+                                  </span>
+                                ) : m.estado === 'finished' ? (
+                                  <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Finalizado</span>
+                                ) : (
+                                  <span className="text-[9px] font-mono text-zinc-500">
+                                    {new Date(m.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
                               </div>
                               {/* Teams */}
-                              <div className="space-y-1.5">
-                                {/* Local */}
-                                <div className="flex items-center justify-between text-xs">
-                                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
-                                    <div className="flex flex-col min-w-0">
-                                      <span className="font-extrabold text-zinc-150 uppercase truncate">{m.local}</span>
-                                      {formatPlaceholderText(m.local) && (
-                                        <span className="text-[8px] text-zinc-500 truncate">({formatPlaceholderText(m.local)})</span>
-                                      )}
+                              <div className="space-y-2">
+                                {[{ team: m.local, goles: m.goles_local }, { team: m.visitante, goles: m.goles_visitante }].map((row, i) => (
+                                  <div key={i} className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                      <span className={`flex-shrink-0 ${compactView ? 'text-sm' : 'text-lg'}`}>{getTeamFlag(row.team)}</span>
+                                      <div className="flex flex-col min-w-0">
+                                        <span className="font-black text-zinc-100 uppercase truncate text-[11px] tracking-wide">{row.team}</span>
+                                        {formatPlaceholderText(row.team) && (
+                                          <span className="text-[8px] text-zinc-600 truncate">({formatPlaceholderText(row.team)})</span>
+                                        )}
+                                      </div>
                                     </div>
+                                    {m.estado !== 'upcoming' && (
+                                      <span className={`font-mono font-black text-sm flex-shrink-0 ${m.estado === 'live' ? 'text-red-400 animate-pulse [text-shadow:0_0_8px_rgba(239,68,68,0.6)]' : 'text-zinc-200'}`}>
+                                        {row.goles}
+                                      </span>
+                                    )}
                                   </div>
-                                  <span className={`font-mono font-black ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-zinc-200'}`}>
-                                    {m.estado !== 'upcoming' ? m.goles_local : '-'}
-                                  </span>
-                                </div>
-                                {/* Visitante */}
-                                <div className="flex items-center justify-between text-xs">
-                                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                                    <div className="flex flex-col min-w-0">
-                                      <span className="font-extrabold text-zinc-150 uppercase truncate">{m.visitante}</span>
-                                      {formatPlaceholderText(m.visitante) && (
-                                        <span className="text-[8px] text-zinc-500 truncate">({formatPlaceholderText(m.visitante)})</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <span className={`font-mono font-black ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-zinc-200'}`}>
-                                    {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
-                                  </span>
-                                </div>
+                                ))}
                               </div>
-                              {/* Stadium */}
-                              <div className="text-[8px] text-zinc-500 truncate pt-1 border-t border-zinc-850/40">
-                                📍 {m.estadio || 'Por definir'}
+                              {/* Footer */}
+                              <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-white/5">
+                                <span className="text-[8px] text-zinc-600 truncate flex-1">📍 {m.estadio || 'Por definir'}</span>
+                                {m.fase === 'Final' && (
+                                  <span className="text-[8px] text-yellow-500 font-black uppercase tracking-wider">🏆 GRAN FINAL</span>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -3172,204 +3187,212 @@ export default function PWAAppPage() {
                   })()}
                 </div>
               ) : (
-                /* --- VISTA ORIGINAL DE BRACKET / FUNNEL --- */
-                <div className="space-y-1">
-                  {/* FUNNEL — cada etapa más estrecha */}
+                /* --- VISTA BRACKET / FUNNEL — CYBER STYLE --- */
+                <div className="space-y-2">
                   {([
-                    { fase: 'Ronda de 32',     label: 'RONDA DE 32',     border: 'border-zinc-700/60',        badge: 'text-zinc-500', mwClass: 'max-w-full' },
-                    { fase: 'Octavos de Final',label: 'OCTAVOS DE FINAL',border: 'border-zinc-600/60',        badge: 'text-zinc-400', mwClass: 'max-w-full sm:max-w-[88%]'  },
-                    { fase: 'Cuartos de Final',label: 'CUARTOS DE FINAL',border: 'border-amber-600/40',       badge: 'text-amber-400', mwClass: 'max-w-full sm:max-w-[68%]'  },
-                    { fase: 'Semifinal',       label: 'SEMIFINAL',       border: 'border-orange-500/50',      badge: 'text-orange-400', mwClass: 'max-w-full sm:max-w-[50%]'  },
-                  ] as const).map(({ fase, label, border, badge, mwClass }) => {
+                    { fase: 'Ronda de 32',     label: 'RONDA DE 32',     accent: 'rgba(34,211,238,0.18)',  mwClass: 'max-w-full',              cols: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4' },
+                    { fase: 'Octavos de Final',label: 'OCTAVOS DE FINAL',accent: 'rgba(34,211,238,0.30)',  mwClass: 'max-w-full sm:max-w-[90%]', cols: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4' },
+                    { fase: 'Cuartos de Final',label: 'CUARTOS DE FINAL',accent: 'rgba(251,191,36,0.35)',  mwClass: 'max-w-full sm:max-w-[72%]', cols: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2' },
+                    { fase: 'Semifinal',        label: 'SEMIFINAL',       accent: 'rgba(251,146,60,0.45)',  mwClass: 'max-w-full sm:max-w-[52%]', cols: 'grid-cols-1 sm:grid-cols-2' },
+                  ] as const).map(({ fase, label, accent, mwClass, cols }) => {
                     const faseMatches = matches.filter(m => m.fase === fase);
                     if (faseMatches.length === 0) return null;
+                    const isSemi = fase === 'Semifinal';
                     return (
-                      <div key={fase} className="flex flex-col items-center gap-0 w-full">
-                        {/* Stage label pill */}
-                        <div className={`text-[9px] font-black uppercase tracking-widest ${badge} bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2 z-10`}>
-                          {label} · {faseMatches.length} partidos
+                      <div key={fase} className="flex flex-col items-center w-full">
+                        {/* Phase label — cyber neon pill */}
+                        <div className="flex items-center gap-3 mb-3 w-full" style={{ maxWidth: mwClass.includes('%') ? mwClass.replace('max-w-full sm:','').replace('max-w-','') : '100%' }}>
+                          <div className="h-px flex-1 opacity-40" style={{ background: `linear-gradient(to right, transparent, ${accent})` }} />
+                          <span className="text-[9px] font-black uppercase tracking-[0.20em] px-3 py-1 rounded-full border"
+                            style={{ color: accent.replace('rgba','rgb').replace(/,[\d.]+\)/, ')'), borderColor: accent, background: accent.replace(/[\d.]+\)$/, '0.08)') }}>
+                            {label} · {faseMatches.length}P
+                          </span>
+                          <div className="h-px flex-1 opacity-40" style={{ background: `linear-gradient(to left, transparent, ${accent})` }} />
                         </div>
-                        {/* Match grid — width narrows to simulate funnel */}
+                        {/* Match grid */}
                         <div className={`w-full transition-all duration-300 ${mwClass}`}>
-                          <div className={`grid grid-cols-1 sm:grid-cols-2 ${compactView ? 'gap-1.5' : 'gap-2'}`}>
-                            {/* On md+ screens show all cols */}
+                          <div className={`grid ${cols} ${compactView ? 'gap-1.5' : 'gap-2'}`}>
                             {faseMatches.map((m) => (
                               <div
                                 key={m.id}
                                 onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                                className={`bg-zinc-900 border ${border} ${compactView ? 'p-1.5 rounded-lg' : 'p-2.5 rounded-xl'} cursor-pointer hover:bg-zinc-800/80 transition group`}
+                                className={`cursor-pointer ${compactView ? 'p-2' : 'p-3'} ${m.estado === 'live' ? 'cyber-match-card-live' : isSemi ? 'cyber-match-card-semi' : 'cyber-match-card'}`}
                               >
-                                {/* Team 1 */}
-                                <div className="flex items-center justify-between gap-1 text-[11px]">
-                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                    {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>}
-                                    <div className="flex flex-col min-w-0">
-                                      <span className={`font-black text-zinc-100 truncate uppercase ${compactView ? 'text-[10px]' : 'text-[11px]'}`}>{m.local}</span>
-                                      {formatPlaceholderText(m.local) && (
-                                        <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                          ({formatPlaceholderText(m.local)})
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
-                                    {m.estado !== 'upcoming' ? m.goles_local : '-'}
-                                  </span>
-                                </div>
-                                {/* Team 2 */}
-                                <div className={`flex items-center justify-between gap-1 text-[11px] ${compactView ? 'mt-0.5 pt-0.5 border-t border-zinc-850' : 'mt-1.5 pt-1.5 border-t border-zinc-800/60'}`}>
-                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                    {!compactView && <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>}
-                                    <div className="flex flex-col min-w-0">
-                                      <span className={`font-black text-zinc-100 truncate uppercase ${compactView ? 'text-[10px]' : 'text-[11px]'}`}>{m.visitante}</span>
-                                      {formatPlaceholderText(m.visitante) && (
-                                        <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                          ({formatPlaceholderText(m.visitante)})
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <span className={`font-black font-mono flex-shrink-0 ${compactView ? 'text-[10px]' : 'text-[11px]'} ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-600'}`}>
-                                    {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
-                                  </span>
-                                </div>
-                                {/* Date + Venue Footer (Always visible for maximum details) */}
-                                <div className="flex justify-between items-center mt-1.5 pt-1 border-t border-zinc-800/40">
-                                  <span className="text-[8px] text-zinc-500 font-semibold truncate max-w-[65%]">
-                                    📍 {m.estadio || 'Por definir'}
-                                  </span>
-                                  <span className="text-[8px] text-zinc-500 font-mono flex-shrink-0">
+                                {/* Card top: time + live badge */}
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-[8px] font-mono text-zinc-600">
                                     {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
                                   </span>
+                                  {m.estado === 'live' ? (
+                                    <span className="flex items-center gap-1 text-[8px] font-black text-red-400 uppercase">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot flex-shrink-0" /> LIVE
+                                    </span>
+                                  ) : m.estado === 'finished' ? (
+                                    <span className="text-[8px] font-bold text-zinc-600">FIN</span>
+                                  ) : (
+                                    <span className="text-[8px] font-mono text-zinc-600">
+                                      {new Date(m.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  )}
                                 </div>
+                                {/* Team rows */}
+                                {[{ team: m.local, goles: m.goles_local }, { team: m.visitante, goles: m.goles_visitante }].map((row, i) => (
+                                  <div key={i} className={`flex items-center justify-between gap-1.5 ${i === 1 ? 'mt-1.5 pt-1.5 border-t border-white/5' : ''}`}>
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                      {!compactView && <span className="text-sm flex-shrink-0">{getTeamFlag(row.team)}</span>}
+                                      <div className="min-w-0">
+                                        <span className="font-black text-zinc-100 uppercase truncate text-[10px] tracking-wide block">{row.team}</span>
+                                        {formatPlaceholderText(row.team) && (
+                                          <span className="text-[7px] text-zinc-600 truncate block">({formatPlaceholderText(row.team)})</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <span className={`font-mono font-black text-sm flex-shrink-0 ${m.estado === 'live' ? 'text-red-400 animate-pulse [text-shadow:0_0_8px_rgba(239,68,68,0.5)]' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-700'}`}>
+                                      {m.estado !== 'upcoming' ? row.goles : '—'}
+                                    </span>
+                                  </div>
+                                ))}
+                                {/* Venue */}
+                                {!compactView && (
+                                  <div className="text-[7.5px] text-zinc-700 truncate mt-2 pt-1.5 border-t border-white/5">
+                                    📍 {m.estadio || 'Por definir'}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
                         </div>
-                        {/* Funnel connector arrow */}
-                        <div className="flex flex-col items-center py-1 text-zinc-700">
-                          <div className="w-px h-3 bg-zinc-700"></div>
-                          <div className="text-zinc-600 text-xs">▼</div>
+                        {/* Funnel connector — cyber line + arrow */}
+                        <div className="flex flex-col items-center py-2">
+                          <div className="cyber-connector w-px h-5" />
+                          <span className="text-cyan-500/50 text-[10px] leading-none">▼</span>
                         </div>
                       </div>
                     );
                   })}
 
-                  {/* Bottom: 3er Puesto + Gran Final */}
-                  <div className="flex flex-col items-center gap-1 w-full">
-                    <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-950 border border-zinc-800 px-3 py-1 rounded-full mb-2">FINAL</div>
-                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-full sm:max-w-[42%]">
+                  {/* ── FINAL SECTION: Tercer Puesto + GRAN FINAL ── */}
+                  <div className="flex flex-col items-center gap-4 w-full">
+
+                    {/* Section header */}
+                    <div className="flex items-center gap-3 w-full max-w-[56%]">
+                      <div className="h-px flex-1 bg-gradient-to-r from-transparent to-yellow-500/40" />
+                      <span className="text-[9px] font-black uppercase tracking-[0.22em] text-yellow-400 bg-yellow-500/8 border border-yellow-500/30 px-4 py-1 rounded-full shadow-[0_0_12px_rgba(234,179,8,0.15)]">
+                        🏆 FINAL
+                      </span>
+                      <div className="h-px flex-1 bg-gradient-to-l from-transparent to-yellow-500/40" />
+                    </div>
+
+                    <div className="w-full max-w-[56%] grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                       {/* Tercer Puesto */}
                       {matches.filter(m => m.fase === 'Tercer Puesto').map(m => (
                         <div
                           key={m.id}
                           onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                          className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-3 cursor-pointer hover:bg-zinc-800/80 transition"
+                          className="cyber-match-card cursor-pointer p-4"
                         >
-                          <div className="text-[8px] text-zinc-500 font-black uppercase tracking-widest mb-2 text-center">🥉 Tercer Puesto · 18 Jul</div>
-                          
-                          {/* Team 1 */}
-                          <div className="flex items-center justify-between gap-1 text-[11px]">
-                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                              <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
-                              <div className="flex flex-col min-w-0">
-                                <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.local}</span>
-                                {formatPlaceholderText(m.local) && (
-                                  <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                    ({formatPlaceholderText(m.local)})
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-650'}`}>
-                              {m.estado !== 'upcoming' ? m.goles_local : '-'}
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-[8px] font-black uppercase tracking-[0.18em] text-zinc-500 border border-zinc-700/50 bg-zinc-900/60 px-2 py-0.5 rounded-full">
+                              🥉 3er Puesto
                             </span>
+                            <span className="text-[8px] font-mono text-zinc-600">18 Jul</span>
                           </div>
-
-                          {/* Team 2 */}
-                          <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
-                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                              <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                              <div className="flex flex-col min-w-0">
-                                <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.visitante}</span>
-                                {formatPlaceholderText(m.visitante) && (
-                                  <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                    ({formatPlaceholderText(m.visitante)})
-                                  </span>
-                                )}
+                          {[{ team: m.local, goles: m.goles_local }, { team: m.visitante, goles: m.goles_visitante }].map((row, i) => (
+                            <div key={i} className={`flex items-center justify-between gap-2 ${i === 1 ? 'mt-2 pt-2 border-t border-white/5' : ''}`}>
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className="text-base flex-shrink-0">{getTeamFlag(row.team)}</span>
+                                <span className="font-black text-zinc-100 uppercase truncate text-[11px]">{row.team}</span>
                               </div>
+                              <span className={`font-mono font-black text-sm flex-shrink-0 ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-zinc-300'}`}>
+                                {m.estado !== 'upcoming' ? row.goles : '—'}
+                              </span>
                             </div>
-                            <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-zinc-200' : 'text-zinc-650'}`}>
-                              {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
-                            </span>
-                          </div>
-
-                          {/* Venue Footer */}
-                          <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
-                            <span className="text-[8px] text-zinc-500 font-semibold truncate max-w-[65%]">
-                              📍 {m.estadio || 'Sede por definir'}
-                            </span>
-                            <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-zinc-500'}`}>
-                              {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FINAL' : 'PRÓX'}
-                            </span>
+                          ))}
+                          <div className="text-[7.5px] text-zinc-700 mt-2.5 pt-2 border-t border-white/5 truncate">
+                            📍 {m.estadio || 'Por definir'}
                           </div>
                         </div>
                       ))}
 
-                      {/* Gran Final */}
+                      {/* GRAN FINAL — CYBER EPIC */}
                       {matches.filter(m => m.fase === 'Final').map(m => (
                         <div
                           key={m.id}
                           onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                          className="bg-zinc-950 border-2 border-yellow-500 rounded-xl p-3 cursor-pointer hover:shadow-[0_0_20px_rgba(234,179,8,0.2)] transition relative"
+                          className="cyber-final-card cursor-pointer p-5 relative"
                         >
-                          <div className="text-[8px] text-yellow-500 font-black uppercase tracking-widest mb-2 text-center">🏆 GRAN FINAL · 19 Jul</div>
-                          
-                          {/* Team 1 */}
-                          <div className="flex items-center justify-between gap-1 text-[11px]">
-                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                              <span className="text-base flex-shrink-0">{getTeamFlag(m.local)}</span>
-                              <div className="flex flex-col min-w-0">
-                                <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.local}</span>
-                                {formatPlaceholderText(m.local) && (
-                                  <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                    ({formatPlaceholderText(m.local)})
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-yellow-500 font-bold' : 'text-zinc-650'}`}>
-                              {m.estado !== 'upcoming' ? m.goles_local : '-'}
-                            </span>
+                          {/* Copa silueta izquierda */}
+                          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 flex items-center justify-start pl-1 overflow-hidden" aria-hidden>
+                            <span className="text-5xl opacity-[0.07] select-none [filter:blur(1px)] translate-x-[-25%]">🏆</span>
+                          </div>
+                          {/* Copa silueta derecha */}
+                          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 flex items-center justify-end pr-1 overflow-hidden" aria-hidden>
+                            <span className="text-5xl opacity-[0.07] select-none [filter:blur(1px)] translate-x-[25%]">🏆</span>
                           </div>
 
-                          {/* Team 2 */}
-                          <div className="flex items-center justify-between gap-1 text-[11px] mt-1.5 pt-1.5 border-t border-zinc-800/60">
-                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                              <span className="text-base flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-                              <div className="flex flex-col min-w-0">
-                                <span className="font-black text-zinc-100 truncate uppercase text-[11px]">{m.visitante}</span>
-                                {formatPlaceholderText(m.visitante) && (
-                                  <span className="text-[7.5px] text-zinc-500 font-bold truncate">
-                                    ({formatPlaceholderText(m.visitante)})
-                                  </span>
-                                )}
-                              </div>
+                          {/* Content — above the sheen layer */}
+                          <div className="relative z-10">
+                            {/* Badge */}
+                            <div className="flex items-center justify-center mb-4">
+                              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-yellow-300 bg-yellow-500/10 border border-yellow-500/35 px-4 py-1.5 rounded-full shadow-[0_0_14px_rgba(234,179,8,0.20)] [text-shadow:0_0_10px_rgba(234,179,8,0.60)]">
+                                🏆 Gran Final · 19 Jul
+                              </span>
                             </div>
-                            <span className={`font-black font-mono flex-shrink-0 text-[11px] ${m.estado === 'live' ? 'text-red-400 animate-pulse' : m.estado === 'finished' ? 'text-yellow-500 font-bold' : 'text-zinc-650'}`}>
-                              {m.estado !== 'upcoming' ? m.goles_visitante : '-'}
-                            </span>
-                          </div>
 
-                          {/* Venue Footer */}
-                          <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-zinc-800/40">
-                            <span className="text-[8px] text-yellow-500/80 font-semibold truncate max-w-[65%]">
-                              📍 {m.estadio || 'MetLife Stadium'}
-                            </span>
-                            <span className={`text-[8px] font-black uppercase ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-yellow-500'}`}>
-                              {m.estado === 'live' ? '● EN VIVO' : m.estado === 'finished' ? 'FINAL' : 'PRÓX'}
-                            </span>
+                            {/* Teams — large and centered */}
+                            <div className="space-y-3">
+                              {[{ team: m.local, goles: m.goles_local }, { team: m.visitante, goles: m.goles_visitante }].map((row, i) => (
+                                <div key={i}>
+                                  {i === 1 && (
+                                    <div className="flex items-center gap-2 my-2">
+                                      <div className="h-px flex-1 bg-gradient-to-r from-transparent to-yellow-500/20" />
+                                      <span className="text-[8px] font-black text-yellow-500/40 tracking-[0.25em] font-mono">VS</span>
+                                      <div className="h-px flex-1 bg-gradient-to-l from-transparent to-yellow-500/20" />
+                                    </div>
+                                  )}
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                      <span className="text-2xl flex-shrink-0">{getTeamFlag(row.team)}</span>
+                                      <div className="min-w-0">
+                                        <span className="font-black text-zinc-50 uppercase truncate text-sm tracking-wide block [text-shadow:0_0_12px_rgba(255,255,255,0.15)]">
+                                          {row.team}
+                                        </span>
+                                        {formatPlaceholderText(row.team) && (
+                                          <span className="text-[7.5px] text-zinc-600 truncate block">({formatPlaceholderText(row.team)})</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {m.estado !== 'upcoming' && (
+                                      <span className={`font-mono font-black text-2xl flex-shrink-0 ${
+                                        m.estado === 'live'
+                                          ? 'text-red-400 animate-pulse [text-shadow:0_0_16px_rgba(239,68,68,0.7)]'
+                                          : 'text-yellow-300 [text-shadow:0_0_16px_rgba(234,179,8,0.55)]'
+                                      }`}>
+                                        {row.goles}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Venue + status */}
+                            <div className="flex items-center justify-between mt-4 pt-3 border-t border-yellow-500/10">
+                              <span className="text-[8px] text-yellow-500/50 font-mono truncate flex-1">
+                                📍 {m.estadio || 'MetLife Stadium · New York/New Jersey'}
+                              </span>
+                              {m.estado === 'live' && (
+                                <span className="flex items-center gap-1 text-[9px] font-black text-red-400 uppercase tracking-wider flex-shrink-0">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot" /> EN VIVO
+                                </span>
+                              )}
+                              {m.estado === 'finished' && (
+                                <span className="text-[8px] font-black text-yellow-400 uppercase tracking-wider flex-shrink-0">
+                                  CAMPEÓN DEFINIDO
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}

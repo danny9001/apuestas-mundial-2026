@@ -15,7 +15,6 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Apuestas Mundial 2026",
   description: "Pronósticos y Quiniela Oficial del Mundial de Fútbol 2026. ¡Sigue resultados en vivo y escala el ranking!",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -44,6 +43,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark h-full">
       <head>
+        <link rel="manifest" href="/api/manifest" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <script

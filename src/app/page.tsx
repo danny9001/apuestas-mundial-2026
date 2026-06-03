@@ -29,9 +29,12 @@ import {
   BookOpen,
   Activity,
   Bell,
+  BellOff,
   Building2,
   Users,
   MessageSquare,
+  Mail,
+  Download,
   Trash2,
   LayoutDashboard,
   Home,
@@ -150,6 +153,10 @@ export default function PWAAppPage() {
   // PWA Push
   const [pushSubscribed, setPushSubscribed] = useState(false);
 
+  // PWA Install
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
   // Login Form
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -257,6 +264,7 @@ export default function PWAAppPage() {
   const [editUserPassword, setEditUserPassword] = useState('');
   const [editUserSubmitting, setEditUserSubmitting] = useState(false);
   const [editUserError, setEditUserError] = useState('');
+  const [editUserCompanyIds, setEditUserCompanyIds] = useState<number[]>([]);
 
   // Match Summary & Statistics Modal
   const [summaryModalMatch, setSummaryModalMatch] = useState<any | null>(null);
@@ -307,7 +315,7 @@ export default function PWAAppPage() {
   const [notifTitulo, setNotifTitulo] = useState('');
   const [notifContenido, setNotifContenido] = useState('');
   const [notifTipo, setNotifTipo] = useState<'info' | 'warning' | 'success' | 'error'>('info');
-  const [notifTargetType, setNotifTargetType] = useState<'all' | 'group' | 'user'>('all');
+  const [notifTargetType, setNotifTargetType] = useState<'all' | 'group' | 'user' | 'company'>('all');
   const [notifTargetId, setNotifTargetId] = useState<number | null>(null);
   const [notifExpiresAt, setNotifExpiresAt] = useState('');
   const [notifSubmitting, setNotifSubmitting] = useState(false);
@@ -1108,6 +1116,22 @@ export default function PWAAppPage() {
     });
   }, [user]);
 
+  // PWA Install prompt
+  useEffect(() => {
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as any).standalone === true;
+    if (isStandalone) { setIsInstalled(true); return; }
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler as EventListener);
+    window.addEventListener('appinstalled', () => { setIsInstalled(true); setDeferredPrompt(null); });
+    return () => window.removeEventListener('beforeinstallprompt', handler as EventListener);
+  }, []);
+
   // Session idle timeout — 30min warning, 35min logout
   useEffect(() => {
     if (!user) return;
@@ -1139,6 +1163,61 @@ export default function PWAAppPage() {
       clearInterval(refreshInterval);
     };
   }, [user]);
+
+  const handleInstallPWA = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') { setIsInstalled(true); setDeferredPrompt(null); }
+  };
+
+  function urlBase64ToUint8ArrayForToggle(base64String: string): Uint8Array {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const output = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) output[i] = rawData.charCodeAt(i);
+    return output;
+  }
+
+  const handleTogglePush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      showToast('Tu navegador no soporta notificaciones push');
+      return;
+    }
+    const registration = await navigator.serviceWorker.ready;
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) {
+      await existing.unsubscribe();
+      await fetch('/api/push/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: existing.endpoint }),
+      });
+      setPushSubscribed(false);
+      showToast('🔕 Notificaciones desactivadas');
+    } else {
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!publicKey) { showToast('Notificaciones no configuradas'); return; }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') { showToast('Permiso de notificaciones denegado'); return; }
+      try {
+        const sub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8ArrayForToggle(publicKey).buffer as ArrayBuffer,
+        });
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(JSON.parse(JSON.stringify(sub))),
+        });
+        setPushSubscribed(true);
+        showToast('🔔 Notificaciones activadas');
+      } catch {
+        showToast('Error al activar notificaciones');
+      }
+    }
+  };
 
   // Actions
   const handleLogin = async (e: React.FormEvent) => {
@@ -1542,6 +1621,7 @@ export default function PWAAppPage() {
     setEditUserTipo(u.tipo);
     setEditUserPassword('');
     setEditUserError('');
+    setEditUserCompanyIds((u.companies || []).map((c: any) => c.id));
   };
 
   const handleSaveEditUser = async (e: React.FormEvent) => {
@@ -1567,9 +1647,18 @@ export default function PWAAppPage() {
       });
       const d = await res.json();
       if (res.ok) {
+        if (editUserTipo === 'admin' && user.tipo === 'superadmin') {
+          await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'setCompanies', userId: editUserModal.id, companyIds: editUserCompanyIds }),
+          });
+        }
         setAdminUsers((prev) => prev.map((u) => u.id === editUserModal.id ? { ...u, ...d.user } : u));
         showToast('✅ Usuario actualizado');
         setEditUserModal(null);
+        const uRes = await fetch(`/api/admin/users?t=${Date.now()}`);
+        if (uRes.ok) setAdminUsers(await uRes.json());
       } else {
         setEditUserError(d.error || 'Error al guardar');
       }
@@ -1823,6 +1912,16 @@ export default function PWAAppPage() {
 
         {/* Desktop Sidebar Footer */}
         <div className="space-y-4">
+          {!isInstalled && deferredPrompt && (
+            <button
+              onClick={handleInstallPWA}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold hover:bg-yellow-500/20 transition"
+              title="Instalar aplicación"
+            >
+              <Download className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Instalar aplicación</span>
+            </button>
+          )}
           {user ? (
             <div className="bg-zinc-950/60 border border-zinc-850 p-3 rounded-xl flex items-center gap-3">
               <img src={user.avatar} className="w-8 h-8 rounded-full border border-zinc-800 bg-zinc-900" alt="avatar" />
@@ -1830,12 +1929,21 @@ export default function PWAAppPage() {
                 <div className="text-xs font-bold text-zinc-300 truncate">{user.nombre}</div>
                 <div className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">{user.tipo}</div>
               </div>
+              {/* Bell: toggle push notifications */}
+              <button
+                onClick={handleTogglePush}
+                className={`relative p-1.5 transition flex items-center justify-center flex-shrink-0 ${pushSubscribed ? 'text-yellow-500 hover:text-yellow-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                title={pushSubscribed ? 'Desactivar notificaciones push' : 'Activar notificaciones push'}
+              >
+                {pushSubscribed ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+              </button>
+              {/* Mail: open in-app messages panel */}
               <button
                 onClick={() => setNotifPanelOpen(true)}
-                className="relative text-zinc-555 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
-                title="Notificaciones"
+                className="relative text-zinc-400 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
+                title="Mensajes"
               >
-                <Bell className="w-4 h-4" />
+                <Mail className="w-4 h-4" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 text-white text-[7px] font-black rounded-full flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
@@ -1919,8 +2027,18 @@ export default function PWAAppPage() {
             <span className="font-black tracking-wider text-sm uppercase text-zinc-100 truncate">{appName}</span>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* PWA Install button (mobile) */}
+            {!isInstalled && deferredPrompt && (
+              <button
+                onClick={handleInstallPWA}
+                className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 p-2 rounded-lg border border-yellow-500/30 transition flex items-center justify-center"
+                title="Instalar aplicación"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            )}
             {/* Theme Toggle Button */}
-            <button 
+            <button
               onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
               className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-yellow-500 p-2 rounded-lg border border-zinc-800 transition flex items-center justify-center"
               title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
@@ -1929,12 +2047,21 @@ export default function PWAAppPage() {
             </button>
             {user && (
               <>
+                {/* Bell: toggle push notifications */}
+                <button
+                  onClick={handleTogglePush}
+                  className={`p-2 rounded-lg border transition flex items-center justify-center ${pushSubscribed ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
+                  title={pushSubscribed ? 'Desactivar notificaciones push' : 'Activar notificaciones push'}
+                >
+                  {pushSubscribed ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                </button>
+                {/* Mail: in-app messages */}
                 <button
                   onClick={() => setNotifPanelOpen(true)}
                   className="relative bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-yellow-500 p-2 rounded-lg border border-zinc-800 transition flex items-center justify-center"
-                  title="Notificaciones"
+                  title="Mensajes"
                 >
-                  <Bell className="w-4 h-4" />
+                  <Mail className="w-4 h-4" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">
                       {unreadCount > 9 ? '9+' : unreadCount}
@@ -1956,6 +2083,12 @@ export default function PWAAppPage() {
           {/* --- VIEW 0: DASHBOARD (INICIO) --- */}
           {activeTab === 'dashboard' && (() => {
             const myRank = user ? leaderboard.find(row => row.user_id === user.id) : null;
+            const myCompanyId = user?.companies?.[0]?.id ?? null;
+            const companyLeaderboard = myCompanyId
+              ? leaderboard.filter(row => (row.companies || []).some((c: any) => c.id === myCompanyId))
+              : [];
+            const myCompanyRankIndex = companyLeaderboard.findIndex(row => row.user_id === user?.id);
+            const myCompanyRank = myCompanyRankIndex >= 0 ? myCompanyRankIndex + 1 : null;
             const userPredictionsCount = user ? predictions.length : 0;
             const userExactsCount = user ? predictions.filter(p => p.puntos === 3).length : 0;
             const upcomingMatches = matches
@@ -2028,14 +2161,14 @@ export default function PWAAppPage() {
                       <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Posición General</span>
                       <div className="mt-3 flex items-baseline gap-1.5">
                         <span className="text-3xl font-mono font-black text-amber-500">
-                          {myRank && myRank.posicion !== 9999 ? `#${myRank.posicion}` : '--'}
+                          {myCompanyRank ? `#${myCompanyRank}` : '--'}
                         </span>
                       </div>
                       <span className="text-[9px] text-zinc-500 mt-2">
-                        {myRank && myRank.tendencia === 'up' && '▲ Subiendo posiciones'}
-                        {myRank && myRank.tendencia === 'down' && '▼ Bajando posiciones'}
-                        {myRank && myRank.tendencia === 'same' && '● Manteniendo posición'}
-                        {!myRank && 'Aún sin clasificar'}
+                        {myCompanyRank && myRank && myRank.tendencia === 'up' && '▲ Subiendo posiciones'}
+                        {myCompanyRank && myRank && myRank.tendencia === 'down' && '▼ Bajando posiciones'}
+                        {myCompanyRank && myRank && myRank.tendencia === 'same' && '● Manteniendo posición'}
+                        {!myCompanyRank && 'Aún sin clasificar'}
                       </span>
                     </div>
 
@@ -2730,7 +2863,7 @@ export default function PWAAppPage() {
                         <div className="flex items-center justify-between gap-3 max-w-3xl mx-auto">
                           <div className="flex items-center gap-2 min-w-0">
                             <Building2 className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                            <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Empresa:</span>
+                            <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Equipo:</span>
                             {sel && (
                               <span className="text-xs font-black text-zinc-100 truncate">{sel.nombre}</span>
                             )}
@@ -2831,8 +2964,7 @@ export default function PWAAppPage() {
                                         </span>
                                       ))}
                                     </div>
-                                    <div className="text-[10px] text-zinc-500 tracking-wider uppercase font-mono">{row.tipo}</div>
-                                  </div>
+                                    </div>
                                 </div>
                               </div>
 
@@ -4159,10 +4291,22 @@ export default function PWAAppPage() {
                       <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Destinatario</label>
                       <select value={notifTargetType} onChange={(e) => { setNotifTargetType(e.target.value as any); setNotifTargetId(null); }} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
                         <option value="all">🌐 Todos</option>
+                        <option value="company">🏢 Empresa</option>
                         <option value="group">👥 Grupo</option>
                         <option value="user">👤 Usuario</option>
                       </select>
                     </div>
+                    {notifTargetType === 'company' && (
+                      <div className="space-y-1.5">
+                        <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Empresa</label>
+                        <select value={notifTargetId || ''} onChange={(e) => setNotifTargetId(e.target.value ? parseInt(e.target.value) : null)} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
+                          <option value="">Seleccionar empresa...</option>
+                          {companies
+                            .filter((c: any) => user.tipo === 'superadmin' || (user.companies || []).some((ac: any) => ac.id === c.id))
+                            .map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                        </select>
+                      </div>
+                    )}
                     {notifTargetType === 'group' && (
                       <div className="space-y-1.5">
                         <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Grupo</label>
@@ -4504,6 +4648,43 @@ export default function PWAAppPage() {
                       <option value="admin">Administrador</option>
                       <option value="superadmin">Super Administrador</option>
                     </select>
+                  </div>
+                )}
+
+                {user.tipo === 'superadmin' && editUserTipo === 'admin' && (
+                  <div className="space-y-2">
+                    <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+                      Empresas que administra
+                    </label>
+                    {companies.length === 0 ? (
+                      <p className="text-zinc-500 text-xs">No hay empresas registradas.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {companies.map((c: any) => {
+                          const selected = editUserCompanyIds.includes(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() =>
+                                setEditUserCompanyIds((prev) =>
+                                  selected ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                                )
+                              }
+                              className={`text-[11px] px-3 py-1.5 rounded-full border font-bold transition ${selected ? 'opacity-100' : 'opacity-30 hover:opacity-60'}`}
+                              style={{
+                                color: c.color,
+                                borderColor: c.color + '60',
+                                backgroundColor: selected ? c.color + '20' : 'transparent',
+                              }}
+                            >
+                              {c.nombre}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <p className="text-zinc-600 text-[10px]">Seleccioná las empresas que este administrador puede gestionar.</p>
                   </div>
                 )}
 

@@ -51,6 +51,9 @@ export async function GET() {
            OR (n.target_type = 'group' AND EXISTS (
              SELECT 1 FROM user_groups ug WHERE ug.user_id = $1 AND ug.group_id = n.target_id
            ))
+           OR (n.target_type = 'company' AND EXISTS (
+             SELECT 1 FROM user_companies uc WHERE uc.user_id = $1 AND uc.company_id = n.target_id
+           ))
          )
        ORDER BY n.created_at DESC
        LIMIT 50`,

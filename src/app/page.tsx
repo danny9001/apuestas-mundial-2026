@@ -2328,7 +2328,7 @@ export default function PWAAppPage() {
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[10px] font-black text-zinc-100 uppercase tracking-wider">CABLE (TIGO)</span>
-                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[7px] font-black tracking-widest uppercase">Completo</span>
+                            <span className="px-1.5 py-0.5 rounded bg-zinc-800/50 text-zinc-300 text-[7px] font-black tracking-widest uppercase">Completo</span>
                           </div>
                           <p className="text-[9px] text-zinc-400 leading-relaxed">
                             Tigo Sports transmitirá en exclusiva por cable los 104 partidos del Mundial con cobertura especial HD.
@@ -2786,12 +2786,12 @@ export default function PWAAppPage() {
                     <div className="text-green-400 font-black text-3xl font-mono">3 PTS</div>
                   </div>
 
-                  <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                  <div className="flex items-center justify-between bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
                     <div>
-                      <div className="text-blue-400 font-black text-sm">Aciertas Ganador o Empate</div>
+                      <div className="text-zinc-300 font-black text-sm">Aciertas Ganador o Empate</div>
                       <div className="text-zinc-400 text-xs mt-0.5">Ej: predices victoria local y el equipo local gana por cualquier marcador</div>
                     </div>
-                    <div className="text-blue-400 font-black text-3xl font-mono">1 PTO</div>
+                    <div className="text-zinc-300 font-black text-3xl font-mono">1 PTO</div>
                   </div>
 
                   <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl p-4">
@@ -3872,8 +3872,8 @@ export default function PWAAppPage() {
                       <div className="text-green-400 font-black text-xl font-mono">{myStats.exactos}</div>
                       <div className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">Exactos</div>
                     </div>
-                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-                      <div className="text-blue-400 font-black text-xl font-mono">{myStats.aciertos}</div>
+                    <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-3">
+                      <div className="text-zinc-300 font-black text-xl font-mono">{myStats.aciertos}</div>
                       <div className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">Aciertos</div>
                     </div>
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
@@ -3885,7 +3885,7 @@ export default function PWAAppPage() {
                   <div className="space-y-2 text-xs">
                     {[
                       { label: 'Resultados exactos', pct: myStats.pct_exacto, color: 'bg-green-500' },
-                      { label: 'Acertaste ganador', pct: myStats.pct_acierto, color: 'bg-blue-500' },
+                      { label: 'Acertaste ganador', pct: myStats.pct_acierto, color: 'bg-zinc-500' },
                       { label: 'Fallos totales', pct: myStats.pct_fallo, color: 'bg-zinc-600' },
                     ].map((stat) => (
                       <div key={stat.label} className="space-y-1">
@@ -3978,7 +3978,7 @@ export default function PWAAppPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     { label: 'Total Usuarios', value: adminUsers.length, color: 'text-yellow-500' },
-                    { label: 'Empresas', value: companies.length, color: 'text-blue-400' },
+                    { label: 'Empresas', value: companies.length, color: 'text-zinc-300' },
                     { label: 'Usuarios Activos', value: adminUsers.filter(u => u.activo).length, color: 'text-green-400' },
                     { label: 'Partidos en Vivo', value: matches.filter(m => m.estado === 'live').length, color: 'text-red-400' },
                   ].map((stat) => (
@@ -4517,7 +4517,7 @@ export default function PWAAppPage() {
                             <div className="flex gap-3 text-zinc-400">
                               <span className="text-yellow-500">↑{log.matches_updated} upd</span>
                               <span className="text-green-400">⚽{log.goals_detected} goles</span>
-                              <span className="text-blue-400">✓{log.matches_finished} fin</span>
+                              <span className="text-zinc-300">✓{log.matches_finished} fin</span>
                               <span className="text-zinc-500">{log.duration_ms}ms</span>
                             </div>
                             {log.errors?.length > 0 && <span className="text-red-400 text-[9px]">ERR</span>}
@@ -4633,7 +4633,7 @@ export default function PWAAppPage() {
                 {user.tipo === 'superadmin' && (
                   <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-3 max-w-2xl">
                     <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                      <Send className="w-3.5 h-3.5 text-blue-400" /> Notificaciones Automáticas
+                      <Send className="w-3.5 h-3.5 text-zinc-300" /> Notificaciones Automáticas
                     </div>
                     <p className="text-[10px] text-zinc-500">El scheduler envía avisos de partidos cada hora y rankings semanales los lunes. También puedes dispararlo manualmente.</p>
                     <div className="flex gap-2 flex-wrap">
@@ -4641,7 +4641,7 @@ export default function PWAAppPage() {
                         const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tipo: 'matches' }) });
                         const d = await r.json();
                         showToast(r.ok ? `✅ ${d.matches_notified ?? 0} avisos de partidos enviados` : d.error);
-                      }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">
+                      }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-zinc-700/50 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-700/50 transition">
                         ⚽ Avisos de Partidos
                       </button>
                       <button type="button" onClick={async () => {
@@ -4775,7 +4775,7 @@ export default function PWAAppPage() {
                   <div className="p-8 text-center text-zinc-500 text-xs">Sin notificaciones</div>
                 )}
                 {notifications.map((n) => {
-                  const colorMap: Record<string, string> = { info: 'text-blue-400 border-blue-500/30 bg-blue-500/5', warning: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5', success: 'text-green-400 border-green-500/30 bg-green-500/5', error: 'text-red-400 border-red-500/30 bg-red-500/5' };
+                  const colorMap: Record<string, string> = { info: 'text-zinc-300 border-zinc-700/50 bg-zinc-500/5', warning: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5', success: 'text-green-400 border-green-500/30 bg-green-500/5', error: 'text-red-400 border-red-500/30 bg-red-500/5' };
                   const cls = colorMap[n.tipo] || colorMap.info;
                   return (
                     <div

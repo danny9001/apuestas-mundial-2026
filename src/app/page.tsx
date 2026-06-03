@@ -3202,217 +3202,32 @@ export default function PWAAppPage() {
                   })()}
                 </div>
               ) : (
-                /* --- VISTA BRACKET / FUNNEL — CYBER STYLE --- */
-                <div className="space-y-2">
-                  {([
-                    { fase: 'Ronda de 32',     label: 'RONDA DE 32',     accent: 'rgba(34,211,238,0.18)',  mwClass: 'max-w-full',              cols: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4' },
-                    { fase: 'Octavos de Final',label: 'OCTAVOS DE FINAL',accent: 'rgba(34,211,238,0.30)',  mwClass: 'max-w-full sm:max-w-[90%]', cols: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4' },
-                    { fase: 'Cuartos de Final',label: 'CUARTOS DE FINAL',accent: 'rgba(251,191,36,0.35)',  mwClass: 'max-w-full sm:max-w-[72%]', cols: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2' },
-                    { fase: 'Semifinal',        label: 'SEMIFINAL',       accent: 'rgba(251,146,60,0.45)',  mwClass: 'max-w-full sm:max-w-[52%]', cols: 'grid-cols-1 sm:grid-cols-2' },
-                  ] as const).map(({ fase, label, accent, mwClass, cols }) => {
-                    const faseMatches = matches.filter(m => m.fase === fase);
-                    if (faseMatches.length === 0) return null;
-                    const isSemi = fase === 'Semifinal';
-                    return (
-                      <div key={fase} className="flex flex-col items-center w-full">
-                        {/* Phase label — cyber neon pill */}
-                        <div className="flex items-center gap-3 mb-3 w-full" style={{ maxWidth: mwClass.includes('%') ? mwClass.replace('max-w-full sm:','').replace('max-w-','') : '100%' }}>
-                          <div className="h-px flex-1 opacity-40" style={{ background: `linear-gradient(to right, transparent, ${accent})` }} />
-                          <span className="text-[9px] font-black uppercase tracking-[0.20em] px-3 py-1 rounded-full border"
-                            style={{ color: accent.replace('rgba','rgb').replace(/,[\d.]+\)/, ')'), borderColor: accent, background: accent.replace(/[\d.]+\)$/, '0.08)') }}>
-                            {label} · {faseMatches.length}P
-                          </span>
-                          <div className="h-px flex-1 opacity-40" style={{ background: `linear-gradient(to left, transparent, ${accent})` }} />
-                        </div>
-                        {/* Match grid */}
-                        <div className={`w-full transition-all duration-300 ${mwClass}`}>
-                          <div className={`grid ${cols} ${compactView ? 'gap-1.5' : 'gap-2'}`}>
-                            {faseMatches.map((m) => (
-                              <div
-                                key={m.id}
-                                onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                                className={`cursor-pointer ${compactView ? 'p-2' : 'p-3'} ${m.estado === 'live' ? 'cyber-match-card-live' : isSemi ? 'cyber-match-card-semi' : 'cyber-match-card'}`}
-                              >
-                                {/* Card top: time + live badge */}
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-[8px] font-mono text-neutral-600">
-                                    {new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                                  </span>
-                                  {m.estado === 'live' ? (
-                                    <span className="flex items-center gap-1 text-[8px] font-black text-red-400 uppercase">
-                                      <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot flex-shrink-0" /> LIVE
-                                    </span>
-                                  ) : m.estado === 'finished' ? (
-                                    <span className="text-[8px] font-bold text-neutral-600">FIN</span>
-                                  ) : (
-                                    <span className="text-[8px] font-mono text-neutral-600">
-                                      {new Date(m.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                  )}
-                                </div>
-                                {/* Team rows */}
-                                {[{ team: m.local, goles: m.goles_local }, { team: m.visitante, goles: m.goles_visitante }].map((row, i) => (
-                                  <div key={i} className={`flex items-center justify-between gap-1.5 ${i === 1 ? 'mt-1.5 pt-1.5 border-t border-white/5' : ''}`}>
-                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                      {!compactView && <span className="text-sm flex-shrink-0">{getTeamFlag(row.team)}</span>}
-                                      <div className="min-w-0">
-                                        <span className="font-black text-neutral-100 uppercase truncate text-[10px] tracking-wide block">{row.team}</span>
-                                        {formatPlaceholderText(row.team) && (
-                                          <span className="text-[7px] text-neutral-600 truncate block">({formatPlaceholderText(row.team)})</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <span className={`font-mono font-black text-sm flex-shrink-0 ${m.estado === 'live' ? 'text-red-400 animate-pulse [text-shadow:0_0_8px_rgba(239,68,68,0.5)]' : m.estado === 'finished' ? 'text-neutral-200' : 'text-neutral-700'}`}>
-                                      {m.estado !== 'upcoming' ? row.goles : '—'}
-                                    </span>
-                                  </div>
-                                ))}
-                                {/* Venue */}
-                                {!compactView && (
-                                  <div className="text-[7.5px] text-neutral-700 truncate mt-2 pt-1.5 border-t border-white/5">
-                                    📍 {m.estadio || 'Por definir'}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Funnel connector — cyber line + arrow */}
-                        <div className="flex flex-col items-center py-2">
-                          <div className="cyber-connector w-px h-5" />
-                          <span className="text-cyan-500/50 text-[10px] leading-none">▼</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* ── FINAL SECTION: Tercer Puesto + GRAN FINAL ── */}
-                  <div className="flex flex-col items-center gap-4 w-full">
-
-                    {/* Section header */}
-                    <div className="flex items-center gap-3 w-full max-w-[56%]">
-                      <div className="h-px flex-1 bg-gradient-to-r from-transparent to-yellow-500/40" />
-                      <span className="text-[9px] font-black uppercase tracking-[0.22em] text-yellow-400 bg-yellow-500/8 border border-yellow-500/30 px-4 py-1 rounded-full shadow-[0_0_12px_rgba(234,179,8,0.15)]">
-                        🏆 FINAL
-                      </span>
-                      <div className="h-px flex-1 bg-gradient-to-l from-transparent to-yellow-500/40" />
-                    </div>
-
-                    <div className="w-full max-w-[56%] grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                      {/* Tercer Puesto */}
-                      {matches.filter(m => m.fase === 'Tercer Puesto').map(m => (
-                        <div
-                          key={m.id}
-                          onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                          className="cyber-match-card cursor-pointer p-4"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-[8px] font-black uppercase tracking-[0.18em] text-neutral-500 border border-neutral-700/50 bg-neutral-900/60 px-2 py-0.5 rounded-full">
-                              🥉 3er Puesto
+                /* --- VISTA ELIMINATORIAS ESTÁNDAR --- */
+                <div className="space-y-8">
+                  {['Ronda de 32', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final']
+                    .filter((fase) => {
+                      const faseMatches = matches.filter((m) => m.fase === fase);
+                      return faseMatches.length > 0;
+                    })
+                    .map((fase) => {
+                      const faseMatches = matches.filter((m) => m.fase === fase);
+                      return (
+                        <div key={fase} className="space-y-4">
+                          <div className="flex items-center gap-2 border-b border-neutral-850 pb-2">
+                            <span className="text-yellow-500 font-extrabold text-[11px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-0.5 rounded uppercase">
+                              {fase}
                             </span>
-                            <span className="text-[8px] font-mono text-neutral-600">18 Jul</span>
+                            <span className="text-neutral-500 text-[10px] uppercase font-black tracking-wider">
+                              ({faseMatches.length} partidos)
+                            </span>
                           </div>
-                          {[{ team: m.local, goles: m.goles_local }, { team: m.visitante, goles: m.goles_visitante }].map((row, i) => (
-                            <div key={i} className={`flex items-center justify-between gap-2 ${i === 1 ? 'mt-2 pt-2 border-t border-white/5' : ''}`}>
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <span className="text-base flex-shrink-0">{getTeamFlag(row.team)}</span>
-                                <span className="font-black text-neutral-100 uppercase truncate text-[11px]">{row.team}</span>
-                              </div>
-                              <span className={`font-mono font-black text-sm flex-shrink-0 ${m.estado === 'live' ? 'text-red-400 animate-pulse' : 'text-neutral-300'}`}>
-                                {m.estado !== 'upcoming' ? row.goles : '—'}
-                              </span>
-                            </div>
-                          ))}
-                          <div className="text-[7.5px] text-neutral-700 mt-2.5 pt-2 border-t border-white/5 truncate">
-                            📍 {m.estadio || 'Por definir'}
+
+                          <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+                            {faseMatches.map((m) => renderMatchCard(m))}
                           </div>
                         </div>
-                      ))}
-
-                      {/* GRAN FINAL — CYBER EPIC */}
-                      {matches.filter(m => m.fase === 'Final').map(m => (
-                        <div
-                          key={m.id}
-                          onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                          className="cyber-final-card cursor-pointer p-5 relative"
-                        >
-                          {/* Copa silueta izquierda */}
-                          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 flex items-center justify-start pl-1 overflow-hidden" aria-hidden>
-                            <span className="text-5xl opacity-[0.07] select-none [filter:blur(1px)] translate-x-[-25%]">🏆</span>
-                          </div>
-                          {/* Copa silueta derecha */}
-                          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 flex items-center justify-end pr-1 overflow-hidden" aria-hidden>
-                            <span className="text-5xl opacity-[0.07] select-none [filter:blur(1px)] translate-x-[25%]">🏆</span>
-                          </div>
-
-                          {/* Content — above the sheen layer */}
-                          <div className="relative z-10">
-                            {/* Badge */}
-                            <div className="flex items-center justify-center mb-4">
-                              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-yellow-300 bg-yellow-500/10 border border-yellow-500/35 px-4 py-1.5 rounded-full shadow-[0_0_14px_rgba(234,179,8,0.20)] [text-shadow:0_0_10px_rgba(234,179,8,0.60)]">
-                                🏆 Gran Final · 19 Jul
-                              </span>
-                            </div>
-
-                            {/* Teams — large and centered */}
-                            <div className="space-y-3">
-                              {[{ team: m.local, goles: m.goles_local }, { team: m.visitante, goles: m.goles_visitante }].map((row, i) => (
-                                <div key={i}>
-                                  {i === 1 && (
-                                    <div className="flex items-center gap-2 my-2">
-                                      <div className="h-px flex-1 bg-gradient-to-r from-transparent to-yellow-500/20" />
-                                      <span className="text-[8px] font-black text-yellow-500/40 tracking-[0.25em] font-mono">VS</span>
-                                      <div className="h-px flex-1 bg-gradient-to-l from-transparent to-yellow-500/20" />
-                                    </div>
-                                  )}
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                      <span className="text-2xl flex-shrink-0">{getTeamFlag(row.team)}</span>
-                                      <div className="min-w-0">
-                                        <span className="font-black text-neutral-50 uppercase truncate text-sm tracking-wide block [text-shadow:0_0_12px_rgba(255,255,255,0.15)]">
-                                          {row.team}
-                                        </span>
-                                        {formatPlaceholderText(row.team) && (
-                                          <span className="text-[7.5px] text-neutral-600 truncate block">({formatPlaceholderText(row.team)})</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {m.estado !== 'upcoming' && (
-                                      <span className={`font-mono font-black text-2xl flex-shrink-0 ${
-                                        m.estado === 'live'
-                                          ? 'text-red-400 animate-pulse [text-shadow:0_0_16px_rgba(239,68,68,0.7)]'
-                                          : 'text-yellow-300 [text-shadow:0_0_16px_rgba(234,179,8,0.55)]'
-                                      }`}>
-                                        {row.goles}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Venue + status */}
-                            <div className="flex items-center justify-between mt-4 pt-3 border-t border-yellow-500/10">
-                              <span className="text-[8px] text-yellow-500/50 font-mono truncate flex-1">
-                                📍 {m.estadio || 'MetLife Stadium · New York/New Jersey'}
-                              </span>
-                              {m.estado === 'live' && (
-                                <span className="flex items-center gap-1 text-[9px] font-black text-red-400 uppercase tracking-wider flex-shrink-0">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot" /> EN VIVO
-                                </span>
-                              )}
-                              {m.estado === 'finished' && (
-                                <span className="text-[8px] font-black text-yellow-400 uppercase tracking-wider flex-shrink-0">
-                                  CAMPEÓN DEFINIDO
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                      );
+                    })}
                 </div>
               )}
 

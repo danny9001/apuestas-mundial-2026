@@ -5242,7 +5242,7 @@ export default function PWAAppPage() {
                   <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${
                     summaryModalMatch.estado === 'live' ? 'bg-red-500/15 text-red-400 border border-red-500/30' :
                     summaryModalMatch.estado === 'finished' ? 'bg-zinc-800 text-zinc-500' :
-                    'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                    'bg-zinc-800/50 text-zinc-300 border border-zinc-700/50'
                   }`}>
                     {summaryModalMatch.estado === 'live' ? '🔴 En juego' : summaryModalMatch.estado === 'finished' ? '⚫ Finalizado' : '🔵 Próximamente'}
                   </span>
@@ -5298,7 +5298,7 @@ export default function PWAAppPage() {
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(summaryModalMatch.estadio)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 text-[10px] font-bold px-2 py-1 rounded-lg transition flex-shrink-0"
+                        className="flex items-center gap-1 bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700/50 text-zinc-300 text-[10px] font-bold px-2 py-1 rounded-lg transition flex-shrink-0"
                         onClick={(e) => e.stopPropagation()}
                       >
                         📍 Ver mapa
@@ -5523,7 +5523,7 @@ export default function PWAAppPage() {
                           {bet.puntos !== null && (
                             <span className={`px-2 py-0.5 rounded text-[9px] font-black ${
                               bet.puntos === 3 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                              bet.puntos === 1 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                              bet.puntos === 1 ? 'bg-zinc-800/50 text-zinc-300 border border-zinc-700/50' :
                               'bg-zinc-900 text-zinc-500 border border-zinc-800/40'
                             }`}>
                               +{bet.puntos} PTS

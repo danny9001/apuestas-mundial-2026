@@ -18,5 +18,17 @@ module.exports = {
       restart_delay: 3000,
       watch: false,
     },
+    {
+      name: 'mundial-scheduler',
+      script: 'scheduler.js',
+      cwd: '/home/soporte/apuestas-mundial-2026',
+      instances: 1,
+      exec_mode: 'fork',
+      cron_restart: '0 */6 * * *', // reinicia cada 6h para limpiar memoria
+      error_file: './logs/scheduler-error.log',
+      out_file: './logs/scheduler-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      watch: false,
+    },
   ],
 };

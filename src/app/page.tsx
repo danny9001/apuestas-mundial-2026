@@ -39,7 +39,8 @@ import {
   LayoutDashboard,
   Home,
   Pencil,
-  KeyRound
+  KeyRound,
+  Send,
 } from 'lucide-react';
 
 const TEAM_CODES: { [key: string]: string } = {
@@ -256,15 +257,27 @@ export default function PWAAppPage() {
   const [newUserCompanyId, setNewUserCompanyId] = useState<number | ''>('');
   const [newUserSubmitting, setNewUserSubmitting] = useState(false);
 
+  // Admin sub-tab
+  const [adminSubTab, setAdminSubTab] = useState<'usuarios' | 'empresa' | 'mensajes'>('usuarios');
+
   // Admin Edit User Modal
   const [editUserModal, setEditUserModal] = useState<any | null>(null);
   const [editUserNombre, setEditUserNombre] = useState('');
   const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserTelefono, setEditUserTelefono] = useState('');
   const [editUserTipo, setEditUserTipo] = useState('');
   const [editUserPassword, setEditUserPassword] = useState('');
   const [editUserSubmitting, setEditUserSubmitting] = useState(false);
   const [editUserError, setEditUserError] = useState('');
   const [editUserCompanyIds, setEditUserCompanyIds] = useState<number[]>([]);
+
+  // Company edit modal (admin can edit their company)
+  const [editCompanyModal, setEditCompanyModal] = useState<any | null>(null);
+  const [editCompanyNombre, setEditCompanyNombre] = useState('');
+  const [editCompanyColor, setEditCompanyColor] = useState('#6366f1');
+  const [editCompanyMonto, setEditCompanyMonto] = useState('150');
+  const [editCompanyModo, setEditCompanyModo] = useState<'partido' | 'bloque' | 'fase'>('partido');
+  const [editCompanySubmitting, setEditCompanySubmitting] = useState(false);
 
   // Match Summary & Statistics Modal
   const [summaryModalMatch, setSummaryModalMatch] = useState<any | null>(null);
@@ -298,6 +311,7 @@ export default function PWAAppPage() {
   const [newCompanyNombre, setNewCompanyNombre] = useState('');
   const [newCompanyColor, setNewCompanyColor] = useState('#6366f1');
   const [newCompanyMonto, setNewCompanyMonto] = useState<string>('150');
+  const [newCompanyModo, setNewCompanyModo] = useState<'partido' | 'bloque' | 'fase'>('partido');
   const [companySubmitting, setCompanySubmitting] = useState(false);
   const [companySelectModal, setCompanySelectModal] = useState(false);
   const [editingMontoId, setEditingMontoId] = useState<number | null>(null);
@@ -1581,12 +1595,13 @@ export default function PWAAppPage() {
       const res = await fetch('/api/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', nombre: newCompanyNombre, color: newCompanyColor, monto_participacion: parseFloat(newCompanyMonto) || 150 }),
+        body: JSON.stringify({ action: 'create', nombre: newCompanyNombre, color: newCompanyColor, monto_participacion: parseFloat(newCompanyMonto) || 150, modo_apuesta: newCompanyModo }),
       });
       if (res.ok) {
         showToast('🏢 Empresa creada con éxito');
         setNewCompanyNombre('');
         setNewCompanyMonto('150');
+        setNewCompanyModo('partido');
         await fetchCompanies();
       } else {
         const d = await res.json();
@@ -1618,6 +1633,7 @@ export default function PWAAppPage() {
     setEditUserModal(u);
     setEditUserNombre(u.nombre);
     setEditUserEmail(u.email);
+    setEditUserTelefono(u.telefono || '');
     setEditUserTipo(u.tipo);
     setEditUserPassword('');
     setEditUserError('');
@@ -1638,6 +1654,7 @@ export default function PWAAppPage() {
         nombre: editUserNombre.trim(),
         email: editUserEmail.trim().toLowerCase(),
         tipo: editUserTipo,
+        telefono: editUserTelefono.trim(),
       };
       if (editUserPassword.trim()) body.password = editUserPassword.trim();
       const res = await fetch('/api/admin/users', {
@@ -1683,6 +1700,34 @@ export default function PWAAppPage() {
         const d = await res.json(); showToast(d.error || 'Error');
       }
     } catch { showToast('Error de red'); }
+  };
+
+  const handleSaveEditCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editCompanyModal) return;
+    setEditCompanySubmitting(true);
+    try {
+      const res = await fetch('/api/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          id: editCompanyModal.id,
+          nombre: editCompanyNombre.trim(),
+          color: editCompanyColor,
+          monto_participacion: parseFloat(editCompanyMonto) || 150,
+          modo_apuesta: editCompanyModo,
+        }),
+      });
+      if (res.ok) {
+        showToast('✅ Empresa actualizada');
+        setEditCompanyModal(null);
+        await fetchCompanies();
+      } else {
+        const d = await res.json(); showToast(d.error || 'Error');
+      }
+    } catch { showToast('Error de red'); }
+    finally { setEditCompanySubmitting(false); }
   };
 
   const handleToggleUserCompany = async (userId: number, companyId: number, currentlyMember: boolean) => {
@@ -3869,6 +3914,27 @@ export default function PWAAppPage() {
                 )}
               </div>
 
+              {/* ── SUB-TABS ── */}
+              <div className="flex gap-1 border-b border-zinc-800 pb-0">
+                {([
+                  { key: 'usuarios', label: 'Usuarios', icon: <Users className="w-3.5 h-3.5" /> },
+                  { key: 'empresa',  label: 'Empresa',  icon: <Building2 className="w-3.5 h-3.5" /> },
+                  { key: 'mensajes', label: 'Mensajes', icon: <MessageSquare className="w-3.5 h-3.5" /> },
+                ] as const).map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setAdminSubTab(t.key)}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider border-b-2 transition -mb-px ${
+                      adminSubTab === t.key
+                        ? 'border-yellow-500 text-yellow-500'
+                        : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    {t.icon}{t.label}
+                  </button>
+                ))}
+              </div>
+
               {/* ─── ESTADÍSTICAS DEL SISTEMA (solo superadmin) ─── */}
               {user.tipo === 'superadmin' && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -3886,8 +3952,8 @@ export default function PWAAppPage() {
                 </div>
               )}
 
-              {/* ─── 1. GESTIÓN DE USUARIOS ─── */}
-              <div className="space-y-4">
+              {/* ══════════════ TAB: USUARIOS ══════════════ */}
+              {adminSubTab === 'usuarios' && <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
                   <Users className="w-3.5 h-3.5" />
                   {user.tipo === 'superadmin' ? 'Todos los Usuarios del Sistema' : 'Usuarios de Mi Empresa'}
@@ -4068,9 +4134,12 @@ export default function PWAAppPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div>}
 
-              {/* ─── 2. PERSONALIZACIÓN DEL SISTEMA (solo superadmin) ─── */}
+              {/* ══════════════ TAB: EMPRESA ══════════════ */}
+              {adminSubTab === 'empresa' && <div className="space-y-6">
+
+              {/* ─── PERSONALIZACIÓN DEL SISTEMA (solo superadmin) ─── */}
               {user.tipo === 'superadmin' && <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
                   <Settings className="w-3.5 h-3.5" /> Personalización del Sistema
@@ -4153,6 +4222,14 @@ export default function PWAAppPage() {
                       <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Monto de Participación (Bs.)</label>
                       <input type="number" min="0" step="0.01" value={newCompanyMonto} onChange={(e) => setNewCompanyMonto(e.target.value)} placeholder="150" className="w-full input-stitch px-3 py-2 text-xs font-mono" />
                     </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Modo de Apuesta</label>
+                      <select value={newCompanyModo ?? 'partido'} onChange={(e) => setNewCompanyModo(e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
+                        <option value="partido">Por Partido — cada usuario apuesta libremente por partido</option>
+                        <option value="bloque">En Bloque — se apuesta todo de una vez antes de que inicie la fase</option>
+                        <option value="fase">Por Fase — se habilitan apuestas al inicio de cada fase (grupos, octavos...)</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="flex justify-end">
                     <button type="submit" disabled={companySubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95">
@@ -4209,6 +4286,46 @@ export default function PWAAppPage() {
                 </div>
               </div>}
 
+              {/* ─── Admin (no superadmin): editar su empresa ─── */}
+              {user.tipo === 'admin' && (user.companies || []).map((c: any) => (
+                <div key={c.id} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
+                    {c.nombre}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Monto Participación (Bs.)</label>
+                      <input type="number" min="0" step="0.01" defaultValue={c.monto_participacion || 150}
+                        onBlur={async (e) => {
+                          const monto = parseFloat(e.target.value);
+                          if (!isNaN(monto) && monto > 0) {
+                            await fetch('/api/companies', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ action: 'update', id: c.id, monto_participacion: monto }) });
+                            showToast('💰 Monto actualizado'); await fetchCompanies();
+                          }
+                        }}
+                        className="w-full input-stitch px-3 py-2 text-xs font-mono" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Modo de Apuesta</label>
+                      <select defaultValue={c.modo_apuesta || 'partido'}
+                        onChange={async (e) => {
+                          await fetch('/api/companies', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'update', id: c.id, modo_apuesta: e.target.value }) });
+                          showToast('✅ Modo actualizado'); await fetchCompanies();
+                        }}
+                        className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
+                        <option value="partido">Por Partido (flexible)</option>
+                        <option value="bloque">En Bloque (todos a la vez)</option>
+                        <option value="fase">Por Fase (grupo, octavos...)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-zinc-600">Los cambios se aplican inmediatamente al salir del campo.</p>
+                </div>
+              ))}
+
               {/* ─── 4. GRUPOS DE USUARIOS (solo superadmin) ─── */}
               {user.tipo === 'superadmin' && <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
@@ -4262,10 +4379,89 @@ export default function PWAAppPage() {
                 </div>
               </div>}
 
-              {/* ─── 5. NOTIFICACIONES Y MENSAJES ─── */}
-              <div className="space-y-4">
+              {/* ─── SINCRONIZACIÓN EN VIVO (solo superadmin, en tab empresa) ─── */}
+              {user.tipo === 'superadmin' && <div className="space-y-4">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Sincronización en Vivo</h3>
+                <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      {syncStatus?.last_synced ? (
+                        (() => {
+                          const secAgo = Math.floor((Date.now() - new Date(syncStatus.last_synced).getTime()) / 1000);
+                          const color = secAgo < 120 ? 'bg-green-500' : secAgo < 600 ? 'bg-yellow-500' : 'bg-red-500';
+                          const label = secAgo < 120 ? 'Activo' : secAgo < 600 ? 'Demorado' : 'Sin sync';
+                          return (
+                            <>
+                              <span className={`h-2.5 w-2.5 rounded-full ${color} animate-pulse`}></span>
+                              <span className="text-xs text-zinc-300 font-bold">{label}</span>
+                              <span className="text-[10px] text-zinc-500">· hace {secAgo < 60 ? `${secAgo}s` : `${Math.floor(secAgo / 60)}min`}</span>
+                            </>
+                          );
+                        })()
+                      ) : (
+                        <><span className="h-2.5 w-2.5 rounded-full bg-zinc-600"></span><span className="text-xs text-zinc-500">Sin datos de sync</span></>
+                      )}
+                    </div>
+                    <button onClick={handleForceSyncAdmin} disabled={syncLoading} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95">
+                      <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
+                      <span>{syncLoading ? 'Sincronizando...' : 'Forzar Sync'}</span>
+                    </button>
+                  </div>
+                  {!syncStatus?.sync_enabled && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs p-3 rounded-lg font-bold">
+                      ⚠️ Sincronización automática desactivada. Modo manual activo.
+                    </div>
+                  )}
+                  {syncStatus?.logs && syncStatus.logs.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Últimas sincronizaciones</div>
+                      <div className="bg-zinc-950 border border-zinc-850 rounded-xl divide-y divide-zinc-900 max-h-48 overflow-y-auto">
+                        {syncStatus.logs.map((log: any) => (
+                          <div key={log.id} className="flex justify-between items-center p-3 text-[10px] font-mono">
+                            <span className="text-zinc-500">{new Date(log.synced_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                            <div className="flex gap-3 text-zinc-400">
+                              <span className="text-yellow-500">↑{log.matches_updated} upd</span>
+                              <span className="text-green-400">⚽{log.goals_detected} goles</span>
+                              <span className="text-blue-400">✓{log.matches_finished} fin</span>
+                              <span className="text-zinc-500">{log.duration_ms}ms</span>
+                            </div>
+                            {log.errors?.length > 0 && <span className="text-red-400 text-[9px]">ERR</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>}
+
+              {/* ─── Marcadores en Vivo (solo superadmin, en tab empresa) ─── */}
+              {user.tipo === 'superadmin' && <div className="space-y-4">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Marcadores en Vivo</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {matches.map((m) => (
+                    <div key={m.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl flex justify-between items-center text-xs shadow-md">
+                      <div className="flex flex-col gap-1 w-[60%]">
+                        <div className="flex items-center gap-2 text-sm text-zinc-200 font-black">
+                          <span>{m.local} {m.goles_local} - {m.goles_visitante} {m.visitante}</span>
+                        </div>
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
+                          {m.estado === 'live' ? '🔴 En juego' : m.estado === 'finished' ? '⚫ Finalizado' : '⚪ Programado'}
+                        </span>
+                      </div>
+                      <button onClick={() => { setAdminMatchModal(m); setAdminGolesLocal(m.goles_local); setAdminGolesVisitante(m.goles_visitante); setAdminEstado(m.estado); setAdminTransmisionEnlaces(m.transmision_enlaces || ''); }} className="bg-zinc-950 hover:bg-zinc-800 text-zinc-300 font-bold px-4 py-2 border border-zinc-800 hover:border-yellow-500/25 rounded-xl transition">
+                        Editar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>}
+
+              </div>}
+
+              {/* ══════════════ TAB: MENSAJES ══════════════ */}
+              {adminSubTab === 'mensajes' && <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2 flex items-center gap-2">
-                  <MessageSquare className="w-3.5 h-3.5" /> Notificaciones y Mensajes
+                  <MessageSquare className="w-3.5 h-3.5" /> Enviar Mensaje / Notificación
                 </h3>
                 <form onSubmit={handleCreateNotification} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl">
                   <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Enviar Notificación</div>
@@ -4337,83 +4533,32 @@ export default function PWAAppPage() {
                     </button>
                   </div>
                 </form>
-              </div>
 
-              {/* ─── 6. SINCRONIZACIÓN EN VIVO (solo superadmin) ─── */}
-              {user.tipo === 'superadmin' && <div className="space-y-4">
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Sincronización en Vivo</h3>
-                <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      {syncStatus?.last_synced ? (
-                        (() => {
-                          const secAgo = Math.floor((Date.now() - new Date(syncStatus.last_synced).getTime()) / 1000);
-                          const color = secAgo < 120 ? 'bg-green-500' : secAgo < 600 ? 'bg-yellow-500' : 'bg-red-500';
-                          const label = secAgo < 120 ? 'Activo' : secAgo < 600 ? 'Demorado' : 'Sin sync';
-                          return (
-                            <>
-                              <span className={`h-2.5 w-2.5 rounded-full ${color} animate-pulse`}></span>
-                              <span className="text-xs text-zinc-300 font-bold">{label}</span>
-                              <span className="text-[10px] text-zinc-500">· hace {secAgo < 60 ? `${secAgo}s` : `${Math.floor(secAgo / 60)}min`}</span>
-                            </>
-                          );
-                        })()
-                      ) : (
-                        <><span className="h-2.5 w-2.5 rounded-full bg-zinc-600"></span><span className="text-xs text-zinc-500">Sin datos de sync</span></>
-                      )}
+                {/* Notificaciones automáticas: disparador manual (superadmin) */}
+                {user.tipo === 'superadmin' && (
+                  <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-3 max-w-2xl">
+                    <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                      <Send className="w-3.5 h-3.5 text-blue-400" /> Notificaciones Automáticas
                     </div>
-                    <button onClick={handleForceSyncAdmin} disabled={syncLoading} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-zinc-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95">
-                      <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
-                      <span>{syncLoading ? 'Sincronizando...' : 'Forzar Sync'}</span>
-                    </button>
-                  </div>
-                  {!syncStatus?.sync_enabled && (
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs p-3 rounded-lg font-bold">
-                      ⚠️ Sincronización automática desactivada. Modo manual activo.
-                    </div>
-                  )}
-                  {syncStatus?.logs && syncStatus.logs.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Últimas sincronizaciones</div>
-                      <div className="bg-zinc-950 border border-zinc-850 rounded-xl divide-y divide-zinc-900 max-h-48 overflow-y-auto">
-                        {syncStatus.logs.map((log: any) => (
-                          <div key={log.id} className="flex justify-between items-center p-3 text-[10px] font-mono">
-                            <span className="text-zinc-500">{new Date(log.synced_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                            <div className="flex gap-3 text-zinc-400">
-                              <span className="text-yellow-500">↑{log.matches_updated} upd</span>
-                              <span className="text-green-400">⚽{log.goals_detected} goles</span>
-                              <span className="text-blue-400">✓{log.matches_finished} fin</span>
-                              <span className="text-zinc-500">{log.duration_ms}ms</span>
-                            </div>
-                            {log.errors?.length > 0 && <span className="text-red-400 text-[9px]">ERR</span>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>}
-
-              {/* ─── 7. MARCADORES EN VIVO (solo superadmin) ─── */}
-              {user.tipo === 'superadmin' && <div className="space-y-4">
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-800 pb-2">Marcadores en Vivo</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {matches.map((m) => (
-                    <div key={m.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl flex justify-between items-center text-xs shadow-md">
-                      <div className="flex flex-col gap-1 w-[60%]">
-                        <div className="flex items-center gap-2 text-sm text-zinc-200 font-black">
-                          <span>{m.local} {m.goles_local} - {m.goles_visitante} {m.visitante}</span>
-                        </div>
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
-                          {m.estado === 'live' ? '🔴 En juego' : m.estado === 'finished' ? '⚫ Finalizado' : '⚪ Programado'}
-                        </span>
-                      </div>
-                      <button onClick={() => { setAdminMatchModal(m); setAdminGolesLocal(m.goles_local); setAdminGolesVisitante(m.goles_visitante); setAdminEstado(m.estado); setAdminTransmisionEnlaces(m.transmision_enlaces || ''); }} className="bg-zinc-950 hover:bg-zinc-800 text-zinc-300 font-bold px-4 py-2 border border-zinc-800 hover:border-yellow-500/25 rounded-xl transition">
-                        Editar
+                    <p className="text-[10px] text-zinc-500">El scheduler envía avisos de partidos cada hora y rankings semanales los lunes. También puedes dispararlo manualmente.</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <button type="button" onClick={async () => {
+                        const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tipo: 'matches' }) });
+                        const d = await r.json();
+                        showToast(r.ok ? `✅ ${d.matches_notified ?? 0} avisos de partidos enviados` : d.error);
+                      }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">
+                        ⚽ Avisos de Partidos
+                      </button>
+                      <button type="button" onClick={async () => {
+                        const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tipo: 'rankings' }) });
+                        const d = await r.json();
+                        showToast(r.ok ? `✅ Rankings enviados a ${d.companies_notified ?? 0} empresa(s)` : d.error);
+                      }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition">
+                        📊 Rankings Semanales
                       </button>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>}
 
             </section>
@@ -4626,12 +4771,25 @@ export default function PWAAppPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Email</label>
+                  <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Correo Electrónico</label>
                   <input
                     type="email" required value={editUserEmail}
                     onChange={(e) => setEditUserEmail(e.target.value)}
                     className="w-full input-stitch px-3 py-2.5 text-sm"
                     placeholder="correo@ejemplo.com"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                    📱 Celular / WhatsApp
+                    <span className="text-zinc-600 normal-case font-medium">(opcional)</span>
+                  </label>
+                  <input
+                    type="tel" value={editUserTelefono}
+                    onChange={(e) => setEditUserTelefono(e.target.value)}
+                    className="w-full input-stitch px-3 py-2.5 text-sm"
+                    placeholder="+591 7XXXXXXX"
                   />
                 </div>
 

@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === 'editUser') {
-      const { userId: targetId, nombre, email, tipo, password } = body;
+      const { userId: targetId, nombre, email, tipo, password, telefono } = body;
       if (!targetId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
       if (!nombre?.trim()) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 });
       if (!email?.trim()) return NextResponse.json({ error: 'Email requerido' }, { status: 400 });
@@ -138,17 +138,18 @@ export async function POST(req: NextRequest) {
 
       let updateQuery: string;
       let params: any[];
+      const tel = telefono?.trim() || null;
 
       if (password?.trim()) {
         const bcrypt = await import('bcryptjs');
         const hash = await bcrypt.hash(password.trim(), 10);
-        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, password_hash=$4 WHERE id=$5
-          RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`;
-        params = [nombre.trim(), email.trim().toLowerCase(), tipo, hash, targetId];
+        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, password_hash=$4, telefono=$5 WHERE id=$6
+          RETURNING id, nombre, email, tipo, telefono, avatar, activo, aprobado, denegado`;
+        params = [nombre.trim(), email.trim().toLowerCase(), tipo, hash, tel, targetId];
       } else {
-        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3 WHERE id=$4
-          RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`;
-        params = [nombre.trim(), email.trim().toLowerCase(), tipo, targetId];
+        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, telefono=$4 WHERE id=$5
+          RETURNING id, nombre, email, tipo, telefono, avatar, activo, aprobado, denegado`;
+        params = [nombre.trim(), email.trim().toLowerCase(), tipo, tel, targetId];
       }
 
       const r = await pool.query(updateQuery, params);

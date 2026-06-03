@@ -199,6 +199,7 @@ export default function PWAAppPage() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture' | 'reglas'>('dashboard');
   const [groupDate, setGroupDate] = useState(true);
   const [fixtureGroupDate, setFixtureGroupDate] = useState(true);
+  const [fixtureSubTab, setFixtureSubTab] = useState<'partidos' | 'posiciones' | 'eliminatoria'>('partidos');
 
   // Group remaining matches toggle
   const [groupRemaining, setGroupRemaining] = useState(false);
@@ -375,6 +376,65 @@ export default function PWAAppPage() {
     } catch (e) {
       console.error('Failed to fetch settings:', e);
     }
+  };
+
+
+  const getStandings = (matchesList: any[]) => {
+    const standings: Record<string, any[]> = {};
+    const groupMatches = matchesList.filter((m) => m.fase === 'Fase de Grupos');
+    
+    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].forEach((g) => {
+      standings[g] = [];
+    });
+
+    const ensureTeam = (grp: string, team: string) => {
+      if (!team || team.includes('A confirmar') || team.startsWith('Ganador')) return null;
+      if (!standings[grp]) return null;
+      let s = standings[grp].find((x: any) => x.team === team);
+      if (!s) {
+        s = { team, pts: 0, pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, dif: 0 };
+        standings[grp].push(s);
+      }
+      return s;
+    };
+
+    groupMatches.forEach((m) => {
+      if (!m.grupo) return;
+      const s1 = ensureTeam(m.grupo, m.local);
+      const s2 = ensureTeam(m.grupo, m.visitante);
+      
+      if (s1 && s2 && m.estado !== 'upcoming' && m.goles_local !== null && m.goles_visitante !== null) {
+        const gl = m.goles_local;
+        const gv = m.goles_visitante;
+        
+        s1.pj++; s2.pj++;
+        s1.gf += gl; s2.gf += gv;
+        s1.gc += gv; s2.gc += gl;
+        s1.dif = s1.gf - s1.gc;
+        s2.dif = s2.gf - s2.gc;
+        
+        if (gl > gv) {
+          s1.pg++; s1.pts += 3;
+          s2.pp++;
+        } else if (gl < gv) {
+          s2.pg++; s2.pts += 3;
+          s1.pp++;
+        } else {
+          s1.pe++; s1.pts += 1;
+          s2.pe++; s2.pts += 1;
+        }
+      }
+    });
+
+    Object.keys(standings).forEach((grp) => {
+      standings[grp].sort((a: any, b: any) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.dif !== a.dif) return b.dif - a.dif;
+        return b.gf - a.gf;
+      });
+    });
+
+    return standings;
   };
 
   // Group matches by date helper
@@ -3066,72 +3126,37 @@ export default function PWAAppPage() {
             </section>
           )}
 
-          {/* --- VIEW 5: FIXTURE — EMBUDO DE ELIMINATORIAS --- */}
+          {/* --- VIEW: FIXTURE (GOOGLE STYLE) --- */}
           {activeTab === 'fixture' && (
-            <section className="space-y-1 select-none pb-4">
-
-              {/* ── CYBER HEADER ── */}
-              <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
-                <div className="flex items-center gap-3">
-                  {/* Animated trophy icon */}
-                  <div className="relative flex-shrink-0">
-                    <div className="absolute inset-0 rounded-lg bg-yellow-500/20 blur-md animate-pulse" />
-                    <div className="relative h-8 w-8 rounded-lg bg-[#0c0a00] border border-yellow-500/40 flex items-center justify-center shadow-[0_0_12px_rgba(234,179,8,0.25)]">
-                      <Trophy className="w-4 h-4 text-yellow-400" />
-                    </div>
-                  </div>
-                  <div>
-                    <h2 className="text-base font-black tracking-[0.15em] text-neutral-100 uppercase leading-none">Eliminatorias</h2>
-                    <p className="text-[9px] font-bold tracking-[0.22em] text-cyan-500/80 uppercase mt-0.5">FIFA World Cup 2026</p>
-                  </div>
-                  {/* Live count indicator */}
-                  {matches.filter(m => m.estado === 'live').length > 0 && (
-                    <span className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.20)]">
-                      <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot flex-shrink-0" />
-                      {matches.filter(m => m.estado === 'live').length} EN VIVO
-                    </span>
-                  )}
-                </div>
-                {/* Filter controls — cyber pill style */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setFixtureGroupDate(!fixtureGroupDate)}
-                    className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition border ${
-                      fixtureGroupDate
-                        ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
-                        : 'bg-neutral-950 text-neutral-500 border-neutral-800 hover:border-cyan-500/30 hover:text-neutral-300'
-                    }`}
-                  >
-                    {fixtureGroupDate ? '📅 Por Fecha' : '🏆 Bracket'}
-                  </button>
-                  <button
-                    onClick={() => setCompactView(!compactView)}
-                    className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition border ${
-                      compactView
-                        ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
-                        : 'bg-neutral-950 text-neutral-500 border-neutral-800 hover:border-cyan-500/30 hover:text-neutral-300'
-                    }`}
-                  >
-                    {compactView ? '▦ Normal' : '▤ Compact'}
-                  </button>
-                </div>
+            <section className="space-y-4">
+              {/* Top Navigation inside Fixture */}
+              <div className="flex bg-neutral-900/50 rounded-xl p-1 mb-4 border border-neutral-850">
+                <button
+                  onClick={() => setFixtureSubTab('partidos')}
+                  className={`flex-1 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition ${fixtureSubTab === 'partidos' ? 'bg-neutral-800 text-neutral-100 shadow' : 'text-neutral-500 hover:text-neutral-300'}`}
+                >
+                  Partidos
+                </button>
+                <button
+                  onClick={() => setFixtureSubTab('posiciones')}
+                  className={`flex-1 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition ${fixtureSubTab === 'posiciones' ? 'bg-neutral-800 text-neutral-100 shadow' : 'text-neutral-500 hover:text-neutral-300'}`}
+                >
+                  Posiciones
+                </button>
+                <button
+                  onClick={() => setFixtureSubTab('eliminatoria')}
+                  className={`flex-1 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition ${fixtureSubTab === 'eliminatoria' ? 'bg-neutral-800 text-neutral-100 shadow' : 'text-neutral-500 hover:text-neutral-300'}`}
+                >
+                  Eliminatoria
+                </button>
               </div>
 
-              {fixtureGroupDate ? (
-                /* --- VISTA CRONOLÓGICA POR FECHA — CYBER STYLE --- */
-                <div className="space-y-8 animate-fade-in">
+              {/* Sub Tab: Partidos */}
+              {fixtureSubTab === 'partidos' && (
+                <div className="space-y-4">
                   {(() => {
-                    const knockoutPhases = ['Ronda de 32', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'];
-                    const knockoutMatches = matches.filter(m => knockoutPhases.includes(m.fase));
-                    const grouped = getMatchesByDate(knockoutMatches);
-                    if (grouped.length === 0) {
-                      return (
-                        <div className="py-20 text-center">
-                          <div className="text-4xl mb-3 opacity-30">🏟️</div>
-                          <p className="text-neutral-600 text-xs uppercase tracking-widest font-bold">Sin partidos eliminatorios programados</p>
-                        </div>
-                      );
-                    }
+                    const grouped = getMatchesByDate(matches);
+                    if (grouped.length === 0) return <div className="py-20 text-center text-neutral-500">Sin partidos.</div>;
                     return grouped.map((g) => (
                       <div key={g.dateStr} className="space-y-4">
                         <div className="flex items-center gap-2 border-b border-neutral-850 pb-2">
@@ -3149,15 +3174,74 @@ export default function PWAAppPage() {
                     ));
                   })()}
                 </div>
-              ) : (
-                /* --- VISTA ELIMINATORIAS ESTÁNDAR --- */
+              )}
+
+              {/* Sub Tab: Posiciones */}
+              {fixtureSubTab === 'posiciones' && (
+                <div className="space-y-6">
+                  {(() => {
+                    const standings = getStandings(matches);
+                    const groups = Object.keys(standings).sort();
+                    if (groups.length === 0) return <div className="py-20 text-center text-neutral-500">Sin clasificaciones.</div>;
+                    return groups.map(grp => {
+                      if (standings[grp].length === 0) return null;
+                      return (
+                        <div key={grp} className="bg-neutral-900/40 border border-neutral-850 rounded-xl overflow-hidden mb-6">
+                          <div className="bg-neutral-800/80 px-4 py-2 border-b border-neutral-800 flex justify-between items-center">
+                            <span className="font-black text-[12px] uppercase tracking-widest text-neutral-200">Grupo {grp}</span>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[10px] sm:text-[11px] text-left">
+                              <thead className="text-neutral-500 border-b border-neutral-800/50 bg-neutral-900/20">
+                                <tr>
+                                  <th className="px-3 py-2 font-bold w-full">Selección</th>
+                                  <th className="px-2 py-2 font-bold text-center">PTS</th>
+                                  <th className="px-2 py-2 font-bold text-center">PJ</th>
+                                  <th className="px-2 py-2 font-bold text-center">PG</th>
+                                  <th className="px-2 py-2 font-bold text-center">PE</th>
+                                  <th className="px-2 py-2 font-bold text-center">PP</th>
+                                  <th className="px-2 py-2 font-bold text-center">GF</th>
+                                  <th className="px-2 py-2 font-bold text-center">GC</th>
+                                  <th className="px-2 py-2 font-bold text-center">DIF</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-neutral-850">
+                                {standings[grp].map((s: any, idx: number) => (
+                                  <tr key={s.team} className="hover:bg-neutral-800/30 transition">
+                                    <td className="px-3 py-2 flex items-center gap-2">
+                                      <span className="font-mono text-neutral-600 text-[9px] w-3">{idx + 1}</span>
+                                      <span className="text-lg">{getTeamFlag(s.team)}</span>
+                                      <span className="font-bold text-neutral-300 whitespace-nowrap truncate max-w-[100px]">{s.team}</span>
+                                    </td>
+                                    <td className="px-2 py-2 text-center font-black text-neutral-100">{s.pts}</td>
+                                    <td className="px-2 py-2 text-center text-neutral-400 font-mono">{s.pj}</td>
+                                    <td className="px-2 py-2 text-center text-neutral-400 font-mono">{s.pg}</td>
+                                    <td className="px-2 py-2 text-center text-neutral-400 font-mono">{s.pe}</td>
+                                    <td className="px-2 py-2 text-center text-neutral-400 font-mono">{s.pp}</td>
+                                    <td className="px-2 py-2 text-center text-neutral-400 font-mono">{s.gf}</td>
+                                    <td className="px-2 py-2 text-center text-neutral-400 font-mono">{s.gc}</td>
+                                    <td className="px-2 py-2 text-center text-neutral-400 font-mono">{s.dif > 0 ? `+${s.dif}` : s.dif}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+
+              {/* Sub Tab: Eliminatoria */}
+              {fixtureSubTab === 'eliminatoria' && (
                 <div className="space-y-8">
-                  {['Ronda de 32', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final']
-                    .filter((fase) => {
-                      const faseMatches = matches.filter((m) => m.fase === fase);
-                      return faseMatches.length > 0;
-                    })
-                    .map((fase) => {
+                  {(() => {
+                    const knockoutPhases = ['Ronda de 32', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'];
+                    const phasesWithMatches = knockoutPhases.filter((fase) => matches.some((m) => m.fase === fase));
+                    if (phasesWithMatches.length === 0) return <div className="py-20 text-center text-neutral-500">Sin partidos eliminatorios programados.</div>;
+                    
+                    return phasesWithMatches.map((fase) => {
                       const faseMatches = matches.filter((m) => m.fase === fase);
                       return (
                         <div key={fase} className="space-y-4">
@@ -3175,10 +3259,10 @@ export default function PWAAppPage() {
                           </div>
                         </div>
                       );
-                    })}
+                    });
+                  })()}
                 </div>
               )}
-
             </section>
           )}
 

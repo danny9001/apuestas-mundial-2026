@@ -1,6 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
+import { broadcastUpdate } from '@/lib/realtime';
+import { sendPushNotification } from '@/lib/push';
+import { sendMail, buildApprovalEmail, buildDenialEmail } from '@/lib/mail';
+
+async function ensureNotificationsTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      titulo VARCHAR(255) NOT NULL,
+      contenido TEXT NOT NULL,
+      tipo VARCHAR(20) DEFAULT 'info',
+      target_type VARCHAR(20) DEFAULT 'all',
+      target_id INTEGER,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notification_reads (
+      notification_id INTEGER REFERENCES notifications(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      read_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (notification_id, user_id)
+    )
+  `);
+}
+
+async function notifyUser(targetId: number, adminId: number, titulo: string, contenido: string, tipo: string) {
+  try {
+    await ensureNotificationsTables();
+    const notif = await pool.query(
+      `INSERT INTO notifications (titulo, contenido, tipo, target_type, target_id, created_by)
+       VALUES ($1, $2, $3, 'user', $4, $5)
+       RETURNING id, titulo, tipo, target_type, target_id`,
+      [titulo, contenido, tipo, targetId, adminId]
+    );
+    broadcastUpdate('notification', {
+      notificationId: notif.rows[0].id,
+      titulo: notif.rows[0].titulo,
+      tipo: notif.rows[0].tipo,
+      target_type: notif.rows[0].target_type,
+      target_id: notif.rows[0].target_id,
+    });
+  } catch (err) {
+    console.error('Error sending user notification:', err);
+  }
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -116,6 +164,25 @@ export async function POST(req: NextRequest) {
          RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`,
         [targetId]
       );
+      await notifyUser(
+        targetId, user.id,
+        '¡Tu cuenta ha sido aprobada!',
+        'El administrador aprobó tu participación. Ya podés guardar pronósticos y ver la clasificación general.',
+        'success'
+      );
+      await sendPushNotification(targetId, {
+        title: '¡Tu cuenta fue aprobada!',
+        body: 'Ya podés guardar pronósticos y ver la clasificación general.',
+        icon: '/icon-192x192.svg',
+        url: '/',
+      });
+      if (r.rows[0]?.email) {
+        sendMail({
+          to: r.rows[0].email,
+          subject: '[Mundial 2026] ¡Tu cuenta fue aprobada!',
+          html: buildApprovalEmail(r.rows[0].nombre),
+        }).catch((e) => console.error('Approval email error:', e));
+      }
       return NextResponse.json({ success: true, user: r.rows[0] });
     }
 
@@ -127,6 +194,25 @@ export async function POST(req: NextRequest) {
          RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`,
         [targetId]
       );
+      await notifyUser(
+        targetId, user.id,
+        'Solicitud de participación denegada',
+        'Tu solicitud no fue aprobada por el administrador. Si creés que es un error, contactalo directamente.',
+        'error'
+      );
+      await sendPushNotification(targetId, {
+        title: 'Solicitud denegada',
+        body: 'Tu solicitud no fue aprobada. Contactá al administrador.',
+        icon: '/icon-192x192.svg',
+        url: '/',
+      });
+      if (r.rows[0]?.email) {
+        sendMail({
+          to: r.rows[0].email,
+          subject: '[Mundial 2026] Solicitud de participación denegada',
+          html: buildDenialEmail(r.rows[0].nombre),
+        }).catch((e) => console.error('Denial email error:', e));
+      }
       return NextResponse.json({ success: true, user: r.rows[0] });
     }
 

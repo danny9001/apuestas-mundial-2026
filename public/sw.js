@@ -1,4 +1,4 @@
-const CACHE_NAME = 'apuestas-mundial-2026-v1';
+const CACHE_NAME = 'apuestas-mundial-2026-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -27,6 +27,42 @@ self.addEventListener('activate', (event) => {
     })
   );
   self.clients.claim();
+});
+
+self.addEventListener('push', function(event) {
+  if (!event.data) return;
+  let data;
+  try {
+    data = event.data.json();
+  } catch (e) {
+    data = { title: 'Apuestas Mundial 2026', body: event.data.text() };
+  }
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/icon-192x192.svg',
+    badge: '/icon-192x192.svg',
+    vibrate: [100, 50, 100],
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Apuestas Mundial 2026', options)
+  );
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      for (const client of clientList) {
+        if (client.url === event.notification.data.url && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(event.notification.data.url);
+      }
+    })
+  );
 });
 
 self.addEventListener('fetch', (event) => {

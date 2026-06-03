@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Trophy,
   Calendar,
@@ -139,7 +139,17 @@ export default function PWAAppPage() {
   // Session & Authentication
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState<any | null>(null);
-  
+
+  // Session idle timeout
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const IDLE_WARNING_MS = 30 * 60 * 1000;
+  const IDLE_LOGOUT_MS = 35 * 60 * 1000;
+
+  // PWA Push
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+
   // Login Form
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1055,6 +1065,80 @@ export default function PWAAppPage() {
       sse.close();
     };
   }, [user, summaryModalMatch]);
+
+  // PWA push subscription — runs after login
+  useEffect(() => {
+    if (!user) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!publicKey) return;
+
+    function urlBase64ToUint8Array(base64String: string): Uint8Array {
+      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const output = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) output[i] = rawData.charCodeAt(i);
+      return output;
+    }
+
+    async function subscribeToPush() {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const existing = await registration.pushManager.getSubscription();
+        if (existing) { setPushSubscribed(true); return; }
+        const sub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey!).buffer as ArrayBuffer,
+        });
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(JSON.parse(JSON.stringify(sub))),
+        });
+        setPushSubscribed(true);
+      } catch (err) {
+        console.error('Push subscription failed:', err);
+      }
+    }
+
+    Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') subscribeToPush();
+    });
+  }, [user]);
+
+  // Session idle timeout — 30min warning, 35min logout
+  useEffect(() => {
+    if (!user) return;
+
+    const resetTimers = () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+      setShowIdleWarning(false);
+      idleTimerRef.current = setTimeout(() => {
+        setShowIdleWarning(true);
+        warningTimerRef.current = setTimeout(() => {
+          handleLogout();
+        }, IDLE_LOGOUT_MS - IDLE_WARNING_MS);
+      }, IDLE_WARNING_MS);
+    };
+
+    const refreshInterval = setInterval(() => {
+      fetch('/api/auth/refresh', { method: 'POST' }).catch(() => {});
+    }, 10 * 60 * 1000);
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
+    events.forEach((e) => window.addEventListener(e, resetTimers, { passive: true }));
+    resetTimers();
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, resetTimers));
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+      clearInterval(refreshInterval);
+    };
+  }, [user]);
 
   // Actions
   const handleLogin = async (e: React.FormEvent) => {
@@ -2596,8 +2680,8 @@ export default function PWAAppPage() {
                     Crear Cuenta
                   </button>
                 </div>
-              ) : user.tipo === 'externo' ? (
-                /* Restricted access for external users */
+              ) : user.tipo === 'externo' && !user.aprobado ? (
+                /* Restricted access for unapproved external users */
                 <div className="w-full max-w-md mx-auto bg-zinc-900/55 backdrop-blur-md border border-zinc-800 rounded-3xl p-8 shadow-2xl relative z-10 animate-fade-in my-8 text-center flex flex-col items-center">
                   <div className="h-16 w-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-inner">
                     🚫
@@ -5040,6 +5124,44 @@ export default function PWAAppPage() {
         )}
 
       </div>
+
+      {/* Idle session warning modal */}
+      {showIdleWarning && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-zinc-950 border border-yellow-500/30 rounded-2xl p-8 max-w-sm w-full shadow-2xl text-center space-y-5">
+            <div className="text-5xl">⏰</div>
+            <h3 className="text-base font-black text-zinc-100 uppercase tracking-wider">
+              Sesión por expirar
+            </h3>
+            <p className="text-zinc-400 text-sm leading-relaxed">
+              Tu sesión expirará en <strong className="text-yellow-400">5 minutos</strong> por inactividad. ¿Querés continuar?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowIdleWarning(false);
+                  if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+                  if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+                  idleTimerRef.current = setTimeout(() => {
+                    setShowIdleWarning(true);
+                    warningTimerRef.current = setTimeout(handleLogout, IDLE_LOGOUT_MS - IDLE_WARNING_MS);
+                  }, IDLE_WARNING_MS);
+                }}
+                className="flex-1 btn-primary-stitch py-3 text-sm font-bold uppercase tracking-wider"
+              >
+                Continuar
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 py-3 text-sm font-bold rounded-xl transition uppercase tracking-wider"
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

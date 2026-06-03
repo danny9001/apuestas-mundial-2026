@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { setSession } from '@/lib/auth';
+import { broadcastUpdate } from '@/lib/realtime';
+import { sendPushToAdmins } from '@/lib/push';
+import { sendMail, buildNewUserEmail } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +54,74 @@ export async function POST(req: NextRequest) {
 
     // Trigger PL/pgSQL recalculation so the new user is correctly indexed in the Leaderboard
     await pool.query('SELECT recalculate_leaderboard()');
+
+    // Notify all admins and superadmins of the new registration
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id SERIAL PRIMARY KEY,
+          titulo VARCHAR(255) NOT NULL,
+          contenido TEXT NOT NULL,
+          tipo VARCHAR(20) DEFAULT 'info',
+          target_type VARCHAR(20) DEFAULT 'all',
+          target_id INTEGER,
+          created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          expires_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS notification_reads (
+          notification_id INTEGER REFERENCES notifications(id) ON DELETE CASCADE,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          read_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (notification_id, user_id)
+        )
+      `);
+      const admins = await pool.query(
+        `SELECT id FROM users WHERE tipo IN ('admin', 'superadmin') AND activo = true`
+      );
+      for (const admin of admins.rows) {
+        const notif = await pool.query(
+          `INSERT INTO notifications (titulo, contenido, tipo, target_type, target_id, created_by)
+           VALUES ($1, $2, 'info', 'user', $3, NULL)
+           RETURNING id, titulo, tipo, target_type, target_id`,
+          [
+            'Nuevo usuario registrado',
+            `${newUser.nombre} (${newUser.email}) se registró y está pendiente de aprobación.`,
+            admin.id,
+          ]
+        );
+        broadcastUpdate('notification', {
+          notificationId: notif.rows[0].id,
+          titulo: notif.rows[0].titulo,
+          tipo: notif.rows[0].tipo,
+          target_type: notif.rows[0].target_type,
+          target_id: notif.rows[0].target_id,
+        });
+      }
+      await sendPushToAdmins({
+        title: 'Nuevo usuario registrado',
+        body: `${newUser.nombre} (${newUser.email}) está pendiente de aprobación.`,
+        icon: '/icon-192x192.svg',
+        url: '/',
+      });
+
+      // Email to all admins
+      const adminEmails = await pool.query(
+        `SELECT email FROM users WHERE tipo IN ('admin', 'superadmin') AND activo = true`
+      );
+      if (adminEmails.rows.length > 0) {
+        const toList = adminEmails.rows.map((r: { email: string }) => r.email);
+        sendMail({
+          to: toList,
+          subject: `[Mundial 2026] Nuevo registro: ${newUser.nombre}`,
+          html: buildNewUserEmail(newUser.nombre, newUser.email),
+        }).catch((e) => console.error('Admin email error:', e));
+      }
+    } catch (notifError) {
+      console.error('Error sending admin notifications:', notifError);
+    }
 
     // Set cookie session for automatic authentication
     const sessionData = {

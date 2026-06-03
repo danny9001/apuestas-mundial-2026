@@ -17,17 +17,10 @@ export async function GET() {
     // Use defaults if DB unavailable
   }
 
-  const isImageLogo = appLogo.startsWith('/') || appLogo.startsWith('http');
-
-  const icons = isImageLogo
-    ? [
-        { src: appLogo, sizes: '192x192', type: 'image/webp', purpose: 'any maskable' },
-        { src: appLogo, sizes: '512x512', type: 'image/webp', purpose: 'any maskable' },
-      ]
-    : [
-        { src: '/icon-192x192.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
-        { src: '/icon-512x512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
-      ];
+  const icons = [
+    { src: '/api/favicon', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+    { src: '/api/favicon', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+  ];
 
   const manifest = {
     name: appName,

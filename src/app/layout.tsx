@@ -44,6 +44,10 @@ export default function RootLayout({
     <html lang="es" className="dark h-full">
       <head>
         <link rel="manifest" href="/api/manifest" />
+        {/* Favicon dinámico — usa el logo configurado en personalización */}
+        <link rel="icon" href="/api/favicon" type="image/png" sizes="any" />
+        <link rel="shortcut icon" href="/api/favicon" />
+        <link rel="apple-touch-icon" href="/api/favicon" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <script

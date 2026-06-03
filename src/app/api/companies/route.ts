@@ -16,15 +16,19 @@ async function ensureCompaniesTable() {
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     );
   `);
-  // Add columns if they don't exist (safe migrations)
   await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS monto_participacion NUMERIC DEFAULT 150`);
+  // Legacy single-field (kept for backward compat, not actively used)
   await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS modo_apuesta VARCHAR(20) DEFAULT 'partido'`);
+  // New: per-phase modes stored as JSONB
+  await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS modos_por_fase JSONB DEFAULT '{}'::jsonb`);
 }
 
 export async function GET() {
   try {
     await ensureCompaniesTable();
-    const res = await pool.query('SELECT id, nombre, logo, color, activo, monto_participacion, modo_apuesta, created_at FROM companies ORDER BY nombre ASC');
+    const res = await pool.query(
+      'SELECT id, nombre, logo, color, activo, monto_participacion, modo_apuesta, modos_por_fase, created_at FROM companies ORDER BY nombre ASC'
+    );
     const response = NextResponse.json(res.rows);
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
@@ -51,20 +55,20 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === 'create') {
-      const { nombre, logo, color, monto_participacion, modo_apuesta } = body;
+      const { nombre, logo, color, monto_participacion, modos_por_fase } = body;
       if (!nombre?.trim()) return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 });
       const monto = parseFloat(monto_participacion) || 150;
-      const modo = modo_apuesta || 'partido';
+      const modos = modos_por_fase && typeof modos_por_fase === 'object' ? modos_por_fase : {};
       const res = await pool.query(
-        `INSERT INTO companies (nombre, logo, color, monto_participacion, modo_apuesta) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [nombre.trim(), logo || null, color || '#6366f1', monto, modo]
+        `INSERT INTO companies (nombre, logo, color, monto_participacion, modos_por_fase) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [nombre.trim(), logo || null, color || '#6366f1', monto, JSON.stringify(modos)]
       );
       broadcastUpdate('settings', { type: 'company', action: 'create', company: res.rows[0] });
       return NextResponse.json({ success: true, company: res.rows[0] });
     }
 
     if (action === 'update') {
-      const { id, nombre, logo, color, activo, monto_participacion, modo_apuesta } = body;
+      const { id, nombre, logo, color, activo, monto_participacion, modos_por_fase } = body;
       if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
 
       // Admin (non-superadmin) can only update companies they belong to
@@ -74,6 +78,8 @@ export async function POST(req: NextRequest) {
       }
 
       const monto = monto_participacion != null ? parseFloat(monto_participacion) : null;
+      const modosJson = modos_por_fase && typeof modos_por_fase === 'object' ? JSON.stringify(modos_por_fase) : null;
+
       const res = await pool.query(
         `UPDATE companies SET
           nombre = COALESCE($1, nombre),
@@ -81,9 +87,9 @@ export async function POST(req: NextRequest) {
           color = COALESCE($3, color),
           activo = COALESCE($4, activo),
           monto_participacion = COALESCE($5, monto_participacion),
-          modo_apuesta = COALESCE($6, modo_apuesta)
+          modos_por_fase = COALESCE($6::jsonb, modos_por_fase)
         WHERE id = $7 RETURNING *`,
-        [nombre || null, logo || null, color || null, activo ?? null, monto, modo_apuesta || null, id]
+        [nombre || null, logo || null, color || null, activo ?? null, monto, modosJson, id]
       );
       if (res.rows.length === 0) return NextResponse.json({ error: 'Empresa no encontrada' }, { status: 404 });
       broadcastUpdate('settings', { type: 'company', action: 'update', company: res.rows[0] });
@@ -93,7 +99,6 @@ export async function POST(req: NextRequest) {
     if (action === 'delete') {
       const { id } = body;
       if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
-      // user_companies rows cascade on delete via FK, companies table cascade deletes
       await pool.query('DELETE FROM companies WHERE id = $1', [id]);
       broadcastUpdate('settings', { type: 'company', action: 'delete', id });
       return NextResponse.json({ success: true });

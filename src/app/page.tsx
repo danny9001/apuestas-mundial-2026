@@ -139,6 +139,20 @@ function formatPlaceholderText(name: string): string {
   return '';
 }
 
+const PHASES_APUESTA = [
+  { key: 'Grupos',          label: 'Fase de Grupos',   short: 'Grupos' },
+  { key: 'Ronda de 32',     label: 'Ronda de 32',       short: 'R32' },
+  { key: 'Octavos de Final',label: 'Octavos de Final',  short: 'Octavos' },
+  { key: 'Cuartos de Final',label: 'Cuartos de Final',  short: 'Cuartos' },
+  { key: 'Semifinal',       label: 'Semifinal',          short: 'Semi' },
+  { key: 'Tercer Puesto',   label: 'Tercer Puesto',      short: '3°' },
+  { key: 'Final',           label: 'Gran Final',         short: 'Final' },
+] as const;
+
+const DEFAULT_MODOS_POR_FASE: Record<string, string> = Object.fromEntries(
+  PHASES_APUESTA.map(p => [p.key, 'partido'])
+);
+
 export default function PWAAppPage() {
   // Session & Authentication
   const [authChecked, setAuthChecked] = useState(false);
@@ -276,8 +290,9 @@ export default function PWAAppPage() {
   const [editCompanyNombre, setEditCompanyNombre] = useState('');
   const [editCompanyColor, setEditCompanyColor] = useState('#6366f1');
   const [editCompanyMonto, setEditCompanyMonto] = useState('150');
-  const [editCompanyModo, setEditCompanyModo] = useState<'partido' | 'bloque' | 'fase'>('partido');
+  const [editCompanyModos, setEditCompanyModos] = useState<Record<string, string>>({ ...DEFAULT_MODOS_POR_FASE });
   const [editCompanySubmitting, setEditCompanySubmitting] = useState(false);
+  const [expandedCompanyModos, setExpandedCompanyModos] = useState<number | null>(null);
 
   // Match Summary & Statistics Modal
   const [summaryModalMatch, setSummaryModalMatch] = useState<any | null>(null);
@@ -311,7 +326,7 @@ export default function PWAAppPage() {
   const [newCompanyNombre, setNewCompanyNombre] = useState('');
   const [newCompanyColor, setNewCompanyColor] = useState('#6366f1');
   const [newCompanyMonto, setNewCompanyMonto] = useState<string>('150');
-  const [newCompanyModo, setNewCompanyModo] = useState<'partido' | 'bloque' | 'fase'>('partido');
+  const [newCompanyModos, setNewCompanyModos] = useState<Record<string, string>>({ ...DEFAULT_MODOS_POR_FASE });
   const [companySubmitting, setCompanySubmitting] = useState(false);
   const [companySelectModal, setCompanySelectModal] = useState(false);
   const [editingMontoId, setEditingMontoId] = useState<number | null>(null);
@@ -1595,13 +1610,13 @@ export default function PWAAppPage() {
       const res = await fetch('/api/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', nombre: newCompanyNombre, color: newCompanyColor, monto_participacion: parseFloat(newCompanyMonto) || 150, modo_apuesta: newCompanyModo }),
+        body: JSON.stringify({ action: 'create', nombre: newCompanyNombre, color: newCompanyColor, monto_participacion: parseFloat(newCompanyMonto) || 150, modos_por_fase: newCompanyModos }),
       });
       if (res.ok) {
         showToast('🏢 Empresa creada con éxito');
         setNewCompanyNombre('');
         setNewCompanyMonto('150');
-        setNewCompanyModo('partido');
+        setNewCompanyModos({ ...DEFAULT_MODOS_POR_FASE });
         await fetchCompanies();
       } else {
         const d = await res.json();
@@ -1716,7 +1731,7 @@ export default function PWAAppPage() {
           nombre: editCompanyNombre.trim(),
           color: editCompanyColor,
           monto_participacion: parseFloat(editCompanyMonto) || 150,
-          modo_apuesta: editCompanyModo,
+          modos_por_fase: editCompanyModos,
         }),
       });
       if (res.ok) {
@@ -4245,13 +4260,24 @@ export default function PWAAppPage() {
                       <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Monto de Participación (Bs.)</label>
                       <input type="number" min="0" step="0.01" value={newCompanyMonto} onChange={(e) => setNewCompanyMonto(e.target.value)} placeholder="150" className="w-full input-stitch px-3 py-2 text-xs font-mono" />
                     </div>
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Modo de Apuesta</label>
-                      <select value={newCompanyModo ?? 'partido'} onChange={(e) => setNewCompanyModo(e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
-                        <option value="partido">Por Partido — cada usuario apuesta libremente por partido</option>
-                        <option value="bloque">En Bloque — se apuesta todo de una vez antes de que inicie la fase</option>
-                        <option value="fase">Por Fase — se habilitan apuestas al inicio de cada fase (grupos, octavos...)</option>
-                      </select>
+                    <div className="space-y-2 sm:col-span-2">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Modo de Apuesta por Fase</label>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {PHASES_APUESTA.map((phase) => (
+                          <div key={phase.key} className="flex items-center gap-3 bg-zinc-950/60 border border-zinc-800 rounded-lg px-3 py-1.5">
+                            <span className="text-[10px] font-bold text-zinc-300 w-28 flex-shrink-0">{phase.label}</span>
+                            <select
+                              value={newCompanyModos[phase.key] ?? 'partido'}
+                              onChange={(e) => setNewCompanyModos(prev => ({ ...prev, [phase.key]: e.target.value }))}
+                              className="flex-1 bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg px-2 py-1 text-[11px]"
+                            >
+                              <option value="partido">Por Partido</option>
+                              <option value="bloque">En Bloque</option>
+                              <option value="fase">Por Fase</option>
+                            </select>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="flex justify-end">
@@ -4264,59 +4290,95 @@ export default function PWAAppPage() {
                   {companies.length === 0 && (
                     <div className="p-6 text-center text-zinc-500 text-xs">Sin empresas registradas</div>
                   )}
-                  {companies.map((c) => (
-                    <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-5 h-5 rounded-full border border-zinc-700 flex-shrink-0" style={{ backgroundColor: c.color }} />
-                        <div className="min-w-0">
-                          <span className="text-sm font-bold text-zinc-200 block truncate">{c.nombre}</span>
-                          <span className={`text-[9px] font-black uppercase ${c.activo ? 'text-green-400' : 'text-zinc-500'}`}>{c.activo ? 'Activo' : 'Inactivo'}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {editingMontoId === c.id ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-zinc-400 font-mono">Bs.</span>
-                            <input
-                              type="number" min="0" step="0.01"
-                              value={editingMontoValue}
-                              onChange={(e) => setEditingMontoValue(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveCompanyMonto(c.id); if (e.key === 'Escape') setEditingMontoId(null); }}
-                              className="w-24 input-stitch px-2 py-1 text-xs font-mono"
-                              autoFocus
-                            />
-                            <button onClick={() => handleSaveCompanyMonto(c.id)} className="text-green-400 hover:text-green-300 text-[10px] font-bold px-2 py-1 rounded-lg border border-green-500/20 transition">
-                              <Check className="w-3 h-3" />
+                  {companies.map((c) => {
+                    const cModos: Record<string, string> = (c.modos_por_fase && typeof c.modos_por_fase === 'object') ? c.modos_por_fase : {};
+                    return (
+                      <div key={c.id} className="flex flex-col">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-5 h-5 rounded-full border border-zinc-700 flex-shrink-0" style={{ backgroundColor: c.color }} />
+                            <div className="min-w-0">
+                              <span className="text-sm font-bold text-zinc-200 block truncate">{c.nombre}</span>
+                              <span className={`text-[9px] font-black uppercase ${c.activo ? 'text-green-400' : 'text-zinc-500'}`}>{c.activo ? 'Activo' : 'Inactivo'}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {editingMontoId === c.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-zinc-400 font-mono">Bs.</span>
+                                <input
+                                  type="number" min="0" step="0.01"
+                                  value={editingMontoValue}
+                                  onChange={(e) => setEditingMontoValue(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveCompanyMonto(c.id); if (e.key === 'Escape') setEditingMontoId(null); }}
+                                  className="w-24 input-stitch px-2 py-1 text-xs font-mono"
+                                  autoFocus
+                                />
+                                <button onClick={() => handleSaveCompanyMonto(c.id)} className="text-green-400 hover:text-green-300 text-[10px] font-bold px-2 py-1 rounded-lg border border-green-500/20 transition">
+                                  <Check className="w-3 h-3" />
+                                </button>
+                                <button onClick={() => setEditingMontoId(null)} className="text-zinc-500 hover:text-zinc-300 text-[10px] font-bold px-2 py-1 rounded-lg border border-zinc-700 transition">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => { setEditingMontoId(c.id); setEditingMontoValue(String(c.monto_participacion || 150)); }}
+                                className="flex items-center gap-1.5 text-[10px] font-black text-yellow-500 px-2.5 py-1.5 rounded-lg border border-yellow-500/20 bg-yellow-500/5 hover:bg-yellow-500/10 transition"
+                              >
+                                💰 Bs. {parseFloat(c.monto_participacion || 150).toLocaleString('es-BO')}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setExpandedCompanyModos(expandedCompanyModos === c.id ? null : c.id)}
+                              className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${expandedCompanyModos === c.id ? 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10' : 'text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}
+                            >
+                              🎯 Modos
                             </button>
-                            <button onClick={() => setEditingMontoId(null)} className="text-zinc-500 hover:text-zinc-300 text-[10px] font-bold px-2 py-1 rounded-lg border border-zinc-700 transition">
-                              <X className="w-3 h-3" />
+                            <button onClick={() => handleDeleteCompany(c.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border border-red-500/20 hover:border-red-500/40 transition flex items-center gap-1.5">
+                              <Trash2 className="w-3 h-3" /> Eliminar
                             </button>
                           </div>
-                        ) : (
-                          <button
-                            onClick={() => { setEditingMontoId(c.id); setEditingMontoValue(String(c.monto_participacion || 150)); }}
-                            className="flex items-center gap-1.5 text-[10px] font-black text-yellow-500 px-2.5 py-1.5 rounded-lg border border-yellow-500/20 bg-yellow-500/5 hover:bg-yellow-500/10 transition"
-                          >
-                            💰 Bs. {parseFloat(c.monto_participacion || 150).toLocaleString('es-BO')}
-                          </button>
+                        </div>
+                        {expandedCompanyModos === c.id && (
+                          <div className="border-t border-zinc-800 px-4 pb-4 pt-3 grid grid-cols-1 gap-1.5">
+                            <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Modo de Apuesta por Fase</div>
+                            {PHASES_APUESTA.map((phase) => (
+                              <div key={phase.key} className="flex items-center gap-3 bg-zinc-950/60 border border-zinc-800 rounded-lg px-3 py-1.5">
+                                <span className="text-[10px] font-bold text-zinc-300 w-32 flex-shrink-0">{phase.label}</span>
+                                <select
+                                  value={cModos[phase.key] ?? 'partido'}
+                                  onChange={async (e) => {
+                                    const updatedModos = { ...DEFAULT_MODOS_POR_FASE, ...cModos, [phase.key]: e.target.value };
+                                    await fetch('/api/companies', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ action: 'update', id: c.id, modos_por_fase: updatedModos }) });
+                                    showToast('✅ Modo actualizado'); await fetchCompanies();
+                                  }}
+                                  className="flex-1 bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg px-2 py-1 text-[11px]"
+                                >
+                                  <option value="partido">Por Partido</option>
+                                  <option value="bloque">En Bloque</option>
+                                  <option value="fase">Por Fase</option>
+                                </select>
+                              </div>
+                            ))}
+                          </div>
                         )}
-                        <button onClick={() => handleDeleteCompany(c.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border border-red-500/20 hover:border-red-500/40 transition flex items-center gap-1.5">
-                          <Trash2 className="w-3 h-3" /> Eliminar
-                        </button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>}
 
               {/* ─── Admin (no superadmin): editar su empresa ─── */}
-              {user.tipo === 'admin' && (user.companies || []).map((c: any) => (
-                <div key={c.id} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl">
-                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
-                    {c.nombre}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {user.tipo === 'admin' && (user.companies || []).map((c: any) => {
+                const adminCModos: Record<string, string> = (c.modos_por_fase && typeof c.modos_por_fase === 'object') ? c.modos_por_fase : {};
+                return (
+                  <div key={c.id} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                    <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
+                      {c.nombre}
+                    </div>
                     <div className="space-y-1.5">
                       <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Monto Participación (Bs.)</label>
                       <input type="number" min="0" step="0.01" defaultValue={c.monto_participacion || 150}
@@ -4330,24 +4392,34 @@ export default function PWAAppPage() {
                         }}
                         className="w-full input-stitch px-3 py-2 text-xs font-mono" />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Modo de Apuesta</label>
-                      <select defaultValue={c.modo_apuesta || 'partido'}
-                        onChange={async (e) => {
-                          await fetch('/api/companies', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'update', id: c.id, modo_apuesta: e.target.value }) });
-                          showToast('✅ Modo actualizado'); await fetchCompanies();
-                        }}
-                        className="w-full bg-zinc-950 border border-zinc-850 text-zinc-300 rounded-xl px-3 py-2 text-xs">
-                        <option value="partido">Por Partido (flexible)</option>
-                        <option value="bloque">En Bloque (todos a la vez)</option>
-                        <option value="fase">Por Fase (grupo, octavos...)</option>
-                      </select>
+                    <div className="space-y-2">
+                      <label className="block text-zinc-400 text-[10px] font-black uppercase tracking-widest">Modo de Apuesta por Fase</label>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {PHASES_APUESTA.map((phase) => (
+                          <div key={phase.key} className="flex items-center gap-3 bg-zinc-950/60 border border-zinc-800 rounded-lg px-3 py-1.5">
+                            <span className="text-[10px] font-bold text-zinc-300 w-32 flex-shrink-0">{phase.label}</span>
+                            <select
+                              defaultValue={adminCModos[phase.key] ?? 'partido'}
+                              onChange={async (e) => {
+                                const updatedModos = { ...DEFAULT_MODOS_POR_FASE, ...adminCModos, [phase.key]: e.target.value };
+                                await fetch('/api/companies', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ action: 'update', id: c.id, modos_por_fase: updatedModos }) });
+                                showToast('✅ Modo actualizado'); await fetchCompanies();
+                              }}
+                              className="flex-1 bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg px-2 py-1 text-[11px]"
+                            >
+                              <option value="partido">Por Partido</option>
+                              <option value="bloque">En Bloque</option>
+                              <option value="fase">Por Fase</option>
+                            </select>
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                    <p className="text-[10px] text-zinc-600">Los cambios se aplican inmediatamente al cambiar el selector.</p>
                   </div>
-                  <p className="text-[10px] text-zinc-600">Los cambios se aplican inmediatamente al salir del campo.</p>
-                </div>
-              ))}
+                );
+              })}
 
               {/* ─── 4. GRUPOS DE USUARIOS (solo superadmin) ─── */}
               {user.tipo === 'superadmin' && <div className="space-y-4">

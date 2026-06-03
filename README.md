@@ -1,8 +1,41 @@
-# 🏆 Apuestas Mundial 2026 (PWA Dockerizada y Rediseñada con Google Stitch)
+# ElitePass — Plataforma de Pronósticos Mundial 2026
 
-Bienvenido a **Apuestas Mundial 2026**, una Progressive Web App (PWA) de alto rendimiento, diseñada para entornos productivos reales, completamente dockerizada, responsiva y orientada a la inmediatez de los datos.
+**ElitePass** es una Progressive Web App (PWA) de alto rendimiento para gestión de pronósticos y quinielas del Mundial de Fútbol 2026. Diseñada para grupos de empresas privadas con rankings por equipo, notificaciones push en tiempo real y experiencia móvil nativa instalable.
 
-Esta plataforma ha sido rediseñada implementando las estrictas especificaciones estéticas de **Google Stitch**, logrando una experiencia de usuario del más alto nivel que fusiona el dinamismo de una transmisión deportiva global con la confiabilidad técnica de las plataformas fintech premium.
+🌐 **Producción**: [https://mundial.genial-it.net](https://mundial.genial-it.net)
+
+---
+
+## Características Principales
+
+- **Multi-empresa** — Rankings privados y configuración de apuestas independiente por empresa
+- **Modos de apuesta parametrizables** — Por partido, en bloque o por fase (definido por empresa)
+- **Marcadores en tiempo real** — Sincronización automática de resultados vía API FIFA
+- **Notificaciones push (Web Push API)** — Avisos de partidos próximos, goles y rankings semanales
+- **PWA instalable** — Funciona como app nativa en iOS y Android sin pasar por tiendas
+- **Panel de administración** — Tres sub-paneles: Usuarios, Empresa, Mensajes
+- **Scheduler automático** — Proceso PM2 dedicado: avisos de partidos (cada hora) y rankings (lunes)
+- **Modo TV** — Pantalla de aeropuerto con split-flap animado para proyección en pantallas grandes
+- **Vista Planilla (Excel)** — Ingreso masivo de pronósticos estilo hoja de cálculo
+- **Bracket eliminatorio** — Visualización del árbol de eliminación directa del torneo
+
+---
+
+## Stack Tecnológico
+
+| Capa | Tecnología |
+|------|-----------|
+| Framework | Next.js 16.2 (App Router, Turbopack) |
+| Lenguaje | TypeScript |
+| Base de datos | PostgreSQL 15 |
+| Estilos | Tailwind CSS (dark-first) |
+| Autenticación | JWT + cookies HttpOnly |
+| Push | Web Push API (VAPID) |
+| Email | Microsoft Graph API |
+| Proceso background | PM2 — `scheduler.js` |
+| Servidor | VPS Azure Ubuntu + PM2 (puerto 3002) |
+
+---
 
 ---
 
@@ -59,32 +92,105 @@ La interfaz de usuario sigue estrictamente el manifiesto visual de **Modern Dark
 
 ---
 
-## 🛠️ Arquitectura de Contenedores y Arranque
+## Despliegue en Producción
 
-El ecosistema corre aislado de forma limpia usando variables del entorno configuradas en `.env` (Next.js en el puerto `3000`, PostgreSQL 16 en el puerto `5432`, y pgAdmin 4 como gestor de datos ligero en el puerto `5050`):
-
-### 🟢 Modo de Desarrollo (Con Hot-Reload)
 ```bash
-docker compose -f docker-compose.dev.yml up --build
+# Instalar dependencias
+npm install
+
+# Build de producción
+npm run build
+
+# Iniciar con PM2 (aplicación + scheduler)
+pm2 start ecosystem.config.js --env production
+
+# Ver estado de los procesos
+pm2 list
+# mundial-2026      → Next.js en puerto 3002
+# mundial-scheduler → Notificaciones automáticas
 ```
-*   **App / PWA**: [http://localhost:3000](http://localhost:3000)
-*   **TV Airport Display**: [http://localhost:3000/tv](http://localhost:3000/tv)
-*   **Consola de Datos (pgAdmin)**: [http://localhost:5050](http://localhost:5050) *(admin@mundial.com / admin123)*
 
-### 🔴 Modo de Producción (Optimizado en segundo plano)
-```bash
-docker compose up -d --build
+## Variables de Entorno
+
+Crear `.env.local` con:
+
+```env
+DATABASE_URL=postgres://user:pass@127.0.0.1:5432/apuestas_mundial
+JWT_SECRET=...
+SCHEDULER_SECRET=...
+APP_BASE_URL=https://tu-dominio.com
+PORT=3002
+NODE_ENV=production
+
+# Web Push (VAPID)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+
+# Email via Microsoft Graph
+MAIL_GRAPH_ENABLED=true
+MAIL_GRAPH_CLIENT_ID=...
+MAIL_GRAPH_CLIENT_SECRET=...
+MAIL_GRAPH_TENANT_ID=...
+MAIL_GRAPH_USER_EMAIL=notifica@dominio.com
+MAIL_GRAPH_BCC=admin@dominio.com
+```
+
+## Roles de Usuario
+
+| Rol | Permisos |
+|-----|---------|
+| `superadmin` | Control total: empresas, usuarios, partidos, personalización del sistema |
+| `admin` | Gestiona sus empresas: usuarios, modo de apuesta, mensajes a su grupo |
+| `user` | Registra pronósticos, consulta ranking de su empresa, recibe notificaciones |
+
+## Modos de Apuesta por Empresa
+
+Configurables por empresa desde el panel de administración:
+
+| Modo | Descripción |
+|------|-------------|
+| `partido` | Cada usuario apuesta libremente partido a partido |
+| `bloque` | Se apuesta todo de una sola vez antes de iniciar la fase |
+| `fase` | Las apuestas se habilitan al inicio de cada fase del torneo |
+
+## Notificaciones Automáticas
+
+El proceso `scheduler.js` corre como daemon PM2 y ejecuta:
+
+- **Cada hora** — Detecta partidos en las próximas 24h y envía push + notificación in-app a todos los usuarios activos
+- **Lunes 8:00 AM** — Envía ranking top-3 de cada empresa a sus miembros
+- **Deduplicación** — La tabla `scheduled_notify_log` evita reenvíos
+
+El endpoint `POST /api/admin/notify-scheduled` también permite disparo manual desde el panel Mensajes del superadmin.
+
+## Estructura del Proyecto
+
+```
+src/app/
+├── page.tsx                      # SPA principal con todos los tabs
+├── layout.tsx                    # Layout + PWA meta tags dinámicos
+├── tv/                           # Pantalla TV / aeropuerto
+└── api/
+    ├── admin/
+    │   ├── users/                # CRUD de usuarios
+    │   └── notify-scheduled/     # Notificaciones automáticas
+    ├── auth/                     # Login, registro, WebAuthn
+    ├── companies/                # CRUD empresas + modo_apuesta
+    ├── favicon/                  # Favicon dinámico desde DB
+    ├── manifest/                 # Manifest PWA dinámico
+    ├── notifications/            # Mensajes internos
+    ├── predictions/              # Pronósticos
+    ├── push/subscribe/           # Suscripción/baja Web Push
+    ├── realtime/                 # Server-Sent Events
+    ├── settings/                 # Personalización
+    └── sync/                     # Sincronización de marcadores
+public/
+├── sw.js                         # Service Worker (PWA + Push)
+└── offline.html                  # Página sin conexión
+scheduler.js                      # Daemon de notificaciones automáticas
+ecosystem.config.js               # Configuración PM2
 ```
 
 ---
 
-## ⚽ Acceso Rápido y Semillas
-
-La base de datos viene sembrada con 5 perfiles para pruebas inmediatas de clasificaciones, tendencias de podio (▲ / ▼) y validación de roles:
-
-*   **Administrador**: `admin@mundial.com`
-*   **Diego Messi**: `diego@mundial.com`
-*   **Juan Neymar**: `juan@mundial.com`
-*   **María Mbappé**: `maria@mundial.com`
-*   **Pedro Haaland**: `pedro@mundial.com`
-*   **Contraseña de Acceso**: `mundial2026`
+Desarrollado por [Genial IT](https://genial-it.net) · Mundial 2026

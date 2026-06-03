@@ -69,10 +69,12 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // Only handle same-origin requests — let cross-origin (CDNs, analytics) pass through unmodified
+  if (url.origin !== self.location.origin) return;
+
   // Do not cache API routes or Server-Sent Events
-  if (url.pathname.startsWith('/api')) {
-    return;
-  }
+  if (url.pathname.startsWith('/api')) return;
 
   event.respondWith(
     fetch(event.request)
@@ -87,12 +89,11 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => {
         return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
+          if (cachedResponse) return cachedResponse;
           if (event.request.headers.get('accept')?.includes('text/html')) {
             return caches.match('/offline.html');
           }
+          return new Response('', { status: 504, statusText: 'Gateway Timeout' });
         });
       })
   );

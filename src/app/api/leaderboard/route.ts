@@ -28,6 +28,7 @@ export async function GET() {
        LEFT JOIN user_companies uc ON uc.user_id = u.id
        LEFT JOIN companies c ON c.id = uc.company_id
        WHERE u.activo = true
+         AND (u.tipo != 'superadmin' OR EXISTS (SELECT 1 FROM user_companies WHERE user_id = u.id))
        GROUP BY u.id, l.puntos_totales, l.exactos, l.posicion, l.posicion_anterior, l.tendencia
        ORDER BY COALESCE(l.posicion, 9999) ASC, u.nombre ASC`
     );

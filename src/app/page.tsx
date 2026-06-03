@@ -3133,69 +3133,17 @@ export default function PWAAppPage() {
                       );
                     }
                     return grouped.map((g) => (
-                      <div key={g.dateStr} className="space-y-3">
-                        {/* Date group header — cyber ticker style */}
-                        <div className="flex items-center gap-3">
-                          <div className="h-px flex-1 bg-gradient-to-r from-cyan-500/30 to-transparent" />
-                          <span className="flex items-center gap-1.5 text-cyan-400 font-black text-[10px] font-mono bg-cyan-500/8 border border-cyan-500/25 px-3 py-1 rounded-full uppercase tracking-wider shadow-[0_0_10px_rgba(34,211,238,0.10)]">
-                            📅 {g.dateStr}
-                            <span className="text-cyan-500/60">· {g.matches.length}P</span>
+                      <div key={g.dateStr} className="space-y-4">
+                        <div className="flex items-center gap-2 border-b border-neutral-850 pb-2">
+                          <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                            {g.dateStr}
                           </span>
-                          <div className="h-px flex-1 bg-gradient-to-l from-cyan-500/30 to-transparent" />
+                          <span className="text-neutral-500 text-[10px] uppercase font-black tracking-wider">
+                            ({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})
+                          </span>
                         </div>
-                        <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
-                          {g.matches.map((m) => (
-                            <div
-                              key={m.id}
-                              onClick={() => { setSummaryModalMatch(m); fetchCommunityBets(m.id); }}
-                              className={`cursor-pointer ${compactView ? 'p-2.5' : 'p-4'} ${m.estado === 'live' ? 'cyber-match-card-live' : 'cyber-match-card'} relative overflow-hidden`}
-                            >
-                              {/* Card header */}
-                              <div className="flex items-center justify-between gap-2 mb-2.5">
-                                <span className="cyber-phase-badge">{m.fase}</span>
-                                {m.estado === 'live' ? (
-                                  <span className="flex items-center gap-1 text-[9px] font-black text-red-400 uppercase tracking-wider">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot" />
-                                    EN VIVO
-                                  </span>
-                                ) : m.estado === 'finished' ? (
-                                  <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Finalizado</span>
-                                ) : (
-                                  <span className="text-[9px] font-mono text-neutral-500">
-                                    {new Date(m.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                )}
-                              </div>
-                              {/* Teams */}
-                              <div className="space-y-2">
-                                {[{ team: m.local, goles: m.goles_local }, { team: m.visitante, goles: m.goles_visitante }].map((row, i) => (
-                                  <div key={i} className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                      <span className={`flex-shrink-0 ${compactView ? 'text-sm' : 'text-lg'}`}>{getTeamFlag(row.team)}</span>
-                                      <div className="flex flex-col min-w-0">
-                                        <span className="font-black text-neutral-100 uppercase truncate text-[11px] tracking-wide">{row.team}</span>
-                                        {formatPlaceholderText(row.team) && (
-                                          <span className="text-[8px] text-neutral-600 truncate">({formatPlaceholderText(row.team)})</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {m.estado !== 'upcoming' && (
-                                      <span className={`font-mono font-black text-sm flex-shrink-0 ${m.estado === 'live' ? 'text-red-400 animate-pulse [text-shadow:0_0_8px_rgba(239,68,68,0.6)]' : 'text-neutral-200'}`}>
-                                        {row.goles}
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                              {/* Footer */}
-                              <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-white/5">
-                                <span className="text-[8px] text-neutral-600 truncate flex-1">📍 {m.estadio || 'Por definir'}</span>
-                                {m.fase === 'Final' && (
-                                  <span className="text-[8px] text-yellow-500 font-black uppercase tracking-wider">🏆 GRAN FINAL</span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                        <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+                          {g.matches.map((m) => renderMatchCard(m))}
                         </div>
                       </div>
                     ));

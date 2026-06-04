@@ -316,36 +316,44 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'El correo electrónico ya está registrado' }, { status: 400 });
       }
 
+      const telSafe = body.telefono ? sanitizeText(String(body.telefono), 30) : null;
+
       const bcrypt = await import('bcryptjs');
       const passwordHash = await bcrypt.hash(String(password).trim(), BCRYPT_ROUNDS);
-      const defaultAvatar = `/uploads/avatars/avatar_${Math.floor(Math.random() * 5) + 1}.png`;
+      const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(nombreSafe2)}`;
 
-      const insertQuery = `
-        INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado)
-        VALUES ($1, $2, $3, $4, $5, true, true)
-        RETURNING id, nombre, email, tipo, avatar, activo, aprobado, created_at
-      `;
-
-      const res = await pool.query(insertQuery, [
-        nombreSafe2,
-        emailNorm2,
-        passwordHash,
-        tipoNuevo,
-        defaultAvatar
-      ]);
+      const res = await pool.query(
+        `INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado, telefono)
+         VALUES ($1, $2, $3, $4, $5, true, true, $6)
+         RETURNING id, nombre, email, tipo, avatar, activo, aprobado, telefono, created_at`,
+        [nombreSafe2, emailNorm2, passwordHash, tipoNuevo, avatarUrl, telSafe]
+      );
 
       const newUserId = res.rows[0].id;
 
-      // Auto-assign new user to admin's companies (if company admin)
-      if (user.tipo === 'admin') {
+      // Company-admin: auto-assign to their own companies (they can override via companyIds)
+      const companyIdsFromBody: number[] = Array.isArray(body.companyIds)
+        ? body.companyIds.filter((id: any) => typeof id === 'number')
+        : [];
+
+      if (companyIdsFromBody.length > 0) {
+        // Superadmin or admin selected explicit companies from the form
+        for (const cid of companyIdsFromBody) {
+          // Admin can only assign companies they belong to
+          if (user.tipo === 'admin') {
+            const check = await pool.query('SELECT 1 FROM user_companies WHERE user_id = $1 AND company_id = $2', [user.id, cid]);
+            if (check.rows.length === 0) continue;
+          }
+          await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [newUserId, cid]);
+        }
+      } else if (user.tipo === 'admin') {
+        // Fallback: assign to all of admin's companies
         const adminCompanies = await pool.query('SELECT company_id FROM user_companies WHERE user_id = $1', [user.id]);
         for (const row of adminCompanies.rows) {
           await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [newUserId, row.company_id]);
         }
-      }
-
-      // If superadmin specifies a companyId for new admin user, assign it
-      if (user.tipo === 'superadmin' && body.companyId) {
+      } else if (user.tipo === 'superadmin' && body.companyId) {
+        // Single company for admin role
         await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [newUserId, body.companyId]);
       }
 

@@ -269,8 +269,11 @@ export default function PWAAppPage() {
   const [newUserNombre, setNewUserNombre] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
-  const [newUserTipo, setNewUserTipo] = useState<'user' | 'admin' | 'superadmin'>('user');
+  const [newUserConfirmPassword, setNewUserConfirmPassword] = useState('');
+  const [newUserPhone, setNewUserPhone] = useState('');
+  const [newUserTipo, setNewUserTipo] = useState<'externo' | 'interno' | 'admin' | 'superadmin'>('externo');
   const [newUserCompanyId, setNewUserCompanyId] = useState<number | ''>('');
+  const [newUserCompanyIds, setNewUserCompanyIds] = useState<number[]>([]);
   const [newUserSubmitting, setNewUserSubmitting] = useState(false);
 
   // Admin sub-tab
@@ -1632,9 +1635,25 @@ export default function PWAAppPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserNombre.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
-      showToast('⚠️ Todos los campos son obligatorios');
+      showToast('⚠️ Nombre, correo y contraseña son obligatorios');
       return;
     }
+    if (newUserPassword.trim().length < 8) {
+      showToast('⚠️ La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+    if (newUserPassword !== newUserConfirmPassword) {
+      showToast('⚠️ Las contraseñas no coinciden');
+      return;
+    }
+
+    // Build company list: for superadmin use newUserCompanyId (single, for admins)
+    // or newUserCompanyIds (multi, for regular users)
+    const companyIds = newUserTipo === 'admin' && newUserCompanyId
+      ? [newUserCompanyId as number]
+      : newUserCompanyIds.length > 0
+        ? newUserCompanyIds
+        : undefined;
 
     setNewUserSubmitting(true);
     try {
@@ -1643,33 +1662,29 @@ export default function PWAAppPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create',
-          nombre: newUserNombre,
-          email: newUserEmail,
-          password: newUserPassword,
+          nombre: newUserNombre.trim(),
+          email: newUserEmail.trim(),
+          password: newUserPassword.trim(),
           tipo: newUserTipo,
-          companyId: newUserCompanyId || undefined,
+          telefono: newUserPhone.trim() || undefined,
+          companyId: newUserTipo === 'admin' ? (newUserCompanyId || undefined) : undefined,
+          companyIds: newUserTipo !== 'admin' ? companyIds : undefined,
         })
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         showToast('👤 ¡Usuario creado con éxito!');
-        // Refresh the users list
         const uRes = await fetch(`/api/admin/users?t=${Date.now()}`);
-        if (uRes.ok) {
-          const uData = await uRes.json();
-          setAdminUsers(uData);
-        }
+        if (uRes.ok) setAdminUsers(await uRes.json());
         // Reset form
-        setNewUserNombre('');
-        setNewUserEmail('');
-        setNewUserPassword('');
-        setNewUserTipo('user');
-        setNewUserCompanyId('');
+        setNewUserNombre(''); setNewUserEmail(''); setNewUserPassword('');
+        setNewUserConfirmPassword(''); setNewUserPhone('');
+        setNewUserTipo('externo'); setNewUserCompanyId(''); setNewUserCompanyIds([]);
       } else {
         showToast(`Error: ${data.error || 'No se pudo crear el usuario'}`);
       }
-    } catch (err: any) {
+    } catch {
       showToast('Error de red al crear el usuario');
     } finally {
       setNewUserSubmitting(false);
@@ -3409,7 +3424,7 @@ export default function PWAAppPage() {
                       </div>
 
                       <div>
-                        <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña (mín. 6 carac.)</label>
+                        <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña (mín. 8 carac.)</label>
                         <input
                           type="password"
                           required
@@ -3863,44 +3878,118 @@ export default function PWAAppPage() {
                 </h3>
 
                 <form onSubmit={handleCreateUser} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4 max-w-2xl shadow-lg">
-                  <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
+                  <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-yellow-500" />
                     {user.tipo === 'superadmin' ? 'Crear Nuevo Usuario / Administrador' : 'Agregar Usuario a Mi Empresa'}
                   </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Nombre */}
                     <div className="space-y-1.5">
-                      <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Nombre Completo</label>
-                      <input type="text" required value={newUserNombre} onChange={(e) => setNewUserNombre(e.target.value)} placeholder="Nombre completo" className="w-full input-stitch px-3 py-2 text-xs" />
+                      <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Nombre Completo *</label>
+                      <input type="text" required value={newUserNombre} onChange={(e) => setNewUserNombre(e.target.value)}
+                        placeholder="ej: Diego Armando" className="w-full input-stitch px-3 py-2 text-xs" />
                     </div>
+
+                    {/* Email */}
                     <div className="space-y-1.5">
-                      <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Correo Electrónico</label>
-                      <input type="email" required value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} placeholder="usuario@mundial.com" className="w-full input-stitch px-3 py-2 text-xs" />
+                      <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Correo Electrónico *</label>
+                      <input type="email" required value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)}
+                        placeholder="usuario@empresa.com" className="w-full input-stitch px-3 py-2 text-xs" />
                     </div>
+
+                    {/* Contraseña */}
                     <div className="space-y-1.5">
-                      <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Contraseña</label>
-                      <input type="password" required value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full input-stitch px-3 py-2 text-xs" />
+                      <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Contraseña (mín. 8) *</label>
+                      <input type="password" required autoComplete="new-password"
+                        value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)}
+                        placeholder="Mínimo 8 caracteres" className="w-full input-stitch px-3 py-2 text-xs" />
                     </div>
+
+                    {/* Confirmar Contraseña */}
+                    <div className="space-y-1.5">
+                      <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Confirmar Contraseña *</label>
+                      <input type="password" required autoComplete="new-password"
+                        value={newUserConfirmPassword} onChange={(e) => setNewUserConfirmPassword(e.target.value)}
+                        placeholder="Repite la contraseña"
+                        className={`w-full input-stitch px-3 py-2 text-xs ${newUserConfirmPassword && newUserPassword !== newUserConfirmPassword ? 'border-red-600/60' : ''}`} />
+                      {newUserConfirmPassword && newUserPassword !== newUserConfirmPassword && (
+                        <p className="text-[9px] text-red-400 font-bold">Las contraseñas no coinciden</p>
+                      )}
+                    </div>
+
+                    {/* Teléfono */}
+                    <div className="space-y-1.5">
+                      <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Celular / WhatsApp</label>
+                      <div className="flex gap-2 items-center">
+                        <span className="text-neutral-400 text-sm flex-shrink-0">📱</span>
+                        <input type="tel" value={newUserPhone} onChange={(e) => setNewUserPhone(e.target.value)}
+                          placeholder="+591 XXXXXXXX" className="w-full input-stitch px-3 py-2 text-xs" />
+                      </div>
+                      <p className="text-[9px] text-neutral-600">Opcional · Para avisos por WhatsApp</p>
+                    </div>
+
+                    {/* Rol (solo superadmin) */}
                     {user.tipo === 'superadmin' && (
                       <div className="space-y-1.5">
                         <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Rol</label>
-                        <select value={newUserTipo} onChange={(e) => setNewUserTipo(e.target.value as 'user' | 'admin' | 'superadmin')} className="w-full bg-neutral-950 border border-neutral-850 text-neutral-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30">
-                          <option value="user">Usuario Común</option>
+                        <select value={newUserTipo}
+                          onChange={(e) => { setNewUserTipo(e.target.value as any); setNewUserCompanyIds([]); setNewUserCompanyId(''); }}
+                          className="w-full bg-neutral-950 border border-neutral-850 text-neutral-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30">
+                          <option value="externo">Usuario Externo</option>
+                          <option value="interno">Usuario Interno</option>
                           <option value="admin">Administrador de Empresa</option>
                           <option value="superadmin">Super Administrador</option>
                         </select>
                       </div>
                     )}
-                    {user.tipo === 'superadmin' && (newUserTipo === 'admin') && (
+
+                    {/* Empresa única para admins (superadmin) */}
+                    {user.tipo === 'superadmin' && newUserTipo === 'admin' && (
                       <div className="space-y-1.5">
                         <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Empresa a Gestionar</label>
-                        <select value={newUserCompanyId} onChange={(e) => setNewUserCompanyId(e.target.value ? parseInt(e.target.value) : '')} className="w-full bg-neutral-950 border border-neutral-850 text-neutral-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30">
+                        <select value={newUserCompanyId} onChange={(e) => setNewUserCompanyId(e.target.value ? parseInt(e.target.value) : '')}
+                          className="w-full bg-neutral-950 border border-neutral-850 text-neutral-300 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-yellow-500/30">
                           <option value="">Sin empresa asignada</option>
                           {companies.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                         </select>
                       </div>
                     )}
                   </div>
+
+                  {/* Empresas para usuarios normales (multi-select) */}
+                  {(newUserTipo === 'externo' || newUserTipo === 'interno') && companies.filter(c =>
+                    user.tipo === 'superadmin' || (user.companies || []).some((ac: any) => ac.id === c.id)
+                  ).length > 0 && (
+                    <div className="space-y-2">
+                      <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Asignar a Empresa(s)</label>
+                      <div className="flex flex-wrap gap-2">
+                        {companies
+                          .filter(c => user.tipo === 'superadmin' || (user.companies || []).some((ac: any) => ac.id === c.id))
+                          .map((c) => {
+                            const sel = newUserCompanyIds.includes(c.id);
+                            return (
+                              <button key={c.id} type="button"
+                                onClick={() => setNewUserCompanyIds(sel ? newUserCompanyIds.filter(id => id !== c.id) : [...newUserCompanyIds, c.id])}
+                                className="px-3 py-1.5 rounded-full text-[10px] font-bold border transition"
+                                style={{
+                                  color: sel ? '#0a0a0a' : c.color,
+                                  borderColor: c.color,
+                                  backgroundColor: sel ? c.color : c.color + '15',
+                                }}>
+                                {c.nombre}
+                              </button>
+                            );
+                          })}
+                      </div>
+                      <p className="text-[9px] text-neutral-600">Podés asignar más empresas después desde la lista de usuarios</p>
+                    </div>
+                  )}
+
                   <div className="flex justify-end pt-2">
-                    <button type="submit" disabled={newUserSubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-neutral-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow">
+                    <button type="submit" disabled={newUserSubmitting || (!!newUserConfirmPassword && newUserPassword !== newUserConfirmPassword)}
+                      className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-neutral-950 text-xs font-bold px-5 py-2.5 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow">
+                      <Users className="w-3.5 h-3.5" />
                       <span>{newUserSubmitting ? 'Creando...' : 'Crear Usuario'}</span>
                     </button>
                   </div>

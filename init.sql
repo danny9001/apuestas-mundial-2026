@@ -72,6 +72,7 @@ CREATE TABLE passkeys (
   device_type VARCHAR(32) DEFAULT 'singleDevice',
   backed_up BOOLEAN DEFAULT FALSE,
   transports TEXT[],
+  label VARCHAR(120),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   last_used_at TIMESTAMP WITH TIME ZONE
 );

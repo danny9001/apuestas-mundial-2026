@@ -3702,8 +3702,14 @@ export default function PWAAppPage() {
                       <div key={pk.id} className="flex justify-between items-center px-4 py-3">
                         <div>
                           <div className="text-xs font-bold text-neutral-300 flex items-center gap-2">
-                            <span>{pk.device_type === 'multiDevice' ? '☁️' : '📱'}</span>
-                            <span className="capitalize">{pk.device_type === 'multiDevice' ? 'Llave multi-dispositivo' : 'Llave de un dispositivo'}</span>
+                            <span>
+                              {(pk.transports ?? []).includes('usb') || (pk.transports ?? []).includes('nfc') || (pk.transports ?? []).includes('ble')
+                                ? '🔐'
+                                : (pk.transports ?? []).includes('hybrid')
+                                  ? '📲'
+                                  : pk.device_type === 'multiDevice' ? '☁️' : '📱'}
+                            </span>
+                            <span>{pk.label || (pk.device_type === 'multiDevice' ? 'Passkey en la nube' : 'Passkey en este dispositivo')}</span>
                             {pk.backed_up && <span className="text-[9px] bg-green-500/10 text-green-400 border border-green-500/20 px-1.5 rounded-full">backup</span>}
                           </div>
                           <div className="text-[9px] text-neutral-600 mt-0.5 font-mono">

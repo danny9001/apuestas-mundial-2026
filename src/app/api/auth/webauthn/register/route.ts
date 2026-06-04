@@ -6,6 +6,7 @@ import {
 } from '@simplewebauthn/server';
 import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
+import { deviceLabelFromUA } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,10 +121,13 @@ export async function POST(req: NextRequest) {
       }
 
       const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+      const transports: string[] = body.response?.transports ?? [];
+      const ua = req.headers.get('user-agent') ?? '';
+      const label = deviceLabelFromUA(ua, transports);
 
       await pool.query(
-        `INSERT INTO passkeys (user_id, credential_id, public_key, counter, device_type, backed_up, transports)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO passkeys (user_id, credential_id, public_key, counter, device_type, backed_up, transports, label)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (credential_id) DO NOTHING`,
         [
           user.id,
@@ -132,11 +136,12 @@ export async function POST(req: NextRequest) {
           credential.counter,
           credentialDeviceType,
           credentialBackedUp,
-          body.response?.transports ?? [],
+          transports,
+          label,
         ]
       );
 
-      return NextResponse.json({ verified: true });
+      return NextResponse.json({ verified: true, label });
     }
 
     return NextResponse.json({ error: 'step inválido' }, { status: 400 });

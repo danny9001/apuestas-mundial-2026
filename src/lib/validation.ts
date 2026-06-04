@@ -53,3 +53,52 @@ const ALLOWED_ROLES = new Set(['externo', 'interno', 'admin', 'superadmin']);
 export function isValidRole(role: string): boolean {
   return ALLOWED_ROLES.has(role);
 }
+
+/**
+ * Derive a human-readable device label from a User-Agent string and
+ * the WebAuthn transports array.
+ *
+ * Priority: transport hints first (most reliable), UA fallback.
+ * Examples: "iPhone • Safari", "Windows • Chrome", "YubiKey (USB)", "Android • Chrome"
+ */
+export function deviceLabelFromUA(ua: string, transports: string[] = []): string {
+  const t = transports.map((s) => s.toLowerCase());
+
+  // Hardware security keys
+  if (t.includes('usb'))    return 'Llave de seguridad (USB)';
+  if (t.includes('nfc'))    return 'Llave de seguridad (NFC)';
+  if (t.includes('ble'))    return 'Llave de seguridad (Bluetooth)';
+  if (t.includes('smart-card')) return 'Tarjeta inteligente';
+
+  // Cross-device (phone used as roaming authenticator)
+  if (t.includes('hybrid')) return deviceFromUA(ua) + ' (otro dispositivo)';
+
+  // Platform authenticator — use UA for context
+  return deviceFromUA(ua);
+}
+
+function deviceFromUA(ua: string): string {
+  if (!ua) return 'Dispositivo desconocido';
+  const u = ua.toLowerCase();
+
+  // OS / device detection
+  let device = '';
+  if (/iphone/.test(u))       device = 'iPhone';
+  else if (/ipad/.test(u))    device = 'iPad';
+  else if (/android/.test(u)) device = 'Android';
+  else if (/windows/.test(u)) device = 'Windows';
+  else if (/macintosh|mac os x/.test(u) && !/iphone|ipad/.test(u)) device = 'Mac';
+  else if (/linux/.test(u))   device = 'Linux';
+  else if (/cros/.test(u))    device = 'Chromebook';
+  else                        device = 'Dispositivo';
+
+  // Browser detection
+  let browser = '';
+  if (/edg\/|edge\//.test(u))      browser = 'Edge';
+  else if (/opr\/|opera\//.test(u)) browser = 'Opera';
+  else if (/chrome\//.test(u))     browser = 'Chrome';
+  else if (/firefox\//.test(u))    browser = 'Firefox';
+  else if (/safari\//.test(u))     browser = 'Safari';
+
+  return browser ? `${device} • ${browser}` : device;
+}

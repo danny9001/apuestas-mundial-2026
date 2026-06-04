@@ -312,6 +312,8 @@ export default function PWAAppPage() {
   // Profile edit states
   const [profileNombre, setProfileNombre] = useState('');
   const [profilePassword, setProfilePassword] = useState('');
+  const [profileTelefono, setProfileTelefono] = useState('');
+  const [profileCompanyIds, setProfileCompanyIds] = useState<number[]>([]);
   const [profileAvatarFile, setProfileAvatarFile] = useState<File | null>(null);
   const [profileAvatarPreview, setProfileAvatarPreview] = useState<string | null>(null);
   const [profileSubmitting, setProfileSubmitting] = useState(false);
@@ -954,6 +956,9 @@ export default function PWAAppPage() {
       if (profilePassword.trim()) {
         formData.append('password', profilePassword);
       }
+      if (profileTelefono.trim()) {
+        formData.append('telefono', profileTelefono.trim());
+      }
       if (profileAvatarFile) {
         formData.append('avatarFile', profileAvatarFile);
       }
@@ -998,6 +1003,10 @@ export default function PWAAppPage() {
   useEffect(() => {
     if (user) {
       setProfileNombre(user.nombre);
+      setProfileTelefono(user.telefono || '');
+      if (user.companies && Array.isArray(user.companies)) {
+        setProfileCompanyIds(user.companies.map((c: any) => c.id));
+      }
     }
   }, [user]);
 
@@ -3621,8 +3630,8 @@ export default function PWAAppPage() {
 
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block">Nombre Completo</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           required
                           value={profileNombre}
                           onChange={(e) => setProfileNombre(e.target.value)}
@@ -3630,6 +3639,53 @@ export default function PWAAppPage() {
                           className="w-full bg-neutral-950 border border-neutral-850 rounded-xl px-4 py-3 text-neutral-200 text-xs focus:border-yellow-500/35 outline-none transition font-semibold"
                         />
                       </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block">Correo Electrónico (No editable)</label>
+                        <input
+                          type="email"
+                          disabled
+                          value={user.email}
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-500 text-xs cursor-not-allowed opacity-60 font-semibold"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block">Celular / WhatsApp</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-neutral-400 text-sm">📱</span>
+                          <input
+                            type="tel"
+                            value={profileTelefono}
+                            onChange={(e) => setProfileTelefono(e.target.value)}
+                            placeholder="+591 XXXXXXXX"
+                            className="flex-1 bg-neutral-950 border border-neutral-850 rounded-xl px-4 py-3 text-neutral-200 text-xs focus:border-yellow-500/35 outline-none transition font-semibold"
+                          />
+                        </div>
+                        <p className="text-[9px] text-neutral-600">Opcional · Para avisos por WhatsApp</p>
+                      </div>
+
+                      {getAvailableCompanies().length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block">Mis Empresas</label>
+                          <div className="flex flex-wrap gap-2">
+                            {getAvailableCompanies().map((c: any) => (
+                              <span
+                                key={c.id}
+                                className="px-3 py-1.5 rounded-full text-[10px] font-bold border"
+                                style={{
+                                  color: c.color,
+                                  borderColor: c.color,
+                                  backgroundColor: c.color + '15',
+                                }}
+                              >
+                                {c.nombre}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-[9px] text-neutral-600">Solo lectura · El administrador es quien asigna empresas</p>
+                        </div>
+                      )}
 
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block">Nueva Contraseña (Opcional)</label>

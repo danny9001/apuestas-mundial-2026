@@ -19,12 +19,15 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const nombreRaw = formData.get('nombre') as string;
     const password = formData.get('password') as string;
+    const telefonoRaw = formData.get('telefono') as string;
     const file = formData.get('avatarFile') as File | null;
 
     const nombreSafe = sanitizeText(nombreRaw ?? '', 100);
     if (!nombreSafe) {
       return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 });
     }
+
+    const telefonoSafe = telefonoRaw ? sanitizeText(telefonoRaw, 30) : null;
 
     let avatarPath = user.avatar;
 
@@ -59,13 +62,13 @@ export async function POST(req: NextRequest) {
       }
       const passwordHash = await bcrypt.hash(password.trim(), BCRYPT_ROUNDS);
       await pool.query(
-        'UPDATE users SET nombre = $1, avatar = $2, password_hash = $3 WHERE id = $4',
-        [nombreSafe, avatarPath, passwordHash, user.id]
+        'UPDATE users SET nombre = $1, avatar = $2, password_hash = $3, telefono = $4 WHERE id = $5',
+        [nombreSafe, avatarPath, passwordHash, telefonoSafe, user.id]
       );
     } else {
       await pool.query(
-        'UPDATE users SET nombre = $1, avatar = $2 WHERE id = $3',
-        [nombreSafe, avatarPath, user.id]
+        'UPDATE users SET nombre = $1, avatar = $2, telefono = $3 WHERE id = $4',
+        [nombreSafe, avatarPath, telefonoSafe, user.id]
       );
     }
 
@@ -75,7 +78,8 @@ export async function POST(req: NextRequest) {
       nombre: nombreSafe,
       email: user.email,
       tipo: user.tipo,
-      avatar: avatarPath
+      avatar: avatarPath,
+      telefono: telefonoSafe
     };
     await setSession(updatedSession);
 

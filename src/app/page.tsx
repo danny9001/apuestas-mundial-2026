@@ -1777,7 +1777,7 @@ export default function PWAAppPage() {
       });
       const d = await res.json();
       if (res.ok) {
-        if (editUserTipo === 'admin' && user.tipo === 'superadmin') {
+        if (user.tipo === 'superadmin' && companies.length > 0 && editUserCompanyIds) {
           await fetch('/api/admin/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4026,15 +4026,11 @@ export default function PWAAppPage() {
                   </div>
 
                   {/* Empresas para usuarios normales (multi-select) */}
-                  {(newUserTipo === 'externo' || newUserTipo === 'interno') && companies.filter(c =>
-                    user.tipo === 'superadmin' || (user.companies || []).some((ac: any) => ac.id === c.id)
-                  ).length > 0 && (
+                  {user.tipo === 'superadmin' && (newUserTipo === 'externo' || newUserTipo === 'interno') && companies.length > 0 && (
                     <div className="space-y-2">
                       <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Asignar a Empresa(s)</label>
                       <div className="flex flex-wrap gap-2">
-                        {companies
-                          .filter(c => user.tipo === 'superadmin' || (user.companies || []).some((ac: any) => ac.id === c.id))
-                          .map((c) => {
+                        {companies.map((c) => {
                             const sel = newUserCompanyIds.includes(c.id);
                             return (
                               <button key={c.id} type="button"
@@ -4086,9 +4082,9 @@ export default function PWAAppPage() {
                             </div>
                             <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                               {/* Asignar empresa antes de aprobar */}
-                              {companies.length > 0 && (
+                              {user.tipo === 'superadmin' && companies.length > 0 && (
                                 <div className="flex gap-1 flex-wrap max-w-[180px]">
-                                  {companies.filter((c) => user.tipo === 'superadmin' || (user.companies || []).some((ac: any) => ac.id === c.id)).map((c) => {
+                                  {companies.map((c) => {
                                     const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
                                     return (
                                       <button key={c.id} onClick={() => handleToggleUserCompany(u.id, c.id, isMember)}
@@ -4141,9 +4137,9 @@ export default function PWAAppPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-                        {(user.tipo === 'superadmin' || user.tipo === 'admin') && u.id !== user.id && companies.length > 0 && (
+                        {user.tipo === 'superadmin' && u.id !== user.id && companies.length > 0 && (
                           <div className="flex gap-1 flex-wrap max-w-[200px]">
-                            {companies.filter((c) => user.tipo === 'superadmin' || (user.companies || []).some((ac: any) => ac.id === c.id)).map((c) => {
+                            {companies.map((c) => {
                               const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
                               return (
                                 <button key={c.id} onClick={() => handleToggleUserCompany(u.id, c.id, isMember)}
@@ -4158,9 +4154,11 @@ export default function PWAAppPage() {
                         )}
                         {u.id !== user.id ? (
                           <>
-                            <button onClick={() => openEditUserModal(u)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700">
-                              <Pencil className="w-3 h-3" /> Editar
-                            </button>
+                            {!(user.tipo === 'admin' && (u.tipo === 'superadmin' || u.tipo === 'admin')) && (
+                              <button onClick={() => openEditUserModal(u)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700">
+                                <Pencil className="w-3 h-3" /> Editar
+                              </button>
+                            )}
                             {u.tipo !== 'admin' && u.tipo !== 'superadmin' && (
                               u.denegado ? (
                                 <button onClick={() => handleSetPending(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-neutral-800 hover:bg-neutral-700 text-neutral-400 border border-neutral-700">
@@ -4910,7 +4908,7 @@ export default function PWAAppPage() {
                   />
                 </div>
 
-                {user.tipo === 'superadmin' && (
+                {(user.tipo === 'superadmin' || user.tipo === 'admin') && (
                   <div className="space-y-1.5">
                     <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Rol</label>
                     <select
@@ -4920,46 +4918,45 @@ export default function PWAAppPage() {
                     >
                       <option value="externo">Usuario Externo</option>
                       <option value="interno">Usuario Interno</option>
-                      <option value="admin">Administrador</option>
-                      <option value="superadmin">Super Administrador</option>
+                      {user.tipo === 'superadmin' && (
+                        <>
+                          <option value="admin">Administrador</option>
+                          <option value="superadmin">Super Administrador</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 )}
 
-                {user.tipo === 'superadmin' && editUserTipo === 'admin' && (
+                {user.tipo === 'superadmin' && companies.length > 0 && (
                   <div className="space-y-2">
                     <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">
-                      Empresas que administra
+                      {editUserTipo === 'admin' ? 'Empresas que administra' : 'Asignar a Empresa(s)'}
                     </label>
-                    {companies.length === 0 ? (
-                      <p className="text-neutral-500 text-xs">No hay empresas registradas.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {companies.map((c: any) => {
-                          const selected = editUserCompanyIds.includes(c.id);
-                          return (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() =>
-                                setEditUserCompanyIds((prev) =>
-                                  selected ? prev.filter((id) => id !== c.id) : [...prev, c.id]
-                                )
-                              }
-                              className={`text-[11px] px-3 py-1.5 rounded-full border font-bold transition ${selected ? 'opacity-100' : 'opacity-30 hover:opacity-60'}`}
-                              style={{
-                                color: c.color,
-                                borderColor: c.color + '60',
-                                backgroundColor: selected ? c.color + '20' : 'transparent',
-                              }}
-                            >
-                              {c.nombre}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <p className="text-neutral-600 text-[10px]">Seleccioná las empresas que este administrador puede gestionar.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {companies.map((c: any) => {
+                        const selected = editUserCompanyIds.includes(c.id);
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() =>
+                              setEditUserCompanyIds((prev) =>
+                                selected ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                              )
+                            }
+                            className={`text-[11px] px-3 py-1.5 rounded-full border font-bold transition ${selected ? 'opacity-100' : 'opacity-30 hover:opacity-60'}`}
+                            style={{
+                              color: selected ? '#0a0a0a' : c.color,
+                              borderColor: c.color,
+                              backgroundColor: selected ? c.color : c.color + '15',
+                            }}
+                          >
+                            {c.nombre}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 

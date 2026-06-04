@@ -86,12 +86,13 @@ export async function GET() {
          FROM users u
          LEFT JOIN user_companies uc ON uc.user_id = u.id
          LEFT JOIN companies c ON c.id = uc.company_id
-         WHERE u.id IN (
+         WHERE (u.id IN (
            SELECT uc2.user_id FROM user_companies uc2
            WHERE uc2.company_id IN (
              SELECT company_id FROM user_companies WHERE user_id = $1
            )
-         ) OR u.id = $1 OR NOT EXISTS (SELECT 1 FROM user_companies uc3 WHERE uc3.user_id = u.id)
+         ) OR u.id = $1 OR NOT EXISTS (SELECT 1 FROM user_companies uc3 WHERE uc3.user_id = u.id))
+         AND u.tipo != 'superadmin'
          GROUP BY u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono
          ORDER BY u.id ASC`,
         [user.id]
@@ -267,15 +268,30 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'setCompanies') {
-      // Replace all companies for a user (superadmin only)
-      if (user.tipo !== 'superadmin') {
-        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-      }
       const { userId: targetUserId, companyIds } = body;
       if (!targetUserId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
-      await pool.query('DELETE FROM user_companies WHERE user_id = $1', [targetUserId]);
-      for (const cid of (companyIds || [])) {
-        await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [targetUserId, cid]);
+      
+      if (user.tipo === 'superadmin') {
+        await pool.query('DELETE FROM user_companies WHERE user_id = $1', [targetUserId]);
+        for (const cid of (companyIds || [])) {
+          await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [targetUserId, cid]);
+        }
+      } else if (user.tipo === 'admin') {
+        // Admin can only replace companies they own
+        const adminCompanies = await pool.query('SELECT company_id FROM user_companies WHERE user_id = $1', [user.id]);
+        const adminCompIds = adminCompanies.rows.map(r => r.company_id);
+        
+        // Delete target user from all admin's companies
+        if (adminCompIds.length > 0) {
+          await pool.query('DELETE FROM user_companies WHERE user_id = $1 AND company_id = ANY($2::int[])', [targetUserId, adminCompIds]);
+        }
+        
+        // Insert new ones, but only if they are in admin's companies
+        for (const cid of (companyIds || [])) {
+          if (adminCompIds.includes(cid)) {
+            await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [targetUserId, cid]);
+          }
+        }
       }
       return NextResponse.json({ success: true });
     }

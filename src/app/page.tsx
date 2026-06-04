@@ -3547,10 +3547,16 @@ export default function PWAAppPage() {
                   {/* Avatar upload & preview section */}
                   <div className="md:col-span-4 flex flex-col items-center gap-6 justify-center border-b md:border-b-0 md:border-r border-neutral-850 pb-6 md:pb-0 md:pr-8">
                     <div className="relative group">
-                      <img 
-                        src={profileAvatarPreview || user.avatar} 
-                        className="w-32 h-32 rounded-full border-2 border-yellow-500/50 bg-neutral-950 p-1 shadow-2xl object-cover transition duration-300 group-hover:opacity-85" 
-                        alt="avatar" 
+                      <img
+                        src={profileAvatarPreview || user.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.nombre)}`}
+                        onError={(e) => {
+                          const img = e.target as HTMLImageElement;
+                          if (!img.src.includes('dicebear')) {
+                            img.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.nombre)}`;
+                          }
+                        }}
+                        className="w-32 h-32 rounded-full border-2 border-yellow-500/50 bg-neutral-950 p-1 shadow-2xl object-cover transition duration-300 group-hover:opacity-85"
+                        alt="avatar"
                       />
                       <label className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center text-[10px] text-neutral-350 font-extrabold uppercase opacity-0 group-hover:opacity-100 transition duration-300 cursor-pointer select-none">
                         <span>Subir</span>

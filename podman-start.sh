@@ -30,11 +30,15 @@ echo "[mundial] Esperando PostgreSQL..."
 until podman exec postgres pg_isready -U mundial -d apuestas_mundial 2>/dev/null; do sleep 2; done
 echo "[mundial] PostgreSQL listo."
 
+# ── Preparar directorio de uploads ──────────────────────────────────────────
+mkdir -p "$DIR/public/uploads/avatars" "$DIR/public/uploads/logos"
+chmod -R 777 "$DIR/public/uploads"
+
 # ── App réplica 1 ────────────────────────────────────────────────────────────
 podman run -d --name app_1 \
   --network mundial_frontend \
   --network mundial_backend \
-  -v uploads_data:/app/public/uploads \
+  -v "$DIR/public/uploads":/app/public/uploads:z \
   --env-file "$DIR/.env.container" \
   -e NODE_ENV=production -e PORT=3000 -e HOSTNAME=0.0.0.0 \
   -e DB_HOST=postgres \
@@ -45,7 +49,7 @@ podman run -d --name app_1 \
 podman run -d --name app_2 \
   --network mundial_frontend \
   --network mundial_backend \
-  -v uploads_data:/app/public/uploads \
+  -v "$DIR/public/uploads":/app/public/uploads:z \
   --env-file "$DIR/.env.container" \
   -e NODE_ENV=production -e PORT=3000 -e HOSTNAME=0.0.0.0 \
   -e DB_HOST=postgres \

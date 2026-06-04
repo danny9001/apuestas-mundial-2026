@@ -45,7 +45,7 @@ services:
       MAIL_GRAPH_USER_EMAIL:        ${MAIL_GRAPH_USER_EMAIL}
       MAIL_GRAPH_BCC:               ${MAIL_GRAPH_BCC}
     volumes:
-      - uploads_data:/app/public/uploads
+      - ./public/uploads:/app/public/uploads
     networks:
       - frontend
       - backend
@@ -90,8 +90,6 @@ services:
 
 volumes:
   pg_data:
-    driver: local
-  uploads_data:
     driver: local
 
 networks:

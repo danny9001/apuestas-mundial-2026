@@ -78,7 +78,7 @@ export async function GET() {
     } else {
       // Company admin: only users in shared companies OR users with no company assigned (pending approval)
       res = await pool.query(
-        `SELECT DISTINCT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -92,7 +92,7 @@ export async function GET() {
              SELECT company_id FROM user_companies WHERE user_id = $1
            )
          ) OR u.id = $1 OR NOT EXISTS (SELECT 1 FROM user_companies uc3 WHERE uc3.user_id = u.id)
-         GROUP BY u.id
+         GROUP BY u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono
          ORDER BY u.id ASC`,
         [user.id]
       );

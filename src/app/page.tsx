@@ -504,26 +504,26 @@ export default function PWAAppPage() {
           </div>
 
           {/* Middle: Teams and Score */}
-          <div className="flex items-center justify-center gap-2 flex-grow-[2] w-[45%] text-xs font-bold text-neutral-200">
-            <div className="flex items-center gap-1.5 w-[42%] justify-end min-w-0">
-              <span className="truncate uppercase text-xs font-black text-neutral-100 text-right">{m.local}</span>
+          <div className="flex items-center justify-center gap-1.5 flex-grow-[2] min-w-0 text-xs font-bold text-neutral-200">
+            <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+              <span className="uppercase text-[9px] sm:text-[10px] font-black text-neutral-100 text-right leading-tight break-words">{m.local}</span>
               <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
             </div>
-            
+
             <div className="px-2 py-0.5 bg-neutral-950/95 border border-neutral-850 rounded font-mono text-[11px] font-black text-center min-w-[38px] flex-shrink-0">
               {m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}
             </div>
 
-            <div className="flex items-center gap-1.5 w-[42%] justify-start min-w-0">
+            <div className="flex items-center gap-1 min-w-0 flex-1 justify-start">
               <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
-              <span className="truncate uppercase text-xs font-black text-neutral-100 text-left">{m.visitante}</span>
+              <span className="uppercase text-[9px] sm:text-[10px] font-black text-neutral-100 text-left leading-tight break-words">{m.visitante}</span>
             </div>
           </div>
 
           {/* Right: User bet / Button */}
-          <div className="flex items-center justify-end gap-2 text-right min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-2 text-right flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             {myPred ? (
-              <div className="flex flex-col items-end">
+              <div className="flex flex-col items-end flex-shrink-0">
                 <span className="text-[9px] text-neutral-500 font-medium">Mi apuesta</span>
                 <span className="font-bold text-neutral-200 text-xs font-mono">{myPred.pred_local} - {myPred.pred_visitante}</span>
               </div>
@@ -532,7 +532,7 @@ export default function PWAAppPage() {
             ) : (
               <button
                 onClick={() => openBetModalForMatch(m)}
-                className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase"
+                className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase flex-shrink-0"
               >
                 Apostar
               </button>
@@ -1936,7 +1936,7 @@ export default function PWAAppPage() {
             {appLogo.startsWith('/') || appLogo.startsWith('http') ? (
               <img src={appLogo} className="w-7 h-7 object-contain rounded-md flex-shrink-0" alt="logo" />
             ) : (
-              <span className="text-2xl flex-shrink-0">{appLogo}</span>
+              <span className="w-7 h-7 flex items-center justify-center text-xl flex-shrink-0 leading-none">{appLogo}</span>
             )}
             <span className="font-black tracking-wider text-sm uppercase text-neutral-100 truncate">{appName}</span>
           </div>
@@ -2142,7 +2142,7 @@ export default function PWAAppPage() {
             {appLogo.startsWith('/') || appLogo.startsWith('http') ? (
               <img src={appLogo} className="w-6 h-6 object-contain rounded-md flex-shrink-0" alt="logo" />
             ) : (
-              <span className="text-xl flex-shrink-0">{appLogo}</span>
+              <span className="w-6 h-6 flex items-center justify-center text-lg flex-shrink-0 leading-none">{appLogo}</span>
             )}
             <span className="font-black tracking-wider text-sm uppercase text-neutral-100 truncate">{appName}</span>
           </div>
@@ -2524,7 +2524,7 @@ export default function PWAAppPage() {
                         { titulo: '39 Días de Competencia', desc: 'El torneo se jugará desde el 11 de junio hasta el 19 de julio de 2026, convirtiéndose en uno de los mundiales más largos de todos.' },
                       ].map((item) => (
                         <div key={item.titulo} className="bg-neutral-950/20 border border-neutral-900 p-3 rounded-xl">
-                          <h5 className="font-black text-[10.5px] text-yellow-500 uppercase">{item.titulo}</h5>
+                          <h4 className="font-black text-[10.5px] text-yellow-500 uppercase">{item.titulo}</h4>
                           <p className="text-[9.5px] text-neutral-400 mt-1 leading-relaxed">{item.desc}</p>
                         </div>
                       ))}
@@ -2549,7 +2549,7 @@ export default function PWAAppPage() {
                             <span className="font-black text-[8px] text-yellow-500 font-mono mt-0.5 leading-none">{item.fecha.split(' ')[1] || ''}</span>
                           </div>
                           <div>
-                            <h5 className="font-black text-[10.5px] text-neutral-200 uppercase">{item.titulo}</h5>
+                            <h4 className="font-black text-[10.5px] text-neutral-200 uppercase">{item.titulo}</h4>
                             <p className="text-[9.5px] text-neutral-400 mt-1 leading-relaxed">{item.desc}</p>
                           </div>
                         </div>

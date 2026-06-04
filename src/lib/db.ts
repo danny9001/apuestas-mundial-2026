@@ -1,19 +1,35 @@
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 
-let pool: Pool;
+function getPool(): Pool {
+  if (global._postgresPool) return global._postgresPool;
 
-if (!global._postgresPool) {
-  const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:mundial2026@localhost:5432/apuestas_mundial';
-  
+  // Use individual params when set (avoids URL-encoding issues with special chars in passwords).
+  // Falls back to DATABASE_URL for backward compatibility.
+  const poolConfig = process.env.DB_HOST
+    ? {
+        host:     process.env.DB_HOST,
+        port:     parseInt(process.env.DB_PORT || '5432', 10),
+        user:     process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      }
+    : { connectionString: process.env.DATABASE_URL };
+
   global._postgresPool = new Pool({
-    connectionString,
-    max: 10, // maximum number of clients in the pool
+    ...poolConfig,
+    max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
   });
+
+  return global._postgresPool;
 }
 
-pool = global._postgresPool;
+const pool = new Proxy({} as Pool, {
+  get(_target, prop) {
+    return (getPool() as any)[prop];
+  },
+});
 
 export default pool;
 

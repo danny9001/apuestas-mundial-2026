@@ -1,6 +1,15 @@
 {
   "name": "apuestas-mundial-2026",
-  "version": "1.1.53",
+  "version": "1.1.56",
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Edge versions",
+    "last 2 Safari versions",
+    ">0.5%",
+    "not dead",
+    "not IE 11"
+  ],
   "private": true,
   "scripts": {
     "dev": "next dev",

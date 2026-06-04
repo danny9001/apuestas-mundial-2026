@@ -5,6 +5,7 @@ import { setSession } from '@/lib/auth';
 import { broadcastUpdate } from '@/lib/realtime';
 import { sendPushToAdmins } from '@/lib/push';
 import { sendMail, buildNewUserEmail } from '@/lib/mail';
+import { isValidEmail, sanitizeText, validatePassword, BCRYPT_ROUNDS } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,32 +17,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Todos los campos son obligatorios' }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 });
+    const emailNorm = (email as string).toLowerCase().trim();
+    if (!isValidEmail(emailNorm)) {
+      return NextResponse.json({ error: 'Formato de correo electrónico inválido' }, { status: 400 });
     }
 
-    const emailTrim = email.toLowerCase().trim();
-    const nombreTrim = nombre.trim();
+    const pwCheck = validatePassword(password as string);
+    if (!pwCheck.ok) {
+      return NextResponse.json({ error: pwCheck.error }, { status: 400 });
+    }
 
-    // Check if user already exists
-    const duplicateCheck = await pool.query('SELECT id FROM users WHERE email = $1', [emailTrim]);
+    const nombreSafe = sanitizeText(nombre as string, 100);
+    if (!nombreSafe) {
+      return NextResponse.json({ error: 'El nombre no puede estar vacío' }, { status: 400 });
+    }
+
+    // Case-insensitive duplicate check (email already normalised to lowercase)
+    const duplicateCheck = await pool.query(
+      'SELECT id FROM users WHERE lower(email) = $1',
+      [emailNorm]
+    );
     if (duplicateCheck.rows.length > 0) {
       return NextResponse.json({ error: 'El correo electrónico ya está registrado' }, { status: 409 });
     }
 
-    // Generate standard standard salt and bcrypt hash
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    // Hash with cost factor 12 (≈250 ms — brute-force resistant)
+    const passwordHash = await bcrypt.hash((password as string).trim(), BCRYPT_ROUNDS);
 
     // Dynamic avatar seed from Dicebear
-    const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(nombreTrim)}`;
+    const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(nombreSafe)}`;
 
     // Insert user — telefono is optional
     const insertRes = await pool.query(
       `INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado, telefono)
        VALUES ($1, $2, $3, $4, $5, true, false, $6)
        RETURNING id, nombre, email, tipo, avatar, aprobado, telefono`,
-      [nombreTrim, emailTrim, passwordHash, 'externo', avatarUrl, telefono?.trim() || null]
+      [nombreSafe, emailNorm, passwordHash, 'externo', avatarUrl, telefono ? sanitizeText(String(telefono), 30) : null]
     );
 
     const newUser = insertRes.rows[0];

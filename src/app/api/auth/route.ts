@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { getSessionUser, setSession, clearSession } from '@/lib/auth';
+import { isValidEmail, DUMMY_BCRYPT_HASH } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,13 +42,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta email o contraseña' }, { status: 400 });
     }
 
+    const emailNorm = (email as string).toLowerCase().trim();
+    if (!isValidEmail(emailNorm)) {
+      return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
+    }
+
     // Fetch user
     const res = await pool.query(
       'SELECT id, nombre, email, password_hash, tipo, avatar, activo, aprobado FROM users WHERE email = $1',
-      [email.toLowerCase().trim()]
+      [emailNorm]
     );
 
-    if (res.rows.length === 0) {
+    // Always run bcrypt to prevent user-enumeration via timing
+    const hash = res.rows[0]?.password_hash ?? DUMMY_BCRYPT_HASH;
+    const passwordMatch = await bcrypt.compare(password as string, hash);
+
+    if (res.rows.length === 0 || !passwordMatch) {
       return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
     }
 
@@ -55,12 +65,6 @@ export async function POST(req: NextRequest) {
 
     if (!user.activo) {
       return NextResponse.json({ error: 'Usuario desactivado por el administrador' }, { status: 403 });
-    }
-
-    // Verify password using bcryptjs
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
-    if (!passwordMatch) {
-      return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
     }
 
     // Set cookie session

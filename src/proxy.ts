@@ -27,19 +27,19 @@ function maybeCleanup() {
   }
 }
 
-// --- Limits config ---
+// --- Limits config (most specific patterns FIRST) ---
 const LIMITS: { pattern: RegExp; rps: number; windowMs: number }[] = [
-  { pattern: /^\/api\/auth/,     rps: 20,  windowMs: 60_000 },  // 20 req/min login
-  { pattern: /^\/api\/auth\/register/, rps: 5, windowMs: 60_000 }, // 5 reg/min
-  { pattern: /^\/api\/sync/,     rps: 10,  windowMs: 60_000 },
-  { pattern: /^\/api\//,         rps: 60,  windowMs: 60_000 },  // general API
+  { pattern: /^\/api\/auth\/register/,  rps: 5,  windowMs: 60_000 }, // 5 registros/min
+  { pattern: /^\/api\/auth\/webauthn/,  rps: 20, windowMs: 60_000 }, // 20 WebAuthn/min
+  { pattern: /^\/api\/auth/,            rps: 10, windowMs: 60_000 }, // 10 logins/min
+  { pattern: /^\/api\/profile/,         rps: 10, windowMs: 60_000 }, // 10 cambios perfil/min
+  { pattern: /^\/api\/admin/,           rps: 30, windowMs: 60_000 }, // 30 admin ops/min
+  { pattern: /^\/api\/sync/,            rps: 10, windowMs: 60_000 },
+  { pattern: /^\/api\//,                rps: 60, windowMs: 60_000 }, // general API
 ];
 
 function getLimit(pathname: string) {
-  // Most specific first (register before auth)
-  return (
-    LIMITS.find((l) => l.pattern.test(pathname)) ?? { rps: 120, windowMs: 60_000 }
-  );
+  return LIMITS.find((l) => l.pattern.test(pathname)) ?? { rps: 120, windowMs: 60_000 };
 }
 
 // --- Security headers ---

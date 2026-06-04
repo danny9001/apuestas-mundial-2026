@@ -4,6 +4,7 @@ import { getSessionUser } from '@/lib/auth';
 import { broadcastUpdate } from '@/lib/realtime';
 import { sendPushNotification } from '@/lib/push';
 import { sendMail, buildApprovalEmail, buildDenialEmail } from '@/lib/mail';
+import { isValidEmail, sanitizeText, validatePassword, isValidRole, BCRYPT_ROUNDS } from '@/lib/validation';
 
 async function ensureNotificationsTables() {
   await pool.query(`
@@ -117,8 +118,16 @@ export async function POST(req: NextRequest) {
     if (action === 'editUser') {
       const { userId: targetId, nombre, email, tipo, password, telefono } = body;
       if (!targetId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
-      if (!nombre?.trim()) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 });
-      if (!email?.trim()) return NextResponse.json({ error: 'Email requerido' }, { status: 400 });
+
+      const nombreSafe = sanitizeText(nombre ?? '', 100);
+      if (!nombreSafe) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 });
+
+      const emailNorm = (email ?? '').toString().toLowerCase().trim();
+      if (!isValidEmail(emailNorm)) return NextResponse.json({ error: 'Formato de correo inválido' }, { status: 400 });
+
+      if (tipo && !isValidRole(tipo)) {
+        return NextResponse.json({ error: 'Rol no válido' }, { status: 400 });
+      }
 
       // Admin cannot elevate to superadmin or edit other admins
       if (user.tipo === 'admin') {
@@ -132,24 +141,29 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Check email not taken by another user
-      const dup = await pool.query('SELECT id FROM users WHERE email = $1 AND id <> $2', [email.trim().toLowerCase(), targetId]);
+      // Case-insensitive duplicate check
+      const dup = await pool.query(
+        'SELECT id FROM users WHERE lower(email) = $1 AND id <> $2',
+        [emailNorm, targetId]
+      );
       if (dup.rows.length > 0) return NextResponse.json({ error: 'El correo ya está en uso por otro usuario' }, { status: 400 });
 
+      const tel = telefono ? sanitizeText(String(telefono), 30) : null;
       let updateQuery: string;
       let params: any[];
-      const tel = telefono?.trim() || null;
 
       if (password?.trim()) {
+        const pwCheck = validatePassword(password.trim());
+        if (!pwCheck.ok) return NextResponse.json({ error: pwCheck.error }, { status: 400 });
         const bcrypt = await import('bcryptjs');
-        const hash = await bcrypt.hash(password.trim(), 10);
+        const hash = await bcrypt.hash(password.trim(), BCRYPT_ROUNDS);
         updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, password_hash=$4, telefono=$5 WHERE id=$6
           RETURNING id, nombre, email, tipo, telefono, avatar, activo, aprobado, denegado`;
-        params = [nombre.trim(), email.trim().toLowerCase(), tipo, hash, tel, targetId];
+        params = [nombreSafe, emailNorm, tipo, hash, tel, targetId];
       } else {
         updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, telefono=$4 WHERE id=$5
           RETURNING id, nombre, email, tipo, telefono, avatar, activo, aprobado, denegado`;
-        params = [nombre.trim(), email.trim().toLowerCase(), tipo, tel, targetId];
+        params = [nombreSafe, emailNorm, tipo, tel, targetId];
       }
 
       const r = await pool.query(updateQuery, params);
@@ -272,24 +286,38 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
       }
 
-      // Company admin can only create regular users
-      let tipoNuevo = body.tipo || 'user';
-      if (user.tipo === 'admin') {
-        tipoNuevo = 'user';
+      const nombreSafe2 = sanitizeText(String(nombre), 100);
+      if (!nombreSafe2) return NextResponse.json({ error: 'Nombre inválido' }, { status: 400 });
+
+      const emailNorm2 = String(email).toLowerCase().trim();
+      if (!isValidEmail(emailNorm2)) {
+        return NextResponse.json({ error: 'Formato de correo inválido' }, { status: 400 });
       }
+
+      const pwCheck2 = validatePassword(String(password));
+      if (!pwCheck2.ok) return NextResponse.json({ error: pwCheck2.error }, { status: 400 });
+
+      // Company admin can only create regular users
+      let tipoNuevo = body.tipo || 'externo';
+      if (user.tipo === 'admin') tipoNuevo = 'externo';
+      if (!isValidRole(tipoNuevo)) tipoNuevo = 'externo';
+
       // Only superadmin can create superadmin accounts
       if (tipoNuevo === 'superadmin' && user.tipo !== 'superadmin') {
         return NextResponse.json({ error: 'No autorizado para crear superadministradores' }, { status: 403 });
       }
 
-      // Check if email already exists
-      const checkRes = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+      // Case-insensitive duplicate check
+      const checkRes = await pool.query(
+        'SELECT id FROM users WHERE lower(email) = $1',
+        [emailNorm2]
+      );
       if (checkRes.rows.length > 0) {
         return NextResponse.json({ error: 'El correo electrónico ya está registrado' }, { status: 400 });
       }
 
       const bcrypt = await import('bcryptjs');
-      const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await bcrypt.hash(String(password).trim(), BCRYPT_ROUNDS);
       const defaultAvatar = `/uploads/avatars/avatar_${Math.floor(Math.random() * 5) + 1}.png`;
 
       const insertQuery = `
@@ -299,8 +327,8 @@ export async function POST(req: NextRequest) {
       `;
 
       const res = await pool.query(insertQuery, [
-        nombre.trim(),
-        email.toLowerCase().trim(),
+        nombreSafe2,
+        emailNorm2,
         passwordHash,
         tipoNuevo,
         defaultAvatar
@@ -366,6 +394,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, user: res.rows[0] });
   } catch (error: any) {
     console.error('Error updating user status:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

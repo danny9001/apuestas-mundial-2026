@@ -5,6 +5,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import sharp from 'sharp';
+import { sanitizeText, validatePassword, BCRYPT_ROUNDS, MAX_AVATAR_BYTES } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,18 +17,23 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    const nombre = formData.get('nombre') as string;
+    const nombreRaw = formData.get('nombre') as string;
     const password = formData.get('password') as string;
     const file = formData.get('avatarFile') as File | null;
 
-    if (!nombre || nombre.trim().length === 0) {
+    const nombreSafe = sanitizeText(nombreRaw ?? '', 100);
+    if (!nombreSafe) {
       return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 });
     }
 
     let avatarPath = user.avatar;
 
-    // Handle avatar upload — convert to WebP 200×200 for consistency and performance
+    // Handle avatar upload — enforce 5 MB limit, convert to WebP 200×200
     if (file && file.size > 0) {
+      if (file.size > MAX_AVATAR_BYTES) {
+        return NextResponse.json({ error: 'El archivo no puede superar 5 MB' }, { status: 400 });
+      }
+
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'avatars');
       await fs.mkdir(uploadDir, { recursive: true });
 
@@ -47,38 +53,39 @@ export async function POST(req: NextRequest) {
 
     // Update in database
     if (password && password.trim().length > 0) {
-      if (password.trim().length < 6) {
-        return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 });
+      const pwCheck = validatePassword(password.trim());
+      if (!pwCheck.ok) {
+        return NextResponse.json({ error: pwCheck.error }, { status: 400 });
       }
-      const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await bcrypt.hash(password.trim(), BCRYPT_ROUNDS);
       await pool.query(
         'UPDATE users SET nombre = $1, avatar = $2, password_hash = $3 WHERE id = $4',
-        [nombre.trim(), avatarPath, passwordHash, user.id]
+        [nombreSafe, avatarPath, passwordHash, user.id]
       );
     } else {
       await pool.query(
         'UPDATE users SET nombre = $1, avatar = $2 WHERE id = $3',
-        [nombre.trim(), avatarPath, user.id]
+        [nombreSafe, avatarPath, user.id]
       );
     }
 
     // Refresh Session Cookie
     const updatedSession = {
       id: user.id,
-      nombre: nombre.trim(),
+      nombre: nombreSafe,
       email: user.email,
       tipo: user.tipo,
       avatar: avatarPath
     };
     await setSession(updatedSession);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: 'Perfil actualizado con éxito',
-      user: updatedSession 
+      user: updatedSession
     });
   } catch (error: any) {
     console.error('Error updating profile:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

@@ -76,6 +76,15 @@ CREATE TABLE passkeys (
   last_used_at TIMESTAMP WITH TIME ZONE
 );
 
+-- WebAuthn challenge store (shared across all app replicas, TTL 5 min)
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+  challenge_key  VARCHAR(300) NOT NULL,
+  challenge      TEXT         NOT NULL,
+  expires_at     TIMESTAMPTZ  NOT NULL DEFAULT (NOW() + INTERVAL '5 minutes'),
+  PRIMARY KEY (challenge_key)
+);
+CREATE INDEX IF NOT EXISTS idx_wac_expires ON webauthn_challenges(expires_at);
+
 -- 6. Create SYNC_LOG table
 CREATE TABLE sync_log (
   id SERIAL PRIMARY KEY,

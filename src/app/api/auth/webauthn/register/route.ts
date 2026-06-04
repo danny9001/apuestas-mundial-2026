@@ -5,18 +5,58 @@ import {
   type VerifiedRegistrationResponse,
 } from '@simplewebauthn/server';
 import pool from '@/lib/db';
-import { getSessionUser, setSession } from '@/lib/auth';
+import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-const rpID = process.env.WEBAUTHN_RP_ID || 'localhost';
 const rpName = process.env.WEBAUTHN_RP_NAME || 'Apuestas Mundial 2026';
-const origin = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
 
-// In-memory challenge store (dev only — use Redis/DB in production)
-const challengeStore = new Map<number, string>();
+function resolveRpContext(req: NextRequest): { rpID: string; origin: string } {
+  const requestUrl = new URL(req.url);
+  let resolvedOrigin =
+    req.headers.get('origin') || req.headers.get('referer') || requestUrl.origin;
+  try { resolvedOrigin = new URL(resolvedOrigin).origin; } catch { /* keep */ }
+  const resolvedRpID = new URL(resolvedOrigin).hostname;
 
-// POST /api/auth/webauthn/register?step=options|verify
+  const envRpID = process.env.WEBAUTHN_RP_ID;
+  const envOrigin = process.env.WEBAUTHN_ORIGIN;
+  const finalRpID =
+    envRpID && envRpID !== 'localhost' && resolvedRpID !== 'localhost' ? envRpID : resolvedRpID;
+  const finalOrigin =
+    envOrigin && !envOrigin.includes('localhost') && !resolvedOrigin.includes('localhost')
+      ? envOrigin
+      : resolvedOrigin;
+
+  return { rpID: finalRpID, origin: finalOrigin };
+}
+
+// Key used in webauthn_challenges table: "reg:<userId>"
+function regKey(userId: number) {
+  return `reg:${userId}`;
+}
+
+async function saveChallenge(key: string, challenge: string): Promise<void> {
+  // Upsert challenge — TTL 5 min. Also purge expired rows opportunistically.
+  await pool.query(`DELETE FROM webauthn_challenges WHERE expires_at < NOW()`);
+  await pool.query(
+    `INSERT INTO webauthn_challenges (challenge_key, challenge, expires_at)
+     VALUES ($1, $2, NOW() + INTERVAL '5 minutes')
+     ON CONFLICT (challenge_key) DO UPDATE
+       SET challenge = EXCLUDED.challenge, expires_at = EXCLUDED.expires_at`,
+    [key, challenge]
+  );
+}
+
+async function consumeChallenge(key: string): Promise<string | null> {
+  const res = await pool.query(
+    `DELETE FROM webauthn_challenges
+     WHERE challenge_key = $1 AND expires_at > NOW()
+     RETURNING challenge`,
+    [key]
+  );
+  return res.rows[0]?.challenge ?? null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser();
@@ -24,32 +64,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Debes iniciar sesión primero' }, { status: 401 });
     }
 
-    const requestUrl = new URL(req.url);
-    let resolvedOrigin = req.headers.get('origin') || req.headers.get('referer') || requestUrl.origin;
-    try {
-      const parsed = new URL(resolvedOrigin);
-      resolvedOrigin = parsed.origin;
-    } catch {
-      resolvedOrigin = requestUrl.origin;
-    }
-    const resolvedRpID = new URL(resolvedOrigin).hostname;
-
-    const envRpID = process.env.WEBAUTHN_RP_ID;
-    const envOrigin = process.env.WEBAUTHN_ORIGIN;
-    let finalRpID = resolvedRpID;
-    let finalOrigin = resolvedOrigin;
-    if (envRpID && envRpID !== 'localhost' && resolvedRpID !== 'localhost' && resolvedRpID !== '127.0.0.1') {
-      finalRpID = envRpID;
-    }
-    if (envOrigin && !envOrigin.includes('localhost') && !resolvedRpID.includes('localhost') && resolvedRpID !== '127.0.0.1') {
-      finalOrigin = envOrigin;
-    }
-
-    const { searchParams } = new URL(req.url);
-    const step = searchParams.get('step');
+    const { rpID: finalRpID, origin: finalOrigin } = resolveRpContext(req);
+    const step = new URL(req.url).searchParams.get('step');
 
     if (step === 'options') {
-      // Fetch existing credentials to exclude them
       const existingRes = await pool.query(
         'SELECT credential_id FROM passkeys WHERE user_id = $1',
         [user.id]
@@ -73,16 +91,16 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      challengeStore.set(user.id, options.challenge);
+      await saveChallenge(regKey(user.id), options.challenge);
       return NextResponse.json(options);
     }
 
     if (step === 'verify') {
       const body = await req.json();
-      const expectedChallenge = challengeStore.get(user.id);
 
+      const expectedChallenge = await consumeChallenge(regKey(user.id));
       if (!expectedChallenge) {
-        return NextResponse.json({ error: 'Challenge expirado o no encontrado' }, { status: 400 });
+        return NextResponse.json({ error: 'Challenge expirado. Volvé a iniciar el registro.' }, { status: 400 });
       }
 
       let verification: VerifiedRegistrationResponse;
@@ -94,14 +112,12 @@ export async function POST(req: NextRequest) {
           expectedRPID: finalRpID,
         });
       } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 400 });
+        return NextResponse.json({ error: 'Verificación fallida' }, { status: 400 });
       }
 
       if (!verification.verified || !verification.registrationInfo) {
         return NextResponse.json({ error: 'Verificación fallida' }, { status: 400 });
       }
-
-      challengeStore.delete(user.id);
 
       const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
 
@@ -126,6 +142,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'step inválido' }, { status: 400 });
   } catch (error: any) {
     console.error('WebAuthn register error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error al registrar passkey' }, { status: 500 });
   }
 }

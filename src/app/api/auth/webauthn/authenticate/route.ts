@@ -8,10 +8,6 @@ import { setSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// Per-session challenge store.
-// Key: email (user-specific) or '__discoverable__' (resident-key / no-email flow)
-const challengeStore = new Map<string, string>();
-
 function resolveRpContext(req: NextRequest): { rpID: string; origin: string } {
   const requestUrl = new URL(req.url);
   let resolvedOrigin =
@@ -31,6 +27,29 @@ function resolveRpContext(req: NextRequest): { rpID: string; origin: string } {
   return { rpID: finalRpID, origin: finalOrigin };
 }
 
+// ── DB-backed challenge store (shared across all app replicas) ──────────────
+
+async function saveChallenge(key: string, challenge: string): Promise<void> {
+  await pool.query(`DELETE FROM webauthn_challenges WHERE expires_at < NOW()`);
+  await pool.query(
+    `INSERT INTO webauthn_challenges (challenge_key, challenge, expires_at)
+     VALUES ($1, $2, NOW() + INTERVAL '5 minutes')
+     ON CONFLICT (challenge_key) DO UPDATE
+       SET challenge = EXCLUDED.challenge, expires_at = EXCLUDED.expires_at`,
+    [key, challenge]
+  );
+}
+
+async function consumeChallenge(key: string): Promise<string | null> {
+  const res = await pool.query(
+    `DELETE FROM webauthn_challenges
+     WHERE challenge_key = $1 AND expires_at > NOW()
+     RETURNING challenge`,
+    [key]
+  );
+  return res.rows[0]?.challenge ?? null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { rpID: finalRpID, origin: finalOrigin } = resolveRpContext(req);
@@ -42,7 +61,7 @@ export async function POST(req: NextRequest) {
       const email: string = body?.email?.toLowerCase().trim() ?? '';
 
       if (email) {
-        // Email-specific flow — filter credentials to this user
+        // Email-specific flow
         const userRes = await pool.query(
           'SELECT id, activo FROM users WHERE lower(email) = $1', [email]
         );
@@ -68,18 +87,17 @@ export async function POST(req: NextRequest) {
             transports: r.transports ?? [],
           })),
         });
-        challengeStore.set(email, options.challenge);
+        await saveChallenge(`auth:${email}`, options.challenge);
         return NextResponse.json(options);
 
       } else {
-        // Resident / discoverable credential flow — no email needed.
-        // Empty allowCredentials triggers the browser passkey picker.
+        // Resident / discoverable credential flow — no email needed
         const options = await generateAuthenticationOptions({
           rpID: finalRpID,
           userVerification: 'required',
           allowCredentials: [],
         });
-        challengeStore.set('__discoverable__', options.challenge);
+        await saveChallenge('auth:__discoverable__', options.challenge);
         return NextResponse.json(options);
       }
     }
@@ -88,11 +106,11 @@ export async function POST(req: NextRequest) {
     if (step === 'verify') {
       const body = await req.json();
       const email: string = body?.email?.toLowerCase().trim() ?? '';
-      const challengeKey = email || '__discoverable__';
+      const challengeKey = email ? `auth:${email}` : 'auth:__discoverable__';
 
-      const expectedChallenge = challengeStore.get(challengeKey);
+      const expectedChallenge = await consumeChallenge(challengeKey);
       if (!expectedChallenge) {
-        return NextResponse.json({ error: 'Challenge expirado o no válido' }, { status: 400 });
+        return NextResponse.json({ error: 'Challenge expirado. Intentá de nuevo.' }, { status: 400 });
       }
 
       const pkRes = await pool.query(
@@ -142,8 +160,6 @@ export async function POST(req: NextRequest) {
       if (!verification.verified) {
         return NextResponse.json({ error: 'Verificación fallida' }, { status: 400 });
       }
-
-      challengeStore.delete(challengeKey);
 
       await pool.query(
         'UPDATE passkeys SET counter = $1, last_used_at = CURRENT_TIMESTAMP WHERE credential_id = $2',

@@ -186,6 +186,7 @@ export default function PWAAppPage() {
   const [passkeyError, setPasskeyError] = useState('');
   const [passkeyRegistering, setPasskeyRegistering] = useState(false);
   const [userPasskeys, setUserPasskeys] = useState<any[]>([]);
+  const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
   const [registerNombre, setRegisterNombre] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
@@ -844,42 +845,45 @@ export default function PWAAppPage() {
     }
   };
 
-  // WebAuthn: autenticar con passkey (login sin contraseña)
+  // WebAuthn: autenticar con passkey (discoverable — sin email)
   const handlePasskeyLogin = async () => {
-    if (!email.trim()) {
-      setPasskeyError('Ingresa tu correo electrónico primero para usar la llave FIDO');
-      return;
-    }
     setPasskeyLoading(true);
     setPasskeyError('');
     try {
       const { startAuthentication } = await import('@simplewebauthn/browser');
+
+      // Request options without email → server returns empty allowCredentials
+      // → browser shows native passkey picker
       const optRes = await fetch('/api/auth/webauthn/authenticate?step=options', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email || '' }),
+        body: JSON.stringify({}),
       });
       if (!optRes.ok) {
         const d = await optRes.json();
-        setPasskeyError(d.error || 'No se encontró passkey para este usuario');
+        setPasskeyError(d.error || 'No se pudo iniciar la autenticación FIDO');
         return;
       }
       const options = await optRes.json();
+
+      // useBrowserAutofill: false so it triggers immediately on button press
       const assertion = await startAuthentication({ optionsJSON: options });
+
       const verRes = await fetch('/api/auth/webauthn/authenticate?step=verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...assertion, email: email || '' }),
+        body: JSON.stringify({ ...assertion }), // no email
       });
       const verData = await verRes.json();
       if (verRes.ok && verData.verified) {
         setUser(verData.user);
+        setActiveTab('dashboard');
       } else {
         setPasskeyError(verData.error || 'Autenticación con passkey fallida');
       }
     } catch (e: any) {
       if (e?.name === 'NotAllowedError') {
-        setPasskeyError('Autenticación cancelada o no permitida');
+        setPasskeyError('Autenticación cancelada');
       } else {
         setPasskeyError(e?.message || 'Error al usar la llave FIDO');
       }
@@ -1325,6 +1329,16 @@ export default function PWAAppPage() {
       if (res.ok) {
         setUser(data.user);
         setActiveTab('dashboard');
+        // Offer passkey setup if user has none (check silently)
+        try {
+          const pkRes = await fetch(`/api/auth/webauthn/passkeys?t=${Date.now()}`);
+          if (pkRes.ok) {
+            const pks = await pkRes.json();
+            if (Array.isArray(pks) && pks.length === 0) {
+              setShowPasskeyPrompt(true);
+            }
+          }
+        } catch { /* non-blocking */ }
       } else {
         setLoginError(data.error || 'Credenciales inválidas');
       }
@@ -3287,63 +3301,17 @@ export default function PWAAppPage() {
 
                   {!isRegistering ? (
                     /* Login Form */
-                    <form onSubmit={handleLogin} className="space-y-4">
-                      <div>
-                        <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
-                        <input
-                          type="email"
-                          required
-                          autoComplete="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="ej: diego@mundial.com"
-                          className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
-                        />
-                      </div>
+                    <div className="space-y-4">
 
-                      <div>
-                        <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña</label>
-                        <input
-                          type="password"
-                          required
-                          autoComplete="current-password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Contraseña de acceso"
-                          className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
-                        />
-                      </div>
-
-                      {loginError && (
-                        <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                          <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                          <span>{loginError}</span>
-                        </div>
-                      )}
-
-                      <button
-                        type="submit"
-                        disabled={loginLoading}
-                        className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
-                      >
-                        {loginLoading ? 'Iniciando Sesión...' : 'Entrar a la Quiniela'}
-                      </button>
-
-                      {/* Passkey login button */}
-                      <div className="relative flex items-center gap-2 my-1">
-                        <div className="flex-1 h-px bg-neutral-800"></div>
-                        <span className="text-[10px] text-neutral-600 uppercase tracking-widest font-bold">o</span>
-                        <div className="flex-1 h-px bg-neutral-800"></div>
-                      </div>
-
+                      {/* ── FIDO / Passkey — primer opción, sin contraseña ── */}
                       <button
                         type="button"
                         onClick={handlePasskeyLogin}
                         disabled={passkeyLoading}
-                        className="w-full bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-600 text-neutral-300 py-3 text-sm font-bold rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.99]"
+                        className="w-full bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 hover:border-yellow-500/60 text-yellow-300 py-4 text-sm font-black rounded-2xl transition flex items-center justify-center gap-3 active:scale-[0.99] tracking-wide"
                       >
-                        <span className="text-lg">🔑</span>
-                        <span>{passkeyLoading ? 'Verificando...' : 'Entrar con Llave FIDO / Passkey'}</span>
+                        <KeyRound className="w-5 h-5" />
+                        <span>{passkeyLoading ? 'Abriendo selector de llave...' : 'Entrar con Passkey / FIDO'}</span>
                       </button>
 
                       {passkeyError && (
@@ -3353,16 +3321,66 @@ export default function PWAAppPage() {
                         </div>
                       )}
 
-                      <div className="text-center pt-1">
-                        <button
-                          type="button"
-                          onClick={() => { setIsRegistering(true); setLoginError(''); }}
-                          className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
-                        >
-                          ¿No tienes cuenta? Regístrate aquí
-                        </button>
+                      {/* ── Separador ── */}
+                      <div className="relative flex items-center gap-2">
+                        <div className="flex-1 h-px bg-neutral-800"></div>
+                        <span className="text-[10px] text-neutral-600 uppercase tracking-widest font-bold">o ingresa con contraseña</span>
+                        <div className="flex-1 h-px bg-neutral-800"></div>
                       </div>
-                    </form>
+
+                      <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                          <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
+                          <input
+                            type="email"
+                            required
+                            autoComplete="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="ej: diego@mundial.com"
+                            className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña</label>
+                          <input
+                            type="password"
+                            required
+                            autoComplete="current-password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Contraseña de acceso"
+                            className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
+                          />
+                        </div>
+
+                        {loginError && (
+                          <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                            <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                            <span>{loginError}</span>
+                          </div>
+                        )}
+
+                        <button
+                          type="submit"
+                          disabled={loginLoading}
+                          className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
+                        >
+                          {loginLoading ? 'Iniciando Sesión...' : 'Entrar a la Quiniela'}
+                        </button>
+
+                        <div className="text-center pt-1">
+                          <button
+                            type="button"
+                            onClick={() => { setIsRegistering(true); setLoginError(''); setPasskeyError(''); }}
+                            className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
+                          >
+                            ¿No tienes cuenta? Regístrate aquí
+                          </button>
+                        </div>
+                      </form>
+                    </div>
                   ) : (
                     /* Register Form */
                     <form onSubmit={handleRegister} className="space-y-4">
@@ -5438,6 +5456,52 @@ export default function PWAAppPage() {
               >
                 Cerrar sesión
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Configurar Passkey post-login ──────────────────────────── */}
+      {showPasskeyPrompt && user && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-3xl p-7 max-w-sm w-full shadow-2xl animate-fade-in">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-16 h-16 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl flex items-center justify-center">
+                <KeyRound className="w-8 h-8 text-yellow-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-neutral-100 uppercase tracking-wider">Acceso sin contraseña</h2>
+                <p className="text-neutral-400 text-xs mt-2 leading-relaxed">
+                  Podés registrar una llave FIDO o Passkey en este dispositivo para entrar la próxima vez con un solo toque, sin escribir nada.
+                </p>
+              </div>
+
+              {passkeyError && (
+                <div className="w-full flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                  <span>{passkeyError}</span>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2 w-full pt-1">
+                <button
+                  onClick={async () => {
+                    await handlePasskeyRegister();
+                    setShowPasskeyPrompt(false);
+                  }}
+                  disabled={passkeyRegistering}
+                  className="w-full bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 hover:border-yellow-500/60 text-yellow-300 py-3 text-sm font-black rounded-xl transition flex items-center justify-center gap-2"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  <span>{passkeyRegistering ? 'Registrando...' : 'Configurar Passkey / FIDO ahora'}</span>
+                </button>
+                <button
+                  onClick={() => setShowPasskeyPrompt(false)}
+                  className="w-full bg-transparent hover:bg-neutral-800 border border-neutral-800 text-neutral-500 hover:text-neutral-300 py-2.5 text-xs font-bold rounded-xl transition"
+                >
+                  Ahora no
+                </button>
+              </div>
             </div>
           </div>
         </div>

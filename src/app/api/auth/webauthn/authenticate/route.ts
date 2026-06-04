@@ -8,100 +8,118 @@ import { setSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-const rpID = process.env.WEBAUTHN_RP_ID || 'localhost';
-const origin = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
-
-// Per-session challenge store (email → challenge)
+// Per-session challenge store.
+// Key: email (user-specific) or '__discoverable__' (resident-key / no-email flow)
 const challengeStore = new Map<string, string>();
 
-// POST /api/auth/webauthn/authenticate?step=options|verify
+function resolveRpContext(req: NextRequest): { rpID: string; origin: string } {
+  const requestUrl = new URL(req.url);
+  let resolvedOrigin =
+    req.headers.get('origin') || req.headers.get('referer') || requestUrl.origin;
+  try { resolvedOrigin = new URL(resolvedOrigin).origin; } catch { /* keep */ }
+  const resolvedRpID = new URL(resolvedOrigin).hostname;
+
+  const envRpID = process.env.WEBAUTHN_RP_ID;
+  const envOrigin = process.env.WEBAUTHN_ORIGIN;
+  const finalRpID =
+    envRpID && envRpID !== 'localhost' && resolvedRpID !== 'localhost' ? envRpID : resolvedRpID;
+  const finalOrigin =
+    envOrigin && !envOrigin.includes('localhost') && !resolvedOrigin.includes('localhost')
+      ? envOrigin
+      : resolvedOrigin;
+
+  return { rpID: finalRpID, origin: finalOrigin };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const requestUrl = new URL(req.url);
-    let resolvedOrigin = req.headers.get('origin') || req.headers.get('referer') || requestUrl.origin;
-    try {
-      const parsed = new URL(resolvedOrigin);
-      resolvedOrigin = parsed.origin;
-    } catch {
-      resolvedOrigin = requestUrl.origin;
-    }
-    const resolvedRpID = new URL(resolvedOrigin).hostname;
+    const { rpID: finalRpID, origin: finalOrigin } = resolveRpContext(req);
+    const step = new URL(req.url).searchParams.get('step');
 
-    const envRpID = process.env.WEBAUTHN_RP_ID;
-    const envOrigin = process.env.WEBAUTHN_ORIGIN;
-    let finalRpID = resolvedRpID;
-    let finalOrigin = resolvedOrigin;
-    if (envRpID && envRpID !== 'localhost' && resolvedRpID !== 'localhost' && resolvedRpID !== '127.0.0.1') {
-      finalRpID = envRpID;
-    }
-    if (envOrigin && !envOrigin.includes('localhost') && !resolvedRpID.includes('localhost') && resolvedRpID !== '127.0.0.1') {
-      finalOrigin = envOrigin;
-    }
-
-    const { searchParams } = new URL(req.url);
-    const step = searchParams.get('step');
-
+    // ── OPTIONS ─────────────────────────────────────────────────────────────
     if (step === 'options') {
-      const { email } = await req.json();
-      if (!email) return NextResponse.json({ error: 'Email requerido' }, { status: 400 });
+      const body = await req.json().catch(() => ({}));
+      const email: string = body?.email?.toLowerCase().trim() ?? '';
 
-      // Find user's passkeys
-      const userRes = await pool.query(
-        'SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo FROM users u WHERE u.email = $1',
-        [email.toLowerCase().trim()]
-      );
-      if (userRes.rows.length === 0) {
-        return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+      if (email) {
+        // Email-specific flow — filter credentials to this user
+        const userRes = await pool.query(
+          'SELECT id, activo FROM users WHERE lower(email) = $1', [email]
+        );
+        if (userRes.rows.length === 0) {
+          return NextResponse.json({ error: 'No se encontró passkey para este usuario' }, { status: 404 });
+        }
+        const user = userRes.rows[0];
+        if (!user.activo) return NextResponse.json({ error: 'Usuario desactivado' }, { status: 403 });
+
+        const passkeysRes = await pool.query(
+          'SELECT credential_id, transports FROM passkeys WHERE user_id = $1', [user.id]
+        );
+        if (passkeysRes.rows.length === 0) {
+          return NextResponse.json({ error: 'Este usuario no tiene passkeys registradas' }, { status: 404 });
+        }
+
+        const options = await generateAuthenticationOptions({
+          rpID: finalRpID,
+          userVerification: 'preferred',
+          allowCredentials: passkeysRes.rows.map((r) => ({
+            id: r.credential_id,
+            type: 'public-key' as const,
+            transports: r.transports ?? [],
+          })),
+        });
+        challengeStore.set(email, options.challenge);
+        return NextResponse.json(options);
+
+      } else {
+        // Resident / discoverable credential flow — no email needed.
+        // Empty allowCredentials triggers the browser passkey picker.
+        const options = await generateAuthenticationOptions({
+          rpID: finalRpID,
+          userVerification: 'required',
+          allowCredentials: [],
+        });
+        challengeStore.set('__discoverable__', options.challenge);
+        return NextResponse.json(options);
       }
-      const user = userRes.rows[0];
-      if (!user.activo) {
-        return NextResponse.json({ error: 'Usuario desactivado' }, { status: 403 });
-      }
-
-      const passkeysRes = await pool.query(
-        'SELECT credential_id, transports FROM passkeys WHERE user_id = $1',
-        [user.id]
-      );
-
-      const allowCredentials = passkeysRes.rows.map((r) => ({
-        id: r.credential_id,
-        type: 'public-key' as const,
-        transports: r.transports ?? [],
-      }));
-
-      const options = await generateAuthenticationOptions({
-        rpID: finalRpID,
-        userVerification: 'preferred',
-        allowCredentials,
-      });
-
-      challengeStore.set(email.toLowerCase(), options.challenge);
-      return NextResponse.json(options);
     }
 
+    // ── VERIFY ──────────────────────────────────────────────────────────────
     if (step === 'verify') {
       const body = await req.json();
-      const { email } = body;
-      if (!email) return NextResponse.json({ error: 'Email requerido' }, { status: 400 });
+      const email: string = body?.email?.toLowerCase().trim() ?? '';
+      const challengeKey = email || '__discoverable__';
 
-      const expectedChallenge = challengeStore.get(email.toLowerCase());
+      const expectedChallenge = challengeStore.get(challengeKey);
       if (!expectedChallenge) {
-        return NextResponse.json({ error: 'Challenge expirado' }, { status: 400 });
+        return NextResponse.json({ error: 'Challenge expirado o no válido' }, { status: 400 });
       }
 
-      // Find the passkey
       const pkRes = await pool.query(
-        `SELECT pk.*, u.id as uid, u.nombre, u.email, u.tipo, u.avatar, u.activo
+        `SELECT pk.credential_id, pk.public_key, pk.counter, pk.transports,
+                u.id AS uid, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado
          FROM passkeys pk
          JOIN users u ON pk.user_id = u.id
          WHERE pk.credential_id = $1`,
         [body.id]
       );
       if (pkRes.rows.length === 0) {
-        return NextResponse.json({ error: 'Passkey no registrada' }, { status: 404 });
+        return NextResponse.json({ error: 'Passkey no registrada en este sistema' }, { status: 404 });
       }
 
       const pk = pkRes.rows[0];
+      if (!pk.activo) return NextResponse.json({ error: 'Usuario desactivado' }, { status: 403 });
+
+      // Resident-key: validate userHandle matches the DB user
+      if (!email && body.response?.userHandle) {
+        try {
+          const pad = (body.response.userHandle as string).replace(/-/g, '+').replace(/_/g, '/');
+          const handleId = new TextDecoder().decode(Uint8Array.from(atob(pad), (c) => c.charCodeAt(0)));
+          if (String(pk.uid) !== handleId) {
+            return NextResponse.json({ error: 'Identidad no coincide' }, { status: 403 });
+          }
+        } catch { /* malformed — let verifyAuthenticationResponse fail */ }
+      }
 
       let verification;
       try {
@@ -117,38 +135,39 @@ export async function POST(req: NextRequest) {
             transports: pk.transports ?? [],
           },
         });
-      } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 400 });
+      } catch {
+        return NextResponse.json({ error: 'Verificación fallida' }, { status: 400 });
       }
 
       if (!verification.verified) {
         return NextResponse.json({ error: 'Verificación fallida' }, { status: 400 });
       }
 
-      challengeStore.delete(email.toLowerCase());
+      challengeStore.delete(challengeKey);
 
-      // Update counter
       await pool.query(
         'UPDATE passkeys SET counter = $1, last_used_at = CURRENT_TIMESTAMP WHERE credential_id = $2',
         [verification.authenticationInfo.newCounter, pk.credential_id]
       );
 
-      // Create session
       const sessionData = {
-        id: pk.uid,
-        nombre: pk.nombre,
-        email: pk.email,
-        tipo: pk.tipo,
-        avatar: pk.avatar,
+        id: pk.uid, nombre: pk.nombre, email: pk.email,
+        tipo: pk.tipo, avatar: pk.avatar, aprobado: !!pk.aprobado,
       };
       await setSession(sessionData);
 
-      return NextResponse.json({ verified: true, user: sessionData });
+      const compRes = await pool.query(
+        `SELECT c.id, c.nombre, c.color, c.monto_participacion FROM companies c
+         JOIN user_companies uc ON uc.company_id = c.id WHERE uc.user_id = $1`,
+        [pk.uid]
+      );
+
+      return NextResponse.json({ verified: true, user: { ...sessionData, companies: compRes.rows } });
     }
 
     return NextResponse.json({ error: 'step inválido' }, { status: 400 });
   } catch (error: any) {
     console.error('WebAuthn authenticate error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error de autenticación' }, { status: 500 });
   }
 }

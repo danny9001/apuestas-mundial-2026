@@ -1,4 +1,4 @@
-const CACHE_NAME = 'apuestas-mundial-2026-v2';
+const CACHE_NAME = 'apuestas-mundial-2026-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',

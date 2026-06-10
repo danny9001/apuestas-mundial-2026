@@ -195,6 +195,7 @@ export default function PWAAppPage() {
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [registerError, setRegisterError] = useState('');
   const [registerLoading, setRegisterLoading] = useState(false);
+  const [showLocalLogin, setShowLocalLogin] = useState(false);
 
   // Active Bottom Tab
   const [activeTab, setActiveTab] = useState<'dashboard' | 'partidos' | 'ranking' | 'perfil' | 'admin' | 'fixture' | 'reglas'>('dashboard');
@@ -3273,80 +3274,74 @@ export default function PWAAppPage() {
                   </div>
 
                   {!isRegistering ? (
-                    /* Login Form */
-                    <div className="space-y-4">
+                    /* Login — Identity SSO principal */
+                    <div className="space-y-5">
 
-                      {/* ── Identity SSO ── */}
                       <button
                         type="button"
                         onClick={handleIdentityLogin}
-                        className="w-full bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 hover:border-yellow-500/60 text-yellow-300 py-4 text-sm font-black rounded-2xl transition flex items-center justify-center gap-3 active:scale-[0.99] tracking-wide"
+                        className="w-full bg-yellow-500 hover:bg-yellow-400 text-neutral-900 py-4 text-sm font-black rounded-2xl transition flex items-center justify-center gap-3 active:scale-[0.99] tracking-wide shadow-lg shadow-yellow-500/20"
                       >
                         <KeyRound className="w-5 h-5" />
-                        <span>Entrar con ElitePass Identity</span>
+                        <span>Ingresar con ElitePass Identity</span>
                       </button>
 
-                      {/* ── Separador ── */}
-                      <div className="relative flex items-center gap-2">
-                        <div className="flex-1 h-px bg-neutral-800"></div>
-                        <span className="text-[10px] text-neutral-600 uppercase tracking-widest font-bold">o ingresa con tu cuenta</span>
-                        <div className="flex-1 h-px bg-neutral-800"></div>
-                      </div>
+                      <p className="text-[10px] text-neutral-500 text-center leading-relaxed">
+                        Usá tu cuenta de ElitePass para acceder a la quiniela del Mundial.
+                      </p>
 
-                      <form onSubmit={handleLogin} className="space-y-4">
-                        <div>
-                          <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
-                          <input
-                            type="email"
-                            required
-                            autoComplete="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="ej: diego@mundial.com"
-                            className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña</label>
-                          <input
-                            type="password"
-                            required
-                            autoComplete="current-password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Contraseña de acceso"
-                            className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
-                          />
-                        </div>
-
-                        {loginError && (
-                          <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                            <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                            <span>{loginError}</span>
-                          </div>
-                        )}
-
+                      <div className="border-t border-neutral-800 pt-4 space-y-2">
                         <button
-                          type="submit"
-                          disabled={loginLoading}
-                          className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
+                          type="button"
+                          onClick={() => { setIsRegistering(true); setLoginError(''); }}
+                          className="w-full text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline py-1"
                         >
-                          {loginLoading ? 'Iniciando Sesión...' : 'Entrar a la Quiniela'}
+                          ¿No tenés cuenta? Solicitá acceso
                         </button>
-
-                        <div className="text-center pt-1">
-                          <button
-                            type="button"
-                            onClick={() => { setIsRegistering(true); setLoginError(''); setPasskeyError(''); }}
-                            className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
-                          >
-                            ¿No tienes cuenta? Regístrate aquí
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowLocalLogin((v: boolean) => !v)}
+                          className="w-full text-neutral-600 hover:text-neutral-400 text-[10px] transition py-1"
+                        >
+                          Ingresar con contraseña local
+                        </button>
+                        {showLocalLogin && (
+                          <form onSubmit={handleLogin} className="space-y-3 pt-2">
+                            <input
+                              type="email"
+                              required
+                              autoComplete="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              placeholder="Correo electrónico"
+                              className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700"
+                            />
+                            <input
+                              type="password"
+                              required
+                              autoComplete="current-password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              placeholder="Contraseña"
+                              className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700"
+                            />
+                            {loginError && (
+                              <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                                <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                                <span>{loginError}</span>
+                              </div>
+                            )}
+                            <button
+                              type="submit"
+                              disabled={loginLoading}
+                              className="w-full btn-primary-stitch py-3 text-xs transition tracking-wider uppercase"
+                            >
+                              {loginLoading ? 'Verificando...' : 'Entrar'}
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                    </div>                  ) : (
                     /* Register Form */
                     <form onSubmit={handleRegister} className="space-y-4">
                       <div>

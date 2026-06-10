@@ -3295,8 +3295,6 @@ export default function PWAAppPage() {
                         </a>
                       </div>
                     </div>
-
-                    </div>
                 </div>
               ) : (
                 <>

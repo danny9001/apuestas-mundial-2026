@@ -29,21 +29,28 @@ function getIdentitySecret(): string {
   return s;
 }
 
+// Siempre usa la URL pública del sitio — nunca req.url (que puede ser 0.0.0.0 en contenedores)
+function siteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mundial.genial-it.net').replace(/\/$/, '');
+}
+
 export async function GET(req: NextRequest) {
+  const base = siteUrl();
+
   try {
     const { searchParams } = new URL(req.url);
     const token      = searchParams.get('token');
     const redirectTo = searchParams.get('redirect') ?? '/';
 
     if (!token) {
-      return NextResponse.redirect(new URL('/?error=no_token', req.url));
+      return NextResponse.redirect(`${base}/?error=no_token`);
     }
 
     let payload: IdentityToken;
     try {
       payload = jwt.verify(token, getIdentitySecret()) as IdentityToken;
     } catch {
-      return NextResponse.redirect(new URL('/?error=invalid_token', req.url));
+      return NextResponse.redirect(`${base}/?error=invalid_token`);
     }
 
     // Determinar tipo en mundial desde el JWT
@@ -52,9 +59,9 @@ export async function GET(req: NextRequest) {
     if (payload.role === 'superadmin') {
       tipoMundial = 'superadmin';
     } else {
-      // Usar appRoles['mundial'] desde el JWT si está disponible
+      // Buscar rol específico para app 'mundial' en las licencias del JWT
       const mundialApp = payload.empresas
-        ?.flatMap((e) => Object.entries(e.apps))
+        ?.flatMap((e) => Object.entries(e.apps ?? {}))
         .find(([slug]) => slug === 'mundial');
       const rolFromJwt = mundialApp?.[1]?.rol;
 
@@ -96,11 +103,10 @@ export async function GET(req: NextRequest) {
       avatar: user.avatar ?? '',
     });
 
-    const base = process.env.APP_BASE_URL ?? 'http://localhost:3002';
-    const dest = redirectTo.startsWith('http') ? redirectTo : `${base}${redirectTo}`;
+    const dest = redirectTo.startsWith('http') ? redirectTo : `${base}${redirectTo.startsWith('/') ? '' : '/'}${redirectTo}`;
     return NextResponse.redirect(dest);
   } catch (err) {
     console.error('identity-callback error:', err);
-    return NextResponse.redirect(new URL('/?error=sso_failed', req.url));
+    return NextResponse.redirect(`${base}/?error=sso_failed`);
   }
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { getSessionUser, setSession, clearSession } from '@/lib/auth';
-import { isValidEmail, DUMMY_BCRYPT_HASH } from '@/lib/validation';
+import { isValidEmail, validatePassword, sanitizeText, DUMMY_BCRYPT_HASH } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,6 @@ export async function GET() {
     return response;
   }
 
-  // Fetch companies for this user
   const compRes = await pool.query(
     `SELECT c.id, c.nombre, c.color, c.monto_participacion FROM companies c
      JOIN user_companies uc ON uc.company_id = c.id
@@ -23,79 +22,69 @@ export async function GET() {
     [user.id]
   );
 
-  const userWithCompanies = {
-    ...user,
-    companies: compRes.rows
-  };
-
-  const response = NextResponse.json({ authenticated: true, user: userWithCompanies });
+  const response = NextResponse.json({
+    authenticated: true,
+    user: { ...user, companies: compRes.rows },
+  });
   response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
   return response;
 }
 
-// POST: login
+// POST: login local con email + password
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body) return NextResponse.json({ error: 'Cuerpo de solicitud inválido' }, { status: 400 });
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Falta email o contraseña' }, { status: 400 });
+    const email = typeof body.email === 'string' ? body.email.toLowerCase().trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+
+    if (!isValidEmail(email) || !password) {
+      return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 400 });
     }
 
-    const emailNorm = (email as string).toLowerCase().trim();
-    if (!isValidEmail(emailNorm)) {
-      return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
-    }
-
-    // Fetch user
     const res = await pool.query(
-      'SELECT id, nombre, email, password_hash, tipo, avatar, activo, aprobado FROM users WHERE email = $1',
-      [emailNorm]
+      'SELECT id, nombre, email, password_hash, tipo, avatar, activo, aprobado, denegado FROM users WHERE email = $1',
+      [email]
     );
-
-    // Always run bcrypt to prevent user-enumeration via timing
-    const hash = res.rows[0]?.password_hash ?? DUMMY_BCRYPT_HASH;
-    const passwordMatch = await bcrypt.compare(password as string, hash);
-
-    if (res.rows.length === 0 || !passwordMatch) {
-      return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
-    }
 
     const user = res.rows[0];
 
-    if (!user.activo) {
-      return NextResponse.json({ error: 'Usuario desactivado por el administrador' }, { status: 403 });
+    // Constant-time comparison even if user doesn't exist
+    const hashToCompare = user?.password_hash ?? DUMMY_BCRYPT_HASH;
+    const match = await bcrypt.compare(password, hashToCompare);
+
+    if (!user || !match) {
+      return NextResponse.json({ error: 'Correo o contraseña incorrectos' }, { status: 401 });
     }
 
-    // Set cookie session
-    const sessionData = {
-      id: user.id,
+    if (!user.activo) {
+      return NextResponse.json({ error: 'Tu cuenta ha sido desactivada' }, { status: 403 });
+    }
+
+    if (user.denegado) {
+      return NextResponse.json({ error: 'Tu solicitud de acceso fue rechazada' }, { status: 403 });
+    }
+
+    if (!user.aprobado) {
+      return NextResponse.json(
+        { error: 'Tu cuenta está pendiente de aprobación por el administrador' },
+        { status: 403 }
+      );
+    }
+
+    await setSession({
+      id:     user.id,
       nombre: user.nombre,
-      email: user.email,
-      tipo: user.tipo,
-      avatar: user.avatar,
-      aprobado: !!user.aprobado
-    };
+      email:  user.email,
+      tipo:   user.tipo,
+      avatar: user.avatar ?? '',
+    });
 
-    await setSession(sessionData);
-
-    // Fetch companies for this user
-    const compRes = await pool.query(
-      `SELECT c.id, c.nombre, c.color, c.monto_participacion FROM companies c
-       JOIN user_companies uc ON uc.company_id = c.id
-       WHERE uc.user_id = $1`,
-      [user.id]
-    );
-
-    const userWithCompanies = {
-      ...sessionData,
-      companies: compRes.rows
-    };
-
-    return NextResponse.json({ success: true, user: userWithCompanies });
-  } catch (error: any) {
-    console.error('Login error:', error);
-    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('Login error:', err);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
 

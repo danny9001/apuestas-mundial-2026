@@ -851,50 +851,9 @@ export default function PWAAppPage() {
   };
 
   // WebAuthn: autenticar con passkey (discoverable — sin email)
-  const handlePasskeyLogin = async () => {
-    setPasskeyLoading(true);
-    setPasskeyError('');
-    try {
-      const { startAuthentication } = await import('@simplewebauthn/browser');
-
-      // Request options without email → server returns empty allowCredentials
-      // → browser shows native passkey picker
-      const optRes = await fetch('/api/auth/webauthn/authenticate?step=options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (!optRes.ok) {
-        const d = await optRes.json();
-        setPasskeyError(d.error || 'No se pudo iniciar la autenticación FIDO');
-        return;
-      }
-      const options = await optRes.json();
-
-      // useBrowserAutofill: false so it triggers immediately on button press
-      const assertion = await startAuthentication({ optionsJSON: options });
-
-      const verRes = await fetch('/api/auth/webauthn/authenticate?step=verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...assertion }), // no email
-      });
-      const verData = await verRes.json();
-      if (verRes.ok && verData.verified) {
-        setUser(verData.user);
-        setActiveTab('dashboard');
-      } else {
-        setPasskeyError(verData.error || 'Autenticación con passkey fallida');
-      }
-    } catch (e: any) {
-      if (e?.name === 'NotAllowedError') {
-        setPasskeyError('Autenticación cancelada');
-      } else {
-        setPasskeyError(e?.message || 'Error al usar la llave FIDO');
-      }
-    } finally {
-      setPasskeyLoading(false);
-    }
+  const handlePasskeyLogin = () => {
+    const callbackUrl = encodeURIComponent(`${window.location.origin}/api/auth/identity-callback?redirect=/`);
+    window.location.href = `https://id.genial-it.net/login?redirect=${callbackUrl}&app=mundial`;
   };
 
   // WebAuthn: registrar nueva passkey (desde perfil)
@@ -1329,36 +1288,28 @@ export default function PWAAppPage() {
     e.preventDefault();
     setLoginError('');
     setLoginLoading(true);
-
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
-
       const data = await res.json();
       if (res.ok) {
-        setUser(data.user);
-        setActiveTab('dashboard');
-        // Offer passkey setup if user has none (check silently)
-        try {
-          const pkRes = await fetch(`/api/auth/webauthn/passkeys?t=${Date.now()}`);
-          if (pkRes.ok) {
-            const pks = await pkRes.json();
-            if (Array.isArray(pks) && pks.length === 0) {
-              setShowPasskeyPrompt(true);
-            }
-          }
-        } catch { /* non-blocking */ }
+        window.location.reload();
       } else {
-        setLoginError(data.error || 'Credenciales inválidas');
+        setLoginError(data.error || 'Credenciales incorrectas');
       }
-    } catch (err) {
-      setLoginError('Error de red al intentar iniciar sesión');
+    } catch {
+      setLoginError('Error de red. Intenta de nuevo.');
     } finally {
       setLoginLoading(false);
     }
+  };
+
+  const handleIdentityLogin = () => {
+    const callbackUrl = encodeURIComponent(`${window.location.origin}/api/auth/identity-callback?redirect=/`);
+    window.location.href = `https://id.genial-it.net/login?redirect=${callbackUrl}&app=mundial`;
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -1387,10 +1338,8 @@ export default function PWAAppPage() {
 
       const data = await res.json();
       if (res.ok) {
-        setUser(data.user);
-        setActiveTab('dashboard');
-        showToast('¡Registro exitoso! Bienvenido.');
-        // Clean form states
+        setRegisterError('');
+        showToast(data.message || '¡Cuenta creada! Pendiente de aprobación.');
         setRegisterNombre('');
         setRegisterEmail('');
         setRegisterPassword('');
@@ -3327,28 +3276,20 @@ export default function PWAAppPage() {
                     /* Login Form */
                     <div className="space-y-4">
 
-                      {/* ── FIDO / Passkey — primer opción, sin contraseña ── */}
+                      {/* ── Identity SSO ── */}
                       <button
                         type="button"
-                        onClick={handlePasskeyLogin}
-                        disabled={passkeyLoading}
+                        onClick={handleIdentityLogin}
                         className="w-full bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 hover:border-yellow-500/60 text-yellow-300 py-4 text-sm font-black rounded-2xl transition flex items-center justify-center gap-3 active:scale-[0.99] tracking-wide"
                       >
                         <KeyRound className="w-5 h-5" />
-                        <span>{passkeyLoading ? 'Abriendo selector de llave...' : 'Entrar con Passkey / FIDO'}</span>
+                        <span>Entrar con ElitePass Identity</span>
                       </button>
-
-                      {passkeyError && (
-                        <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                          <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                          <span>{passkeyError}</span>
-                        </div>
-                      )}
 
                       {/* ── Separador ── */}
                       <div className="relative flex items-center gap-2">
                         <div className="flex-1 h-px bg-neutral-800"></div>
-                        <span className="text-[10px] text-neutral-600 uppercase tracking-widest font-bold">o ingresa con contraseña</span>
+                        <span className="text-[10px] text-neutral-600 uppercase tracking-widest font-bold">o ingresa con tu cuenta</span>
                         <div className="flex-1 h-px bg-neutral-800"></div>
                       </div>
 
@@ -3489,8 +3430,12 @@ export default function PWAAppPage() {
                         disabled={registerLoading}
                         className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
                       >
-                        {registerLoading ? 'Creando Cuenta...' : 'Registrarme ahora'}
+                        {registerLoading ? 'Creando Cuenta...' : 'Solicitar acceso'}
                       </button>
+
+                      <p className="text-[10px] text-neutral-500 text-center leading-relaxed">
+                        Tu cuenta quedará pendiente de aprobación. El administrador revisará tu solicitud y te dará acceso.
+                      </p>
 
                       <div className="text-center pt-2">
                         <button

@@ -1,154 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
-import { setSession } from '@/lib/auth';
-import { broadcastUpdate } from '@/lib/realtime';
-import { sendPushToAdmins } from '@/lib/push';
-import { sendMail, buildNewUserEmail } from '@/lib/mail';
-import { isValidEmail, sanitizeText, validatePassword, BCRYPT_ROUNDS } from '@/lib/validation';
+import { isValidEmail, validatePassword, sanitizeText, BCRYPT_ROUNDS } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
+// POST: auto-registro de usuarios en mundial
 export async function POST(req: NextRequest) {
   try {
-    const { nombre, email, password, telefono, company_id, company_ids } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body) return NextResponse.json({ error: 'Cuerpo de solicitud inválido' }, { status: 400 });
 
-    if (!nombre || !email || !password) {
-      return NextResponse.json({ error: 'Todos los campos son obligatorios' }, { status: 400 });
+    const nombre   = sanitizeText(String(body.nombre ?? ''), 100);
+    const email    = String(body.email ?? '').toLowerCase().trim();
+    const password = String(body.password ?? '');
+    const telefono = body.telefono ? sanitizeText(String(body.telefono), 30) : null;
+    const companyIds: number[] = Array.isArray(body.company_ids)
+      ? body.company_ids.map((v: unknown) => Number(v)).filter((n: number) => Number.isFinite(n) && n > 0)
+      : [];
+
+    if (!nombre || nombre.length < 2) {
+      return NextResponse.json({ error: 'El nombre es requerido (mín. 2 caracteres)' }, { status: 400 });
     }
 
-    const emailNorm = (email as string).toLowerCase().trim();
-    if (!isValidEmail(emailNorm)) {
-      return NextResponse.json({ error: 'Formato de correo electrónico inválido' }, { status: 400 });
+    if (!isValidEmail(email)) {
+      return NextResponse.json({ error: 'El correo electrónico no es válido' }, { status: 400 });
     }
 
-    const pwCheck = validatePassword(password as string);
+    const pwCheck = validatePassword(password);
     if (!pwCheck.ok) {
       return NextResponse.json({ error: pwCheck.error }, { status: 400 });
     }
 
-    const nombreSafe = sanitizeText(nombre as string, 100);
-    if (!nombreSafe) {
-      return NextResponse.json({ error: 'El nombre no puede estar vacío' }, { status: 400 });
+    // Verificar que el email no esté en uso
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      return NextResponse.json(
+        { error: 'Ya existe una cuenta con ese correo electrónico' },
+        { status: 409 }
+      );
     }
 
-    // Case-insensitive duplicate check (email already normalised to lowercase)
-    const duplicateCheck = await pool.query(
-      'SELECT id FROM users WHERE lower(email) = $1',
-      [emailNorm]
-    );
-    if (duplicateCheck.rows.length > 0) {
-      return NextResponse.json({ error: 'El correo electrónico ya está registrado' }, { status: 409 });
+    // Verificar company_ids válidos si se proporcionaron
+    if (companyIds.length > 0) {
+      const compCheck = await pool.query(
+        'SELECT id FROM companies WHERE id = ANY($1) AND activo = true',
+        [companyIds]
+      );
+      if (compCheck.rows.length !== companyIds.length) {
+        return NextResponse.json({ error: 'Una o más empresas seleccionadas no son válidas' }, { status: 400 });
+      }
     }
 
-    // Hash with cost factor 12 (≈250 ms — brute-force resistant)
-    const passwordHash = await bcrypt.hash((password as string).trim(), BCRYPT_ROUNDS);
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-    // Dynamic avatar seed from Dicebear
-    const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(nombreSafe)}`;
-
-    // Insert user — telefono is optional
+    // Insertar usuario — aprobado=false hasta que el admin apruebe
     const insertRes = await pool.query(
-      `INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado, telefono)
-       VALUES ($1, $2, $3, $4, $5, true, false, $6)
-       RETURNING id, nombre, email, tipo, avatar, aprobado, telefono`,
-      [nombreSafe, emailNorm, passwordHash, 'externo', avatarUrl, telefono ? sanitizeText(String(telefono), 30) : null]
+      `INSERT INTO users (nombre, email, password_hash, tipo, telefono, activo, aprobado)
+       VALUES ($1, $2, $3, 'externo', $4, true, false)
+       RETURNING id`,
+      [nombre, email, passwordHash, telefono]
     );
 
-    const newUser = insertRes.rows[0];
+    const userId = insertRes.rows[0].id;
 
-    // Assign companies if provided (multi-company support)
-    const cids: number[] = company_ids?.length ? company_ids : (company_id ? [company_id] : []);
-    for (const cid of cids) {
-      await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [newUser.id, cid]);
+    // Vincular empresas si se eligieron
+    if (companyIds.length > 0) {
+      const values = companyIds.map((_, i) => `($1, $${i + 2})`).join(', ');
+      await pool.query(
+        `INSERT INTO user_companies (user_id, company_id) VALUES ${values} ON CONFLICT DO NOTHING`,
+        [userId, ...companyIds]
+      );
     }
 
-    // Trigger PL/pgSQL recalculation so the new user is correctly indexed in the Leaderboard
-    await pool.query('SELECT recalculate_leaderboard()');
-
-    // Notify all admins and superadmins of the new registration
-    try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS notifications (
-          id SERIAL PRIMARY KEY,
-          titulo VARCHAR(255) NOT NULL,
-          contenido TEXT NOT NULL,
-          tipo VARCHAR(20) DEFAULT 'info',
-          target_type VARCHAR(20) DEFAULT 'all',
-          target_id INTEGER,
-          created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-          expires_at TIMESTAMPTZ,
-          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS notification_reads (
-          notification_id INTEGER REFERENCES notifications(id) ON DELETE CASCADE,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          read_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-          PRIMARY KEY (notification_id, user_id)
-        )
-      `);
-      const admins = await pool.query(
-        `SELECT id FROM users WHERE tipo IN ('admin', 'superadmin') AND activo = true`
-      );
-      for (const admin of admins.rows) {
-        const notif = await pool.query(
-          `INSERT INTO notifications (titulo, contenido, tipo, target_type, target_id, created_by)
-           VALUES ($1, $2, 'info', 'user', $3, NULL)
-           RETURNING id, titulo, tipo, target_type, target_id`,
-          [
-            'Nuevo usuario registrado',
-            `${newUser.nombre} (${newUser.email}) se registró y está pendiente de aprobación.`,
-            admin.id,
-          ]
-        );
-        broadcastUpdate('notification', {
-          notificationId: notif.rows[0].id,
-          titulo: notif.rows[0].titulo,
-          tipo: notif.rows[0].tipo,
-          target_type: notif.rows[0].target_type,
-          target_id: notif.rows[0].target_id,
-        });
-      }
-      await sendPushToAdmins({
-        title: 'Nuevo usuario registrado',
-        body: `${newUser.nombre} (${newUser.email}) está pendiente de aprobación.`,
-        icon: '/icon-192x192.svg',
-        url: '/',
-      });
-
-      // Email to all admins
-      const adminEmails = await pool.query(
-        `SELECT email FROM users WHERE tipo IN ('admin', 'superadmin') AND activo = true`
-      );
-      if (adminEmails.rows.length > 0) {
-        const toList = adminEmails.rows.map((r: { email: string }) => r.email);
-        sendMail({
-          to: toList,
-          subject: `[Mundial 2026] Nuevo registro: ${newUser.nombre}`,
-          html: buildNewUserEmail(newUser.nombre, newUser.email),
-        }).catch((e) => console.error('Admin email error:', e));
-      }
-    } catch (notifError) {
-      console.error('Error sending admin notifications:', notifError);
-    }
-
-    // Set cookie session for automatic authentication
-    const sessionData = {
-      id: newUser.id,
-      nombre: newUser.nombre,
-      email: newUser.email,
-      tipo: newUser.tipo,
-      avatar: newUser.avatar,
-      aprobado: !!newUser.aprobado
-    };
-
-    await setSession(sessionData);
-
-    return NextResponse.json({ success: true, user: sessionData });
-  } catch (error: any) {
-    console.error('Registration API error:', error);
-    return NextResponse.json({ error: 'Error interno del servidor al registrar usuario' }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      message: '¡Cuenta creada! Tu solicitud está pendiente de aprobación por el administrador. Recibirás acceso en breve.',
+    });
+  } catch (err) {
+    console.error('Register error:', err);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }

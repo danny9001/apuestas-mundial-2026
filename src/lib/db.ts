@@ -19,17 +19,13 @@ function getPool(): Pool {
     ...poolConfig,
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 5000,
   });
 
   return global._postgresPool;
 }
 
-const pool = new Proxy({} as Pool, {
-  get(_target, prop) {
-    return (getPool() as any)[prop];
-  },
-});
+const pool = getPool();
 
 export default pool;
 

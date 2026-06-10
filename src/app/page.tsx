@@ -1368,6 +1368,8 @@ export default function PWAAppPage() {
       setAdminUsers([]);
     } catch (e) {
       console.error('Logout failed:', e);
+    } finally {
+      window.location.href = 'https://id.genial-it.net/login?redirect=' + encodeURIComponent(window.location.origin + '/api/auth/identity-callback?redirect=/') + '&app=mundial';
     }
   };
 
@@ -2076,7 +2078,7 @@ export default function PWAAppPage() {
           ) : (
             <div className="bg-neutral-950/60 border border-neutral-850 p-3 rounded-xl flex justify-between items-center gap-2">
               <button
-                onClick={() => setActiveTab('perfil')}
+                onClick={handleIdentityLogin}
                 className="btn-primary-stitch w-full py-2.5 text-xs tracking-wider uppercase flex items-center justify-center gap-2"
               >
                 <span>🔑 Iniciar Sesión</span>
@@ -2243,7 +2245,7 @@ export default function PWAAppPage() {
                       </p>
                     </div>
                     <button
-                      onClick={() => setActiveTab('perfil')}
+                      onClick={handleIdentityLogin}
                       className="btn-primary-stitch px-5 py-2.5 text-xs font-black tracking-wider uppercase flex-shrink-0 active:scale-[0.97] transition"
                     >
                       Ingresar / Registrarse
@@ -2909,16 +2911,10 @@ export default function PWAAppPage() {
                     La clasificación general está reservada exclusivamente para participantes registrados de la quiniela.
                   </p>
                   <button
-                    onClick={() => { setIsRegistering(false); setActiveTab('perfil'); }}
+                    onClick={handleIdentityLogin}
                     className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase mt-6"
                   >
-                    Iniciar Sesión
-                  </button>
-                  <button
-                    onClick={() => { setIsRegistering(true); setActiveTab('perfil'); }}
-                    className="w-full bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-600 text-neutral-300 py-3 text-sm font-bold rounded-xl transition mt-3 active:scale-[0.99]"
-                  >
-                    Crear Cuenta
+                    Ingresar con ElitePass Identity
                   </button>
                 </div>
               ) : user.tipo === 'externo' && !user.aprobado ? (
@@ -3273,8 +3269,6 @@ export default function PWAAppPage() {
                     <p className="text-neutral-400 text-xs tracking-widest uppercase mt-1">Plataforma de Apuestas y Quiniela</p>
                   </div>
 
-                  {!isRegistering ? (
-                    /* Login — Identity SSO principal */
                     <div className="space-y-5">
 
                       <button
@@ -3290,162 +3284,19 @@ export default function PWAAppPage() {
                         Usá tu cuenta de ElitePass para acceder a la quiniela del Mundial.
                       </p>
 
-                      <div className="border-t border-neutral-800 pt-4 space-y-2">
-                        <button
-                          type="button"
-                          onClick={() => { setIsRegistering(true); setLoginError(''); }}
-                          className="w-full text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline py-1"
-                        >
-                          ¿No tenés cuenta? Solicitá acceso
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowLocalLogin((v: boolean) => !v)}
-                          className="w-full text-neutral-600 hover:text-neutral-400 text-[10px] transition py-1"
-                        >
-                          Ingresar con contraseña local
-                        </button>
-                        {showLocalLogin && (
-                          <form onSubmit={handleLogin} className="space-y-3 pt-2">
-                            <input
-                              type="email"
-                              required
-                              autoComplete="email"
-                              value={email}
-                              onChange={(e) => setEmail(e.target.value)}
-                              placeholder="Correo electrónico"
-                              className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700"
-                            />
-                            <input
-                              type="password"
-                              required
-                              autoComplete="current-password"
-                              value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              placeholder="Contraseña"
-                              className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700"
-                            />
-                            {loginError && (
-                              <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                                <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                                <span>{loginError}</span>
-                              </div>
-                            )}
-                            <button
-                              type="submit"
-                              disabled={loginLoading}
-                              className="w-full btn-primary-stitch py-3 text-xs transition tracking-wider uppercase"
-                            >
-                              {loginLoading ? 'Verificando...' : 'Entrar'}
-                            </button>
-                          </form>
-                        )}
-                      </div>
-                    </div>                  ) : (
-                    /* Register Form */
-                    <form onSubmit={handleRegister} className="space-y-4">
-                      <div>
-                        <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Nombre Completo</label>
-                        <input 
-                          type="text"
-                          required
-                          value={registerNombre}
-                          onChange={(e) => setRegisterNombre(e.target.value)}
-                          placeholder="ej: Diego Armando"
-                          className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Correo Electrónico</label>
-                        <input 
-                          type="email"
-                          required
-                          value={registerEmail}
-                          onChange={(e) => setRegisterEmail(e.target.value)}
-                          placeholder="ej: diego@mundial.com"
-                          className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Contraseña (mín. 8 carac.)</label>
-                        <input
-                          type="password"
-                          required
-                          autoComplete="new-password"
-                          value={registerPassword}
-                          onChange={(e) => setRegisterPassword(e.target.value)}
-                          placeholder="Elige tu contraseña"
-                          className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Confirmar Contraseña</label>
-                        <input
-                          type="password"
-                          required
-                          autoComplete="new-password"
-                          value={registerConfirmPassword}
-                          onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-                          placeholder="Confirma tu contraseña"
-                          className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
-                        />
-                      </div>
-
-                      {/* Teléfono (opcional) */}
-                      <div>
-                        <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Celular / WhatsApp</label>
-                        <div className="flex gap-2 items-center">
-                          <span className="text-neutral-400 text-sm flex-shrink-0">📱</span>
-                          <input
-                            type="tel"
-                            autoComplete="tel"
-                            value={registerPhone}
-                            onChange={(e) => setRegisterPhone(e.target.value)}
-                            placeholder="+591 XXXXXXXX"
-                            className="w-full input-stitch px-4 py-3 text-sm placeholder-neutral-700 focus:ring-2 focus:ring-yellow-500/10"
-                          />
-                        </div>
-                        <p className="text-[10px] text-neutral-600 mt-1">Opcional · Para recibir avisos por WhatsApp</p>
-                      </div>
-
-
-
-                      {registerError && (
-                        <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                          <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                          <span>{registerError}</span>
-                        </div>
-                      )}
-
-                      <button
-                        type="submit"
-                        disabled={registerLoading}
-                        className="w-full btn-primary-stitch py-3.5 text-sm transition tracking-wider uppercase"
-                      >
-                        {registerLoading ? 'Creando Cuenta...' : 'Solicitar acceso'}
-                      </button>
-
-                      <p className="text-[10px] text-neutral-500 text-center leading-relaxed">
-                        Tu cuenta quedará pendiente de aprobación. El administrador revisará tu solicitud y te dará acceso.
-                      </p>
-
-                      <div className="text-center pt-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsRegistering(false);
-                            setRegisterError('');
-                          }}
+                      <div className="border-t border-neutral-800 pt-4 text-center">
+                        <a
+                          href="https://id.genial-it.net"
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="text-yellow-500 hover:text-yellow-400 text-xs font-bold transition hover:underline"
                         >
-                          ¿Ya tienes cuenta? Inicia sesión aquí
-                        </button>
+                          ¿No tenés cuenta? Creá una en ElitePass Identity
+                        </a>
                       </div>
-                    </form>
-                  )}
+                    </div>
+
+                    </div>
                 </div>
               ) : (
                 <>
@@ -5454,11 +5305,7 @@ export default function PWAAppPage() {
                       Debes iniciar sesión para ver las apuestas de la comunidad y comparar tus resultados.
                     </p>
                     <button
-                      onClick={() => {
-                        setSummaryModalMatch(null);
-                        setActiveTab('perfil');
-                        showToast('🔑 Inicia sesión o regístrate para participar.');
-                      }}
+                      onClick={handleIdentityLogin}
                       className="btn-primary-stitch px-4 py-2 text-[10px] tracking-wider uppercase mx-auto block"
                     >
                       Iniciar Sesión / Registro

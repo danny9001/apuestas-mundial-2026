@@ -5,6 +5,7 @@ import { broadcastUpdate } from '@/lib/realtime';
 import { sendPushNotification } from '@/lib/push';
 import { sendMail, buildApprovalEmail, buildDenialEmail } from '@/lib/mail';
 import { isValidEmail, sanitizeText, validatePassword, isValidRole, BCRYPT_ROUNDS } from '@/lib/validation';
+import { syncCompanyAssignment } from '@/lib/identity-sync';
 
 async function ensureNotificationsTables() {
   await pool.query(`
@@ -64,7 +65,7 @@ export async function GET() {
     let res;
     if (user.tipo === 'superadmin') {
       res = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -78,7 +79,7 @@ export async function GET() {
     } else {
       // Company admin: only users in shared companies OR users with no company assigned (pending approval)
       res = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -244,11 +245,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'assignCompany') {
-      // Toggle: add if not member, remove if already member
       const { userId: targetUserId, companyId, assign } = body;
       if (!targetUserId || !companyId) return NextResponse.json({ error: 'userId y companyId requeridos' }, { status: 400 });
-      
-      // If company admin, they can only assign/remove companies they belong to
+
       if (user.tipo === 'admin') {
         const checkAdminCompany = await pool.query(
           'SELECT 1 FROM user_companies WHERE user_id = $1 AND company_id = $2',
@@ -261,10 +260,28 @@ export async function POST(req: NextRequest) {
 
       if (assign) {
         await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [targetUserId, companyId]);
+        // Sync to Identity
+        const [targetUser, company] = await Promise.all([
+          pool.query('SELECT email, tipo FROM users WHERE id = $1', [targetUserId]),
+          pool.query('SELECT nombre FROM companies WHERE id = $1', [companyId]),
+        ]);
+        if (targetUser.rows.length > 0 && company.rows.length > 0) {
+          syncCompanyAssignment(targetUser.rows[0].email, company.rows[0].nombre, targetUser.rows[0].tipo).catch(() => {});
+        }
       } else {
         await pool.query('DELETE FROM user_companies WHERE user_id = $1 AND company_id = $2', [targetUserId, companyId]);
       }
       return NextResponse.json({ success: true });
+    }
+
+    if (action === 'toggleParticipa') {
+      const { userId: targetUserId } = body;
+      if (!targetUserId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
+      const r = await pool.query(
+        'UPDATE users SET participa = NOT participa WHERE id = $1 RETURNING id, participa',
+        [targetUserId]
+      );
+      return NextResponse.json({ success: true, participa: r.rows[0]?.participa });
     }
 
     if (action === 'setCompanies') {

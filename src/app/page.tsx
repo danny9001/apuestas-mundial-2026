@@ -337,6 +337,10 @@ export default function PWAAppPage() {
   const [newCompanyModos, setNewCompanyModos] = useState<Record<string, string>>({ ...DEFAULT_MODOS_POR_FASE });
   const [companySubmitting, setCompanySubmitting] = useState(false);
   const [companySelectModal, setCompanySelectModal] = useState(false);
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [invCreating, setInvCreating] = useState(false);
+  const [invCompanyId, setInvCompanyId] = useState<number | null>(null);
+  const [invCopied, setInvCopied] = useState<string | null>(null);
   const [editingMontoId, setEditingMontoId] = useState<number | null>(null);
   const [editingMontoValue, setEditingMontoValue] = useState<string>('');
 
@@ -1797,11 +1801,12 @@ export default function PWAAppPage() {
 
   const handleToggleUserCompany = async (userId: number, companyId: number, currentlyMember: boolean) => {
     try {
-      await fetch('/api/admin/users', {
+      const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'assignCompany', userId, companyId, assign: !currentlyMember }),
       });
+      if (!res.ok) { const d = await res.json(); showToast(d.error || 'Error al asignar empresa'); return; }
       setAdminUsers((prev) =>
         prev.map((u) => {
           if (u.id !== userId) return u;
@@ -1811,7 +1816,56 @@ export default function PWAAppPage() {
           return { ...u, companies: updatedCompanies };
         })
       );
+      showToast(currentlyMember ? '🏢 Removido de empresa' : '🏢 Asignado a empresa');
     } catch { showToast('Error de red'); }
+  };
+
+  const handleToggleParticipa = async (userId: number, current: boolean) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggleParticipa', userId }),
+      });
+      if (!res.ok) { showToast('Error al cambiar participación'); return; }
+      const d = await res.json();
+      setAdminUsers((prev) => prev.map((u) => u.id === userId ? { ...u, participa: d.participa } : u));
+      showToast(d.participa ? '✅ Usuario marcado como participante' : '👁 Usuario marcado como visor');
+    } catch { showToast('Error de red'); }
+  };
+
+  const loadInvitations = async () => {
+    try {
+      const res = await fetch('/api/invitations');
+      if (res.ok) setInvitations(await res.json());
+    } catch {}
+  };
+
+  const handleCreateInvitation = async () => {
+    if (!invCompanyId) { showToast('Seleccioná una empresa'); return; }
+    setInvCreating(true);
+    try {
+      const res = await fetch('/api/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', company_id: invCompanyId }),
+      });
+      const d = await res.json();
+      if (res.ok && d.success) { await loadInvitations(); showToast('🔗 Enlace de invitación generado'); }
+      else showToast(d.error || 'Error al crear invitación');
+    } catch { showToast('Error de red'); }
+    finally { setInvCreating(false); }
+  };
+
+  const handleDeleteInvitation = async (id: string) => {
+    try {
+      await fetch('/api/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+      setInvitations((prev) => prev.filter((i) => i.id !== id));
+    } catch { showToast('Error al eliminar'); }
   };
 
   // --- Group handlers ---
@@ -3971,6 +4025,13 @@ export default function PWAAppPage() {
                             <button onClick={() => handleToggleUserStatus(u.id, u.activo)} className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.activo ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'}`}>
                               {u.activo ? <><UserX className="w-3.5 h-3.5" /> Desactivar</> : <><UserCheck className="w-3.5 h-3.5" /> Activar</>}
                             </button>
+                            {u.tipo !== 'superadmin' && u.aprobado && (
+                              <button onClick={() => handleToggleParticipa(u.id, u.participa !== false)}
+                                className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.participa !== false ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20' : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-400 border border-neutral-700'}`}
+                                title={u.participa !== false ? 'Cambiar a Visor' : 'Cambiar a Participante'}>
+                                {u.participa !== false ? '⚽ Participa' : '👁 Visor'}
+                              </button>
+                            )}
                           </>
                         ) : (
                           <span className="text-[10px] text-neutral-500 uppercase tracking-widest italic pr-4">
@@ -3984,6 +4045,7 @@ export default function PWAAppPage() {
               </div>}
 
               {/* ══════════════ TAB: EMPRESA ══════════════ */}
+              {adminSubTab === 'empresa' && (() => { if (invitations.length === 0) loadInvitations(); return null; })()}
               {adminSubTab === 'empresa' && <div className="space-y-6">
 
               {/* ─── PERSONALIZACIÓN DEL SISTEMA (solo superadmin) ─── */}
@@ -4280,6 +4342,51 @@ export default function PWAAppPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>}
+
+              {/* ─── INVITACIONES DE EMPRESA ─── */}
+              {(user.tipo === 'superadmin' || user.tipo === 'admin') && <div className="space-y-4">
+                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2">Invitaciones de Empresa</h3>
+                <div className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4">
+                  <p className="text-xs text-neutral-500 leading-relaxed">Generá un enlace de invitación para que nuevos usuarios se registren directamente en una empresa. El enlace expira en 7 días y es de uso único.</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <select value={invCompanyId ?? ''} onChange={(e) => setInvCompanyId(Number(e.target.value) || null)}
+                      className="flex-1 min-w-[140px] bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-xl px-3 py-2 text-xs focus:outline-none">
+                      <option value="">Seleccionar empresa…</option>
+                      {companies.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </select>
+                    <button onClick={handleCreateInvitation} disabled={invCreating || !invCompanyId}
+                      className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-neutral-900 font-black text-xs rounded-xl transition">
+                      {invCreating ? 'Generando…' : '🔗 Generar enlace'}
+                    </button>
+                  </div>
+                  {invitations.length > 0 && (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {invitations.map((inv: any) => {
+                        const link = `${typeof window !== 'undefined' ? window.location.origin : 'https://mundial.genial-it.net'}/invitacion?t=${inv.token}`;
+                        const expired = new Date(inv.expires_at) < new Date();
+                        return (
+                          <div key={inv.id} className={`flex items-center gap-2 p-3 rounded-xl border text-xs ${inv.used || expired ? 'border-neutral-800 opacity-50' : 'border-neutral-700 bg-neutral-800/40'}`}>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-neutral-200 truncate">{inv.company_nombre}</div>
+                              <div className="text-neutral-500 text-[10px]">
+                                {inv.used ? `Usado por ${inv.email_usado}` : expired ? 'Expirado' : `Expira ${new Date(inv.expires_at).toLocaleDateString('es-BO')}`}
+                              </div>
+                            </div>
+                            {!inv.used && !expired && (
+                              <button onClick={() => { navigator.clipboard.writeText(link); setInvCopied(inv.id); setTimeout(() => setInvCopied(null), 2000); }}
+                                className="px-2 py-1 bg-neutral-700 hover:bg-neutral-600 text-neutral-200 rounded-lg text-[10px] font-bold transition shrink-0">
+                                {invCopied === inv.id ? '✅ Copiado' : '📋 Copiar'}
+                              </button>
+                            )}
+                            <button onClick={() => handleDeleteInvitation(inv.id)}
+                              className="p-1 text-neutral-600 hover:text-red-400 transition shrink-0">✕</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>}
 

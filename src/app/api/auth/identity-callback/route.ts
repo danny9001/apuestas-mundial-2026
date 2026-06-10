@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import pool from '@/lib/db';
 import { setSession } from '@/lib/auth';
+import { syncCompanyAssignment } from '@/lib/identity-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,12 +39,11 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const token      = searchParams.get('token');
-    const redirectTo = searchParams.get('redirect') ?? '/';
+    const token       = searchParams.get('token');
+    const redirectTo  = searchParams.get('redirect') ?? '/';
+    const inviteToken = searchParams.get('invite_token');
 
-    if (!token) {
-      return NextResponse.redirect(`${base}/?error=no_token`);
-    }
+    if (!token) return NextResponse.redirect(`${base}/?error=no_token`);
 
     let payload: IdentityToken;
     try {
@@ -52,9 +52,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${base}/?error=invalid_token`);
     }
 
-    // Determinar tipo en mundial desde el JWT
+    // Determine tipo in mundial from JWT
     let tipoMundial: string;
-
     if (payload.role === 'superadmin') {
       tipoMundial = 'superadmin';
     } else {
@@ -74,9 +73,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Upsert user
-    // password_hash = 'SSO_IDENTITY' para usuarios que solo usan SSO
-    // ON CONFLICT nunca toca password_hash de usuarios con contraseña local
+    // Upsert user in mundial DB
     const result = await pool.query(
       `INSERT INTO users (nombre, email, tipo, avatar, activo, aprobado, password_hash)
        VALUES ($1, $2, $3, $4, true, true, 'SSO_IDENTITY')
@@ -93,8 +90,59 @@ export async function GET(req: NextRequest) {
        RETURNING id, nombre, email, tipo, avatar`,
       [payload.name, payload.email.toLowerCase(), tipoMundial, payload.image ?? null]
     );
-
     const user = result.rows[0];
+
+    // Consume invitation if provided — assigns user to company
+    if (inviteToken) {
+      try {
+        const inv = await pool.query(
+          'SELECT id, company_id, used, expires_at FROM invitations WHERE token = $1',
+          [inviteToken]
+        );
+        if (inv.rows.length > 0) {
+          const invitation = inv.rows[0];
+          if (!invitation.used && new Date(invitation.expires_at) >= new Date()) {
+            if (invitation.company_id) {
+              await pool.query(
+                'INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                [user.id, invitation.company_id]
+              );
+              // Sync to Identity
+              const compRes = await pool.query('SELECT nombre FROM companies WHERE id = $1', [invitation.company_id]);
+              if (compRes.rows.length > 0) {
+                syncCompanyAssignment(user.email, compRes.rows[0].nombre, user.tipo).catch(() => {});
+              }
+            }
+            await pool.query(
+              'UPDATE invitations SET used = TRUE, email_usado = $1 WHERE id = $2',
+              [user.email.toLowerCase(), invitation.id]
+            );
+          }
+        }
+      } catch (err) {
+        console.error('invite_token processing error:', err);
+      }
+    }
+
+    // Sync companies from Identity JWT into mundial
+    if (payload.empresas?.length) {
+      for (const empresa of payload.empresas) {
+        const mundialRol = empresa.apps?.['mundial']?.rol;
+        if (mundialRol && empresa.nombre) {
+          const compRes = await pool.query(
+            'SELECT id FROM companies WHERE lower(nombre) = lower($1) OR lower(slug) = lower($2)',
+            [empresa.nombre, empresa.slug ?? empresa.nombre]
+          );
+          if (compRes.rows.length > 0) {
+            await pool.query(
+              'INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+              [user.id, compRes.rows[0].id]
+            );
+          }
+        }
+      }
+    }
+
     await setSession({
       id:     user.id,
       nombre: user.nombre,

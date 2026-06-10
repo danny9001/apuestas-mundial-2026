@@ -29,7 +29,6 @@ function getIdentitySecret(): string {
   return s;
 }
 
-// Siempre usa la URL pública del sitio — nunca req.url (que puede ser 0.0.0.0 en contenedores)
 function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mundial.genial-it.net').replace(/\/$/, '');
 }
@@ -59,7 +58,6 @@ export async function GET(req: NextRequest) {
     if (payload.role === 'superadmin') {
       tipoMundial = 'superadmin';
     } else {
-      // Buscar rol específico para app 'mundial' en las licencias del JWT
       const mundialApp = payload.empresas
         ?.flatMap((e) => Object.entries(e.apps ?? {}))
         .find(([slug]) => slug === 'mundial');
@@ -76,10 +74,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Upsert user — nunca degradar un superadmin/admin ya existente
+    // Upsert user
+    // password_hash = 'SSO_IDENTITY' para usuarios que solo usan SSO
+    // ON CONFLICT nunca toca password_hash de usuarios con contraseña local
     const result = await pool.query(
-      `INSERT INTO users (nombre, email, tipo, avatar, activo, aprobado)
-       VALUES ($1, $2, $3, $4, true, true)
+      `INSERT INTO users (nombre, email, tipo, avatar, activo, aprobado, password_hash)
+       VALUES ($1, $2, $3, $4, true, true, 'SSO_IDENTITY')
        ON CONFLICT (email) DO UPDATE
          SET nombre   = EXCLUDED.nombre,
              tipo     = CASE
@@ -103,7 +103,9 @@ export async function GET(req: NextRequest) {
       avatar: user.avatar ?? '',
     });
 
-    const dest = redirectTo.startsWith('http') ? redirectTo : `${base}${redirectTo.startsWith('/') ? '' : '/'}${redirectTo}`;
+    const dest = redirectTo.startsWith('http')
+      ? redirectTo
+      : `${base}${redirectTo.startsWith('/') ? '' : '/'}${redirectTo}`;
     return NextResponse.redirect(dest);
   } catch (err) {
     console.error('identity-callback error:', err);

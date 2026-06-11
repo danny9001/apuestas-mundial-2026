@@ -1304,6 +1304,7 @@ export default function PWAAppPage() {
         window.location.reload();
       } else {
         setLoginError(data.error || 'Credenciales incorrectas');
+        if (data.sso) handleIdentityLogin();
       }
     } catch {
       setLoginError('Error de red. Intenta de nuevo.');

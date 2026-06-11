@@ -52,9 +52,15 @@ export async function POST(req: NextRequest) {
 
     // Constant-time comparison even if user doesn't exist
     const hashToCompare = user?.password_hash ?? DUMMY_BCRYPT_HASH;
-    const match = await bcrypt.compare(password, hashToCompare);
+    const match = user?.password_hash === 'SSO_IDENTITY' ? false : await bcrypt.compare(password, hashToCompare);
 
     if (!user || !match) {
+      if (user?.password_hash === 'SSO_IDENTITY') {
+        return NextResponse.json({
+          error: 'Esta cuenta fue creada con ElitePass Identity. Usá el botón "Ingresar con ElitePass Identity".',
+          sso: true,
+        }, { status: 401 });
+      }
       return NextResponse.json({ error: 'Correo o contraseña incorrectos' }, { status: 401 });
     }
 

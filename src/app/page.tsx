@@ -233,6 +233,7 @@ export default function PWAAppPage() {
   const [betPredVisitante, setBetPredVisitante] = useState<number>(0);
   const [betSubmitting, setBetSubmitting] = useState(false);
   const [betError, setBetError] = useState('');
+  const [betTargetUserId, setBetTargetUserId] = useState<number | null>(null);
 
   const openBetModalForMatch = (m: any) => {
     if (!user) {
@@ -246,9 +247,34 @@ export default function PWAAppPage() {
         : '⚠️ Tu cuenta está pendiente de aprobación por el administrador.');
       return;
     }
+    if (user.tipo !== 'superadmin' && getAvailableCompanies().length === 0) {
+      showToast('⚠️ No tienes una empresa asignada. Por favor solicita a un administrador que te asigne una empresa.');
+      return;
+    }
+    const myPred = predictions.find((p) => p.match_id === m.id);
     setBetModalMatch(m);
-    setBetPredLocal(0);
-    setBetPredVisitante(0);
+    setBetPredLocal(myPred ? myPred.pred_local : 0);
+    setBetPredVisitante(myPred ? myPred.pred_visitante : 0);
+    setBetTargetUserId(user.id);
+  };
+
+  const handleLoadTargetUserPrediction = async (targetId: number, matchId: number) => {
+    try {
+      const res = await fetch(`/api/predictions?matchId=${matchId}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        const userPred = data.find((p: any) => p.user_id === targetId);
+        if (userPred) {
+          setBetPredLocal(userPred.pred_local);
+          setBetPredVisitante(userPred.pred_visitante);
+        } else {
+          setBetPredLocal(0);
+          setBetPredVisitante(0);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Admin Match Editor Modal
@@ -1143,6 +1169,7 @@ export default function PWAAppPage() {
         } else if (payload.type === 'notification') {
           fetchNotifications();
           showToast(`🔔 ${payload.data.titulo}`);
+          checkSession();
         }
       } catch (e) {
         // Ignored parsing errors
@@ -1407,22 +1434,25 @@ export default function PWAAppPage() {
         body: JSON.stringify({
           matchId: betModalMatch.id,
           predLocal: betPredLocal,
-          predVisitante: betPredVisitante
+          predVisitante: betPredVisitante,
+          userId: betTargetUserId
         })
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        // Update predictions list state
-        setPredictions((prev) => {
-          const index = prev.findIndex((p) => p.match_id === betModalMatch.id);
-          if (index !== -1) {
-            return prev.map((p, idx) => (idx === index ? { ...p, pred_local: betPredLocal, pred_visitante: betPredVisitante } : p));
-          } else {
-            return [...prev, { match_id: betModalMatch.id, pred_local: betPredLocal, pred_visitante: betPredVisitante }];
-          }
-        });
+        // Update predictions list state only if editing own prediction
+        if (betTargetUserId === user.id) {
+          setPredictions((prev) => {
+            const index = prev.findIndex((p) => p.match_id === betModalMatch.id);
+            if (index !== -1) {
+              return prev.map((p, idx) => (idx === index ? { ...p, pred_local: betPredLocal, pred_visitante: betPredVisitante } : p));
+            } else {
+              return [...prev, { match_id: betModalMatch.id, pred_local: betPredLocal, pred_visitante: betPredVisitante }];
+            }
+          });
+        }
 
         // Update Excel scores state to keep in sync
         setBetModalMatch(null);
@@ -1557,7 +1587,7 @@ export default function PWAAppPage() {
         body: JSON.stringify({ tincaso: tincasoSelection })
       });
       if (res.ok) {
-        showToast('✅ ¡Apuesta Tincaso guardada con éxito! (3 pts si aciertas)');
+        showToast('✅ ¡Apuesta Tincaso guardada con éxito! (5 pts si aciertas)');
       } else {
         showToast('❌ Error al guardar Tincaso');
       }
@@ -1894,10 +1924,16 @@ export default function PWAAppPage() {
 
   const loadInvitations = async () => {
     try {
-      const res = await fetch('/api/invitations');
+      const res = await fetch(`/api/invitations?t=${Date.now()}`);
       if (res.ok) setInvitations(await res.json());
     } catch {}
   };
+
+  useEffect(() => {
+    if (adminSubTab === 'empresa') {
+      loadInvitations();
+    }
+  }, [adminSubTab]);
 
   const handleCreateInvitation = async () => {
     if (!invCompanyId) { showToast('Seleccioná una empresa'); return; }
@@ -2145,47 +2181,51 @@ export default function PWAAppPage() {
             </button>
           )}
           {user ? (
-            <div className="bg-neutral-950/60 border border-neutral-850 p-3 rounded-xl flex items-center gap-3">
-              <img src={user.avatar} className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-900" alt="avatar" />
-              <div className="truncate flex-1">
-                <div className="text-xs font-bold text-neutral-300 truncate">{user.nombre}</div>
-                <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-mono">{user.tipo}</div>
+            <div className="bg-neutral-950/60 border border-neutral-850 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <img src={user.avatar} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.nombre)}`; }} className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-900 flex-shrink-0" alt="avatar" />
+                <div className="truncate">
+                  <div className="text-xs font-bold text-neutral-300 truncate">{user.nombre}</div>
+                  <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-mono">{user.tipo}</div>
+                </div>
               </div>
-              {/* Bell: toggle push notifications */}
-              <button
-                onClick={handleTogglePush}
-                className={`relative p-1.5 transition flex items-center justify-center flex-shrink-0 ${pushSubscribed ? 'text-yellow-500 hover:text-yellow-400' : 'text-neutral-500 hover:text-neutral-300'}`}
-                title={pushSubscribed ? 'Desactivar notificaciones push' : 'Activar notificaciones push'}
-              >
-                {pushSubscribed ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
-              </button>
-              {/* Mail: open in-app messages panel */}
-              <button
-                onClick={() => setNotifPanelOpen(true)}
-                className="relative text-neutral-400 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
-                title="Mensajes"
-              >
-                <Mail className="w-4 h-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 text-white text-[7px] font-black rounded-full flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                className="text-neutral-555 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
-                title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
-              >
-                {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={handleLogout}
-                className="text-neutral-555 hover:text-red-400 p-1.5 transition flex-shrink-0"
-                title="Cerrar Sesión"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {/* Bell: toggle push notifications */}
+                <button
+                  onClick={handleTogglePush}
+                  className={`relative p-1.5 transition flex items-center justify-center flex-shrink-0 ${pushSubscribed ? 'text-yellow-500 hover:text-yellow-400' : 'text-neutral-500 hover:text-neutral-300'}`}
+                  title={pushSubscribed ? 'Desactivar notificaciones push' : 'Activar notificaciones push'}
+                >
+                  {pushSubscribed ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                </button>
+                {/* Mail: open in-app messages panel */}
+                <button
+                  onClick={() => setNotifPanelOpen(true)}
+                  className="relative text-neutral-400 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
+                  title="Mensajes"
+                >
+                  <Mail className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 text-white text-[7px] font-black rounded-full flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                  className="text-neutral-555 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0"
+                  title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
+                >
+                  {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="text-neutral-555 hover:text-red-400 p-1.5 transition flex-shrink-0"
+                  title="Cerrar Sesión"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ) : (
             <div className="bg-neutral-950/60 border border-neutral-850 p-3 rounded-xl flex justify-between items-center gap-2">
@@ -2291,7 +2331,7 @@ export default function PWAAppPage() {
                   )}
                 </button>
                 <div className="bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 flex items-center gap-1.5 text-xs text-neutral-300">
-                  <img src={user.avatar} className="w-4 h-4 rounded-full" alt="avatar" />
+                  <img src={user.avatar} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.nombre)}`; }} className="w-4 h-4 rounded-full" alt="avatar" />
                   <span className="font-bold max-w-[80px] truncate">{user.nombre.split(' ')[0]}</span>
                 </div>
               </>
@@ -2311,10 +2351,11 @@ export default function PWAAppPage() {
               : [];
             const myCompanyRankIndex = companyLeaderboard.findIndex(row => row.user_id === user?.id);
             const myCompanyRank = myCompanyRankIndex >= 0 ? myCompanyRankIndex + 1 : null;
+            const liveMatches = matches.filter((m) => m.estado === 'live');
             const userPredictionsCount = user ? predictions.length : 0;
             const userExactsCount = user ? predictions.filter(p => p.puntos === 3).length : 0;
             const upcomingMatches = matches
-              .filter((m) => m.estado === 'upcoming' || m.estado === 'live')
+              .filter((m) => m.estado === 'upcoming')
               .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
               .slice(0, 3);
             const countdownMatch = matches
@@ -2518,6 +2559,85 @@ export default function PWAAppPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Partidos en Vivo Section */}
+                {liveMatches.length > 0 && (
+                  <div className="space-y-3 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-red-400">PARTIDOS EN VIVO</h3>
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-550/10 px-2 py-0.5 rounded border border-red-500/20 animate-pulse">
+                        EN JUEGO
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {liveMatches.map((m) => {
+                        const myPred = predictions.find((p) => p.match_id === m.id);
+                        return (
+                          <div 
+                            key={m.id}
+                            onClick={() => {
+                              setSummaryModalMatch(m);
+                              fetchCommunityBets(m.id);
+                            }}
+                            className="bg-gradient-to-r from-red-950/15 via-neutral-900/50 to-transparent border border-red-500/30 p-5 rounded-2xl flex flex-col justify-between gap-3 shadow-[0_0_20px_rgba(239,68,68,0.1)] hover:border-red-500/50 transition cursor-pointer relative overflow-hidden group"
+                          >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/3 rounded-full blur-xl pointer-events-none"></div>
+                            
+                            <div className="flex justify-between items-center text-[9px] font-black text-neutral-400 uppercase tracking-wider">
+                              <span>{m.fase}</span>
+                              <span className="text-red-400 font-extrabold flex items-center gap-1.5 font-mono">
+                                <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                                EN DIRECTO
+                              </span>
+                            </div>
+                            
+                            <div className="flex justify-between items-center py-2">
+                              {/* Local */}
+                              <div className="flex items-center gap-2.5 min-w-0 w-[40%]">
+                                <span className="text-2xl flex-shrink-0">{getTeamFlag(m.local)}</span>
+                                <span className="font-black text-sm text-neutral-100 truncate uppercase">{m.local}</span>
+                              </div>
+                              
+                              {/* Score Flap */}
+                              <div className="flex items-center gap-2 justify-center bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-1.5 font-mono text-base font-black text-yellow-500 shadow-inner">
+                                <span>{m.goles_local}</span>
+                                <span className="text-neutral-700 animate-pulse">:</span>
+                                <span>{m.goles_visitante}</span>
+                              </div>
+                              
+                              {/* Visitante */}
+                              <div className="flex items-center gap-2.5 min-w-0 w-[40%] justify-end">
+                                <span className="font-black text-sm text-neutral-100 truncate uppercase">{m.visitante}</span>
+                                <span className="text-2xl flex-shrink-0">{getTeamFlag(m.visitante)}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center text-[9px] border-t border-red-900/20 pt-2 text-neutral-500">
+                              <span className="truncate max-w-[60%]">🏟️ {m.estadio || 'Estadio Mundialista'}</span>
+                              {user && myPred && (
+                                <span className="font-mono text-[9px] text-yellow-500/80 font-bold bg-neutral-950 px-2 py-0.5 rounded border border-neutral-850">
+                                  Tu apuesta: {myPred.pred_local} - {myPred.pred_visitante}
+                                </span>
+                              )}
+                              {user && !myPred && (
+                                <span className="font-mono text-[9px] text-red-400 font-bold bg-red-950/20 px-2 py-0.5 rounded border border-red-950/40">
+                                  Sin pronóstico
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Partidos Cercanos Section */}
                 <div className="space-y-3">
@@ -2971,12 +3091,12 @@ export default function PWAAppPage() {
                 <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2">Reglas Generales</h3>
                 <ul className="space-y-3 text-sm">
                   {[
-                    { icon: '🔒', text: 'Las apuestas se cierran automáticamente al inicio de cada partido (kickoff lock). No se pueden modificar una vez iniciado el partido.' },
+                    { icon: '🔒', text: 'Las apuestas se cierran automáticamente 1 hora antes del inicio de cada partido (kickoff lock). No se pueden registrar ni modificar pronósticos pasado este límite.' },
                     { icon: '🏆', text: 'Todos los partidos son apostables: Fase de Grupos, Ronda de 32, Octavos, Cuartos, Semifinales, Tercer Puesto y Gran Final.' },
                     { icon: '📊', text: 'La clasificación general es visible para todos los participantes en tiempo real.' },
                     { icon: '🔄', text: 'Los marcadores se actualizan automáticamente desde la API de football-data.org. La clasificación se recalcula al finalizar cada partido.' },
                     { icon: '⚽', text: 'En caso de empate en puntos, se desempata por cantidad de resultados exactos (3 puntos). Si persiste el empate, gana quien se registró primero.' },
-                    { icon: '📱', text: 'Puedes realizar y modificar tus pronósticos desde cualquier dispositivo antes del kickoff.' },
+                    { icon: '📱', text: 'Puedes realizar y modificar tus pronósticos desde cualquier dispositivo antes del cierre (1 hora antes de cada partido).' },
                   ].map((r, i) => (
                     <li key={i} className="flex items-start gap-3 text-neutral-300">
                       <span className="text-lg flex-shrink-0">{r.icon}</span>
@@ -3045,6 +3165,10 @@ export default function PWAAppPage() {
                 const filteredLeaderboard = leaderboard.filter(row => {
                   if (rankingFilter === 'participantes' && row.participa === false) return false;
                   if (rankingFilter === 'visores' && row.participa !== false) return false;
+                  
+                  // Si estamos viendo visores, mostramos a todos (Comunidad) sin filtrar por empresa.
+                  if (rankingFilter === 'visores') return true;
+
                   if (!selectedCompanyId) return false;
                   return (row.companies || []).some((c: any) => c.id === selectedCompanyId);
                 });
@@ -3184,7 +3308,7 @@ export default function PWAAppPage() {
                               <div className="flex items-center gap-4">
                                 <span className="font-bold text-neutral-400 w-6 font-mono text-center">#{index + 1}</span>
                                 <div className="flex items-center gap-3">
-                                  <img src={row.avatar} className="w-10 h-10 rounded-full border border-neutral-800 bg-neutral-950 shadow" alt="avatar" />
+                                  <img src={row.avatar} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.nombre)}`; }} className="w-10 h-10 rounded-full border border-neutral-800 bg-neutral-950 shadow" alt="avatar" />
                                   <div>
                                     <div className="text-neutral-200 text-sm flex items-center gap-2 flex-wrap">
                                       <span>{row.nombre}</span>
@@ -3379,24 +3503,28 @@ export default function PWAAppPage() {
               {/* Tincaso Apuesta Global del Fixture */}
               <div className="mt-12 bg-neutral-900/50 border border-neutral-800 rounded-3xl p-8">
                 <h3 className="text-xl font-black text-yellow-500 uppercase tracking-widest mb-2 flex items-center gap-2"><Trophy className="w-6 h-6" /> Tincaso Mundial</h3>
-                <p className="text-sm text-neutral-400 mb-6">Selecciona tu equipo ganador del torneo. Si aciertas al final del campeonato, ganarás 3 puntos extra.</p>
+                <p className="text-sm text-neutral-400 mb-6">Selecciona tu equipo ganador del torneo. Si aciertas al final del campeonato, ganarás 5 puntos extra.</p>
                 <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <select 
-                    className="bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-100 font-bold focus:border-yellow-500 w-full sm:w-auto flex-1"
+                   <select 
+                    className="bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-100 font-bold focus:border-yellow-500 w-full sm:w-auto flex-1 disabled:opacity-50"
                     value={tincasoSelection}
                     onChange={(e) => setTincasoSelection(e.target.value)}
+                    disabled={tincasoSubmitting || !!user?.tincaso}
                   >
                     <option value="">Seleccionar Equipo...</option>
-                    {Array.from(new Set(matches.flatMap(m => [m.equipo_local, m.equipo_visitante]))).filter(t => t && t !== 'Por definir' && !t.includes('Ganador')).sort().map(team => (
-                      <option key={team} value={team}>{team}</option>
-                    ))}
+                    {Array.from(new Set(matches.flatMap(m => [m.local, m.visitante])))
+                      .filter(t => t && !/\d/.test(t) && !/Ganador|Perdedor|definir/i.test(t))
+                      .sort()
+                      .map(team => (
+                        <option key={team} value={team}>{team}</option>
+                      ))}
                   </select>
                   <button
                     onClick={handleTincasoSubmit}
-                    disabled={tincasoSubmitting || !tincasoSelection}
-                    className="btn-primary-stitch px-8 py-3 w-full sm:w-auto"
+                    disabled={tincasoSubmitting || !tincasoSelection || !!user?.tincaso}
+                    className="btn-primary-stitch px-8 py-3 w-full sm:w-auto disabled:opacity-50"
                   >
-                    {tincasoSubmitting ? 'Guardando...' : 'Apostar (3 pts)'}
+                    {tincasoSubmitting ? 'Guardando...' : user?.tincaso ? 'Apuesta Realizada' : 'Apostar (5 pts)'}
                   </button>
                 </div>
               </div>
@@ -4013,7 +4141,7 @@ export default function PWAAppPage() {
                         {pendientes.map((u) => (
                           <div key={u.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3">
                             <div className="flex items-center gap-3 min-w-0">
-                              <img src={u.avatar} className="w-10 h-10 rounded-full bg-neutral-950 border border-neutral-800 flex-shrink-0" alt="avatar" />
+                              <img src={u.avatar} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.nombre)}`; }} className="w-10 h-10 rounded-full bg-neutral-950 border border-neutral-800 flex-shrink-0" alt="avatar" />
                               <div className="min-w-0">
                                 <div className="font-bold text-sm text-neutral-200 truncate">{u.nombre}</div>
                                 <div className="text-[9px] text-neutral-500 font-mono">{u.email}{u.telefono && ` · 📱 ${u.telefono}`}</div>
@@ -4147,7 +4275,6 @@ export default function PWAAppPage() {
               </div>}
 
               {/* ══════════════ TAB: EMPRESA ══════════════ */}
-              {adminSubTab === 'empresa' && (() => { if (invitations.length === 0) loadInvitations(); return null; })()}
               {adminSubTab === 'empresa' && <div className="space-y-6">
 
               {/* ─── PERSONALIZACIÓN DEL SISTEMA (solo superadmin) ─── */}
@@ -4876,7 +5003,7 @@ export default function PWAAppPage() {
                   return (
                     <div key={u.id} className="flex justify-between items-center p-4">
                       <div className="flex items-center gap-3">
-                        <img src={u.avatar} className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-900" alt="avatar" />
+                        <img src={u.avatar} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.nombre)}`; }} className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-900" alt="avatar" />
                         <div>
                           <div className="text-xs font-bold text-neutral-200">{u.nombre}</div>
                           <div className="text-[9px] text-neutral-500 font-mono uppercase">{u.tipo}</div>
@@ -5076,98 +5203,133 @@ export default function PWAAppPage() {
           </div>
         )}
 
-        {betModalMatch && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm p-4">
-            <div className="glass-card border-t-2 border-t-yellow-500 border-x border-b border-neutral-800/80 rounded-xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
-              
-              {/* Modal Header */}
-              <div className="flex justify-between items-center border-b border-neutral-800/40 pb-3">
-                <div>
-                  <h3 className="text-sm font-black uppercase text-neutral-100">Hacer Pronóstico</h3>
-                  <span className="text-[9px] text-neutral-500 uppercase tracking-widest font-mono">Apuestas Cerradas al inicio del partido</span>
-                </div>
-                <button 
-                  onClick={() => setBetModalMatch(null)}
-                  className="bg-neutral-950 hover:bg-neutral-800 text-neutral-400 p-2 rounded-full border border-neutral-850 transition"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Score Selector Controls */}
-              <div className="flex justify-between items-center py-4 bg-neutral-950 border border-neutral-850 rounded-lg px-6 shadow-inner">
+        {betModalMatch && (() => {
+          const hasPrediction = predictions.some((p) => p.match_id === betModalMatch.id);
+          const isLocked = hasPrediction && betTargetUserId === user?.id;
+          return (
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm p-4">
+              <div className="glass-card border-t-2 border-t-yellow-500 border-x border-b border-neutral-800/80 rounded-xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
                 
-                {/* Local Input Selector */}
-                <div className="flex flex-col items-center gap-2 w-1/3">
-                  <div className="w-12 h-12 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl shadow-inner select-none flex-shrink-0 animate-pulse">
-                    {getTeamFlag(betModalMatch.local)}
+                {/* Modal Header */}
+                <div className="flex justify-between items-center border-b border-neutral-800/40 pb-3">
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-neutral-100">Hacer Pronóstico</h3>
+                    <span className="text-[9px] text-neutral-500 uppercase tracking-widest font-mono">Apuestas Cerradas al inicio del partido</span>
                   </div>
-                  <span className="text-[10px] font-black text-neutral-300 uppercase truncate w-full text-center tracking-wider">{betModalMatch.local}</span>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <button 
-                      onClick={() => setBetPredLocal(Math.max(0, betPredLocal - 1))}
-                      className="w-8 h-8 rounded-full border border-neutral-800 flex items-center justify-center font-bold text-sm bg-neutral-900 text-neutral-300 transition active:scale-90 hover:border-yellow-500/25"
-                    >
-                      -
-                    </button>
-                    <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredLocal}</span>
-                    <button 
-                      onClick={() => setBetPredLocal(betPredLocal + 1)}
-                      className="w-8 h-8 rounded-full border border-neutral-800 flex items-center justify-center font-bold text-sm bg-neutral-900 text-neutral-300 transition active:scale-90 hover:border-yellow-500/25"
-                    >
-                      +
-                    </button>
-                  </div>
+                  <button 
+                    onClick={() => setBetModalMatch(null)}
+                    className="bg-neutral-950 hover:bg-neutral-800 text-neutral-400 p-2 rounded-full border border-neutral-850 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
 
-                {/* Colon Separator */}
-                <span className="text-2xl text-neutral-700 font-extrabold font-mono">:</span>
+                {/* Super Admin target user selector */}
+                {user && user.tipo === 'superadmin' && (
+                  <div className="space-y-1.5 bg-neutral-950/60 border border-neutral-850 p-3.5 rounded-xl shadow-inner">
+                    <label className="block text-[9px] text-neutral-500 font-black uppercase tracking-widest">
+                      👤 Editar pronóstico de participante:
+                    </label>
+                    <select
+                      value={betTargetUserId || user.id}
+                      onChange={(e) => {
+                        const targetId = parseInt(e.target.value);
+                        setBetTargetUserId(targetId);
+                        handleLoadTargetUserPrediction(targetId, betModalMatch.id);
+                      }}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-300 focus:outline-none focus:border-yellow-500/50 transition cursor-pointer"
+                    >
+                      <option value={user.id}>Tú ({user.nombre})</option>
+                      {adminUsers
+                        .filter((u) => u.id !== user.id)
+                        .map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.nombre} ({u.email})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
 
-                {/* Visitante Input Selector */}
-                <div className="flex flex-col items-center gap-2 w-1/3">
-                  <div className="w-12 h-12 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl shadow-inner select-none flex-shrink-0 animate-pulse">
-                    {getTeamFlag(betModalMatch.visitante)}
+                {/* Score Selector Controls */}
+                <div className="flex justify-between items-center py-4 bg-neutral-950 border border-neutral-850 rounded-lg px-6 shadow-inner">
+                  
+                  {/* Local Input Selector */}
+                  <div className="flex flex-col items-center gap-2 w-1/3">
+                    <div className="w-12 h-12 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl shadow-inner select-none flex-shrink-0 animate-pulse">
+                      {getTeamFlag(betModalMatch.local)}
+                    </div>
+                    <span className="text-[10px] font-black text-neutral-300 uppercase truncate w-full text-center tracking-wider">{betModalMatch.local}</span>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <button 
+                        onClick={() => setBetPredLocal(Math.max(0, betPredLocal - 1))}
+                        disabled={isLocked}
+                        className="w-8 h-8 rounded-full border border-neutral-800 flex items-center justify-center font-bold text-sm bg-neutral-900 text-neutral-300 transition active:scale-90 hover:border-yellow-500/25 disabled:opacity-30"
+                      >
+                        -
+                      </button>
+                      <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredLocal}</span>
+                      <button 
+                        onClick={() => setBetPredLocal(betPredLocal + 1)}
+                        disabled={isLocked}
+                        className="w-8 h-8 rounded-full border border-neutral-800 flex items-center justify-center font-bold text-sm bg-neutral-900 text-neutral-300 transition active:scale-90 hover:border-yellow-500/25 disabled:opacity-30"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-black text-neutral-300 uppercase truncate w-full text-center tracking-wider">{betModalMatch.visitante}</span>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <button 
-                      onClick={() => setBetPredVisitante(Math.max(0, betPredVisitante - 1))}
-                      className="w-8 h-8 rounded-full border border-neutral-800 flex items-center justify-center font-bold text-sm bg-neutral-900 text-neutral-300 transition active:scale-90 hover:border-yellow-500/25"
-                    >
-                      -
-                    </button>
-                    <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredVisitante}</span>
-                    <button 
-                      onClick={() => setBetPredVisitante(betPredVisitante + 1)}
-                      className="w-8 h-8 rounded-full border border-neutral-800 flex items-center justify-center font-bold text-sm bg-neutral-900 text-neutral-300 transition active:scale-90 hover:border-yellow-500/25"
-                    >
-                      +
-                    </button>
+
+                  {/* Colon Separator */}
+                  <span className="text-2xl text-neutral-700 font-extrabold font-mono">:</span>
+
+                  {/* Visitante Input Selector */}
+                  <div className="flex flex-col items-center gap-2 w-1/3">
+                    <div className="w-12 h-12 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl shadow-inner select-none flex-shrink-0 animate-pulse">
+                      {getTeamFlag(betModalMatch.visitante)}
+                    </div>
+                    <span className="text-[10px] font-black text-neutral-300 uppercase truncate w-full text-center tracking-wider">{betModalMatch.visitante}</span>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <button 
+                        onClick={() => setBetPredVisitante(Math.max(0, betPredVisitante - 1))}
+                        disabled={isLocked}
+                        className="w-8 h-8 rounded-full border border-neutral-800 flex items-center justify-center font-bold text-sm bg-neutral-900 text-neutral-300 transition active:scale-90 hover:border-yellow-500/25 disabled:opacity-30"
+                      >
+                        -
+                      </button>
+                      <span className="text-lg font-black font-mono w-4 text-center text-yellow-500">{betPredVisitante}</span>
+                      <button 
+                        onClick={() => setBetPredVisitante(betPredVisitante + 1)}
+                        disabled={isLocked}
+                        className="w-8 h-8 rounded-full border border-neutral-800 flex items-center justify-center font-bold text-sm bg-neutral-900 text-neutral-300 transition active:scale-90 hover:border-yellow-500/25 disabled:opacity-30"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
+
                 </div>
+
+                {betError && (
+                  <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
+                    <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                    <span>{betError}</span>
+                  </div>
+                )}
+
+                {/* Confirm Submit action button */}
+                <button
+                  onClick={handleSavePrediction}
+                  disabled={betSubmitting || isLocked}
+                  className="w-full btn-primary-stitch py-3.5 text-sm uppercase flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{betSubmitting ? 'Confirmando...' : isLocked ? 'Apuesta Realizada (No editable)' : 'Confirmar Apuesta'}</span>
+                </button>
 
               </div>
-
-              {betError && (
-                <div className="flex items-center gap-2 bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">
-                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                  <span>{betError}</span>
-                </div>
-              )}
-
-              {/* Confirm Submit action button */}
-              <button
-                onClick={handleSavePrediction}
-                disabled={betSubmitting}
-                className="w-full btn-primary-stitch py-3.5 text-sm uppercase flex items-center justify-center gap-2"
-              >
-                <Check className="w-4 h-4" />
-                <span>{betSubmitting ? 'Confirmando...' : 'Confirmar Apuesta'}</span>
-              </button>
-
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* --- POPUP 2: ADMIN MATCH SCORES UPDATE MODAL --- */}
         {adminMatchModal && (
@@ -5478,7 +5640,7 @@ export default function PWAAppPage() {
 
                 {/* Stat 1: Possession */}
                 {(() => {
-                  const posLocal = 45 + (summaryModalMatch.id % 3 === 0 ? 10 : summaryModalMatch.id % 2 === 0 ? -5 : 2);
+                  const posLocal = summaryModalMatch.stats?.possession_local || (45 + (summaryModalMatch.id % 3 === 0 ? 10 : summaryModalMatch.id % 2 === 0 ? -5 : 2));
                   const posVisitante = 100 - posLocal;
                   return (
                     <div className="space-y-1">
@@ -5497,8 +5659,8 @@ export default function PWAAppPage() {
 
                 {/* Stat 2: Shots */}
                 {(() => {
-                  const shotsLocal = 8 + (summaryModalMatch.id % 5);
-                  const shotsVisitante = 6 + (summaryModalMatch.id % 7);
+                  const shotsLocal = summaryModalMatch.stats?.shots_local || (8 + (summaryModalMatch.id % 5));
+                  const shotsVisitante = summaryModalMatch.stats?.shots_visitante || (6 + (summaryModalMatch.id % 7));
                   const totalShots = shotsLocal + shotsVisitante;
                   const localPercent = (shotsLocal / totalShots) * 100;
                   return (
@@ -5518,8 +5680,8 @@ export default function PWAAppPage() {
 
                 {/* Stat 3: Fouls */}
                 {(() => {
-                  const foulsLocal = 10 + (summaryModalMatch.id % 4);
-                  const foulsVisitante = 9 + (summaryModalMatch.id % 6);
+                  const foulsLocal = summaryModalMatch.stats?.fouls_local || (10 + (summaryModalMatch.id % 4));
+                  const foulsVisitante = summaryModalMatch.stats?.fouls_visitante || (9 + (summaryModalMatch.id % 6));
                   const totalFouls = foulsLocal + foulsVisitante;
                   const localPercent = (foulsLocal / totalFouls) * 100;
                   return (
@@ -5539,59 +5701,7 @@ export default function PWAAppPage() {
               </div>
               )}
 
-              {/* Community Predictions list */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center border-b border-neutral-800 pb-1.5">
-                  <h4 className="text-xs font-black text-neutral-400 uppercase tracking-widest">Apuestas de la Comunidad</h4>
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Pronósticos realizados</span>
-                </div>
 
-                {!user ? (
-                  <div className="bg-neutral-950/40 border border-dashed border-neutral-800 rounded-2xl p-6 text-center space-y-3">
-                    <span className="text-2xl">🔒</span>
-                    <p className="text-xs text-neutral-400 font-medium">
-                      Debes iniciar sesión para ver las apuestas de la comunidad y comparar tus resultados.
-                    </p>
-                    <button
-                      onClick={handleIdentityLogin}
-                      className="btn-primary-stitch px-4 py-2 text-[10px] tracking-wider uppercase mx-auto block"
-                    >
-                      Iniciar Sesión / Registro
-                    </button>
-                  </div>
-                ) : loadingSummaryBets ? (
-                  <div className="py-4 text-center text-xs text-neutral-500">Cargando pronósticos...</div>
-                ) : (
-                  <div className="bg-neutral-950 border border-neutral-850 rounded-2xl divide-y divide-neutral-900 max-h-48 overflow-y-auto">
-                    {communityBets.map((bet) => (
-                      <div key={bet.id} className="flex justify-between items-center p-3 text-xs">
-                        <div className="flex items-center gap-2">
-                          <img src={bet.avatar} className="w-7 h-7 rounded-full bg-neutral-900 border border-neutral-800" alt="avatar" />
-                          <div>
-                            <span className="font-bold text-neutral-300">{bet.nombre}</span>
-                            <span className="text-[9px] text-neutral-500 uppercase font-mono tracking-widest ml-1">{bet.tipo}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-black text-neutral-200 font-mono">{bet.pred_local} - {bet.pred_visitante}</span>
-                          {bet.puntos !== null && (
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-black ${
-                              bet.puntos === 3 ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                              bet.puntos === 1 ? 'bg-neutral-800/50 text-neutral-300 border border-neutral-700/50' :
-                              'bg-neutral-900 text-neutral-500 border border-neutral-800/40'
-                            }`}>
-                              +{bet.puntos} PTS
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {communityBets.length === 0 && (
-                      <div className="py-6 text-center text-xs text-neutral-600 italic">Nadie ha realizado pronósticos para este partido aún</div>
-                    )}
-                  </div>
-                )}
-              </div>
 
               {/* Close button repeated at bottom for convenience on long content */}
               <div className="flex-shrink-0 border-t border-neutral-800 px-6 py-4">

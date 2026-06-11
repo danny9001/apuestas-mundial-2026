@@ -65,7 +65,7 @@ async function notifyUpcomingMatches() {
       weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
     });
     const titulo = `⚽ Partido próximo: ${m.local} vs ${m.visitante}`;
-    const contenido = `${m.fase.toUpperCase()} — ${fechaStr}. ¡Registra tu pronóstico antes del inicio!`;
+    const contenido = `${m.fase.toUpperCase()} — ${fechaStr}. ¡Registra tu pronóstico! Recuerda que las apuestas cierran 1 hora antes de que inicie el partido.`;
 
     await insertNotification(titulo, contenido, 'info', 'all', null);
 

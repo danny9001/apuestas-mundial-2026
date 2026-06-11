@@ -16,7 +16,37 @@ export interface PushPayload {
   url?: string;
 }
 
+
+export async function sendTelegramNotification(userId: number, text: string): Promise<boolean> {
+  try {
+    const userRes = await pool.query('SELECT telefono FROM users WHERE id = $1', [userId]);
+    const phone = userRes.rows[0]?.telefono;
+    if (!phone) return false;
+
+    const apiKey = 'a42fa223449069d6825989f8206335ca';
+    const res = await fetch('http://10.0.0.4:3200/api/v1/notifications/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify({
+        phoneNumber: phone,
+        message: text
+      })
+    });
+    return res.ok;
+  } catch (error) {
+    console.error('sendTelegramNotification failed:', error);
+    return false;
+  }
+}
+
 export async function sendPushNotification(userId: number, payload: PushPayload): Promise<void> {
+  // Send via Telegram first in parallel (non-blocking)
+  const formattedMsg = `<b>${payload.title}</b>\n\n${payload.body}`;
+  void sendTelegramNotification(userId, formattedMsg);
+
   if (!initWebPush()) return;
   try {
     const result = await pool.query(

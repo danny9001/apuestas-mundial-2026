@@ -35,7 +35,7 @@ export default function InvitacionPage() {
     const callbackUrl = encodeURIComponent(
       `${window.location.origin}/api/auth/identity-callback?redirect=/&invite_token=${token}`
     );
-    window.location.href = `https://id.genial-it.net/login?redirect=${callbackUrl}&app=mundial`;
+    window.location.href = `https://id.genial-it.net/login?redirect=${callbackUrl}`;
   };
 
   return (

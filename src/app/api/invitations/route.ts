@@ -6,10 +6,6 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser();
-    if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin'))
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
 
@@ -29,12 +25,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ...row, expired, used: false });
     }
 
+    // Protected: list invitations for admin/superadmin
+    const user = await getSessionUser();
+    if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin'))
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+
     const companyFilter = user.tipo === 'admin'
       ? 'AND i.company_id IN (SELECT company_id FROM user_companies WHERE user_id = $1)'
       : '';
     const params: unknown[] = user.tipo === 'admin' ? [user.id] : [];
 
-    const res = await pool.query(
+    const listRes = await pool.query(
       `SELECT i.id, i.token, i.used, i.email_usado, i.expires_at, i.created_at,
               c.id as company_id, c.nombre as company_nombre, u.nombre as created_by_nombre
        FROM invitations i
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
        ORDER BY i.created_at DESC LIMIT 50`,
       params
     );
-    return NextResponse.json(res.rows);
+    return NextResponse.json(listRes.rows);
   } catch (e: unknown) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
@@ -68,9 +69,9 @@ export async function POST(req: NextRequest) {
       const invitation = inv.rows[0];
       if (new Date(invitation.expires_at) < new Date()) return NextResponse.json({ error: 'Invitación expirada' }, { status: 410 });
 
-      const user = await pool.query('SELECT id FROM users WHERE lower(email) = lower($1)', [email]);
-      if (user.rows.length === 0) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
-      const userId = user.rows[0].id;
+      const userRes = await pool.query('SELECT id FROM users WHERE lower(email) = lower($1)', [email]);
+      if (userRes.rows.length === 0) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+      const userId = userRes.rows[0].id;
 
       if (invitation.company_id) {
         await pool.query(
@@ -78,7 +79,6 @@ export async function POST(req: NextRequest) {
           [userId, invitation.company_id]
         );
       }
-      // Track last use for auditing (but don't block reuse)
       await pool.query(
         'UPDATE invitations SET email_usado = $1 WHERE id = $2',
         [email.toLowerCase(), invitation.id]

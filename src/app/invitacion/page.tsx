@@ -47,7 +47,7 @@ export default function InvitacionPage() {
           </div>
         </div>
         <h1 className="text-xl font-black text-white text-center mb-1">Mundial 2026</h1>
-        <p className="text-sm text-neutral-400 text-center mb-6">Quiniela corporativa</p>
+        <p className="text-sm text-neutral-400 text-center mb-6">Que empiece el partido</p>
 
         {loading && (
           <div className="flex justify-center py-6">

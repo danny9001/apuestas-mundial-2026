@@ -143,30 +143,62 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const sessionToken = await setSession({
-      id:     user.id,
-      nombre: user.nombre,
-      email:  user.email,
-      tipo:   user.tipo,
-      avatar: user.avatar ?? '',
-    });
+    // Generar JWT sin establecer cookie aún
+    const sessionToken = jwt.sign(
+      { id: user.id, email: user.email, tipo: user.tipo },
+      process.env.JWT_SECRET!,
+      { expiresIn: 60 * 60 * 12 }
+    );
 
     const dest = redirectTo.startsWith('http')
       ? redirectTo
       : `${base}${redirectTo.startsWith('/') ? '' : '/'}${redirectTo}`;
 
-    const response = NextResponse.redirect(dest);
+    // Usar JavaScript para hacer POST automático
+    // Esto evita problemas de NextResponse.redirect() con cookies
+    const htmlForm = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Iniciando sesión...</title></head>
+        <body style="margin:0; padding:0; background:#f5f5f5;">
+          <script>
+            (async () => {
+              try {
+                const res = await fetch('/api/auth/sso-complete', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    token: '${sessionToken}',
+                    redirect: '${dest}'
+                  }),
+                  credentials: 'include'
+                });
+                const data = await res.json();
+                if (data.success && data.redirect) {
+                  window.location.href = data.redirect;
+                } else {
+                  window.location.href = '/?error=sso_failed';
+                }
+              } catch (err) {
+                window.location.href = '/?error=sso_failed';
+              }
+            })();
+          </script>
+          <div style="display:flex; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; color:#666;">
+            <div style="text-align:center;">
+              <div style="font-size:18px; margin-bottom:20px;">Iniciando sesión...</div>
+              <div style="width:40px; height:40px; border:4px solid #f3f3f3; border-top:4px solid #3498db; border-radius:50%; margin:0 auto; animation:spin 1s linear infinite;"></div>
+              <style>@keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }</style>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
 
-    // Establecer cookie explícitamente en el response (como lo hace reservas)
-    response.cookies.set('apuestas_session', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 12,
-      path: '/',
+    return new NextResponse(htmlForm, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8; charset=utf-8' },
     });
-
-    return response;
   } catch (err) {
     console.error('identity-callback error:', err);
     return NextResponse.redirect(`${base}/?error=sso_failed`);

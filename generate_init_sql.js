@@ -82,6 +82,15 @@ DECLARE
   new_pos INTEGER;
   new_tendencia VARCHAR(10);
 BEGIN
+  -- Delete users from leaderboard who are no longer active or participating
+  DELETE FROM leaderboard
+  WHERE user_id NOT IN (
+    SELECT id FROM users 
+    WHERE activo = true 
+      AND participa = true
+      AND (tipo != 'superadmin' OR EXISTS (SELECT 1 FROM user_companies WHERE user_id = id))
+  );
+
   -- First update all predictions points for finished matches
   UPDATE predictions p
   SET puntos = CASE
@@ -106,6 +115,9 @@ BEGIN
         COALESCE(SUM(CASE WHEN p.puntos = 3 THEN 1 ELSE 0 END), 0) AS exact_cnt
       FROM users u
       LEFT JOIN predictions p ON u.id = p.user_id
+      WHERE u.activo = true
+        AND u.participa = true
+        AND (u.tipo != 'superadmin' OR EXISTS (SELECT 1 FROM user_companies WHERE user_id = u.id))
       GROUP BY u.id
     ),
     ranked AS (

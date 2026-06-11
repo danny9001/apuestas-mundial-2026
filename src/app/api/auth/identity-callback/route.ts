@@ -130,8 +130,8 @@ export async function GET(req: NextRequest) {
         const mundialRol = empresa.apps?.['mundial']?.rol;
         if (mundialRol && empresa.nombre) {
           const compRes = await pool.query(
-            'SELECT id FROM companies WHERE lower(nombre) = lower($1) OR lower(slug) = lower($2)',
-            [empresa.nombre, empresa.slug ?? empresa.nombre]
+            'SELECT id FROM companies WHERE lower(nombre) = lower($1)',
+            [empresa.nombre]
           );
           if (compRes.rows.length > 0) {
             await pool.query(

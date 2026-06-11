@@ -48,3 +48,40 @@ export async function syncCompanyAssignment(
     return { ok: false };
   }
 }
+
+/** Create or update the user's credential account in Identity with a bcrypt-12 password. */
+export async function syncUserToIdentity(params: {
+  email: string;
+  name: string;
+  password: string;
+}): Promise<void> {
+  const { appSecret, baseUrl } = getIdentityConfig();
+  if (!appSecret) return;
+  try {
+    await fetch(`${baseUrl}/api/v1/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-app-secret': appSecret },
+      body: JSON.stringify({ action: 'sync-user', role: 'user', ...params }),
+    });
+  } catch (err) {
+    console.error('[identity-sync] syncUserToIdentity failed:', err);
+  }
+}
+
+/** Replicate a password change to the user's Identity credential account. */
+export async function syncUserPassword(params: {
+  email: string;
+  password: string;
+}): Promise<void> {
+  const { appSecret, baseUrl } = getIdentityConfig();
+  if (!appSecret) return;
+  try {
+    await fetch(`${baseUrl}/api/v1/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-app-secret': appSecret },
+      body: JSON.stringify({ action: 'sync-user-password', ...params }),
+    });
+  } catch (err) {
+    console.error('[identity-sync] syncUserPassword failed:', err);
+  }
+}

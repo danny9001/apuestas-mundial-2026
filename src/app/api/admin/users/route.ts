@@ -5,7 +5,7 @@ import { broadcastUpdate } from '@/lib/realtime';
 import { sendPushNotification } from '@/lib/push';
 import { sendMail, buildApprovalEmail, buildDenialEmail } from '@/lib/mail';
 import { isValidEmail, sanitizeText, validatePassword, isValidRole, BCRYPT_ROUNDS } from '@/lib/validation';
-import { syncCompanyAssignment } from '@/lib/identity-sync';
+import { syncCompanyAssignment, syncUserToIdentity, syncUserPassword } from '@/lib/identity-sync';
 
 async function ensureNotificationsTables() {
   await pool.query(`
@@ -170,6 +170,10 @@ export async function POST(req: NextRequest) {
 
       const r = await pool.query(updateQuery, params);
       if (r.rows.length === 0) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+      // Sync password to Identity if it was changed
+      if (password?.trim()) {
+        void syncUserPassword({ email: emailNorm, password: password.trim() });
+      }
       return NextResponse.json({ success: true, user: r.rows[0] });
     }
 
@@ -389,6 +393,9 @@ export async function POST(req: NextRequest) {
         // Single company for admin role
         await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [newUserId, body.companyId]);
       }
+
+      // Sync to Identity — create credential account
+      void syncUserToIdentity({ email: emailNorm2, name: nombreSafe2, password: String(password).trim() });
 
       return NextResponse.json({ success: true, user: res.rows[0] });
     }

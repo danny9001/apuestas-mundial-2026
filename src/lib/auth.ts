@@ -78,8 +78,8 @@ export async function setSession(user: {
   const cookieStore = await cookies();
   cookieStore.set('apuestas_session', token, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
     maxAge: SESSION_TTL_SECONDS,
     path: '/',
   });

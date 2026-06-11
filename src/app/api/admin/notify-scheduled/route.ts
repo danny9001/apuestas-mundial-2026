@@ -53,7 +53,7 @@ async function notifyUpcomingMatches() {
     SELECT m.id, m.local, m.visitante, m.fecha, m.fase
     FROM matches m
     WHERE m.estado = 'upcoming'
-      AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '1.5 hours'
+      AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '2.5 hours'
       AND NOT EXISTS (
         SELECT 1 FROM scheduled_notify_log WHERE tipo = 'match_reminder' AND referencia_id = m.id
       )

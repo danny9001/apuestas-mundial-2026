@@ -3978,7 +3978,7 @@ export default function PWAAppPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-                        {user.tipo === 'superadmin' && u.id !== user.id && companies.length > 0 && (
+                        {user.tipo === 'superadmin' && companies.length > 0 && (
                           <div className="flex gap-1 flex-wrap max-w-[200px]">
                             {companies.map((c) => {
                               const isMember = (u.companies || []).some((uc: any) => uc.id === c.id);
@@ -4023,7 +4023,7 @@ export default function PWAAppPage() {
                             <button onClick={() => handleToggleUserStatus(u.id, u.activo)} className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.activo ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'}`}>
                               {u.activo ? <><UserX className="w-3.5 h-3.5" /> Desactivar</> : <><UserCheck className="w-3.5 h-3.5" /> Activar</>}
                             </button>
-                            {u.tipo !== 'superadmin' && u.aprobado && (
+                            {u.aprobado && (
                               <button onClick={() => handleToggleParticipa(u.id, u.participa !== false)}
                                 className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.participa !== false ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20' : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-400 border border-neutral-700'}`}
                                 title={u.participa !== false ? 'Cambiar a Visor' : 'Cambiar a Participante'}>
@@ -4032,9 +4032,14 @@ export default function PWAAppPage() {
                             )}
                           </>
                         ) : (
-                          <span className="text-[10px] text-neutral-500 uppercase tracking-widest italic pr-4">
-                            {user.tipo === 'superadmin' ? 'Tú (Super Admin)' : 'Tú (Admin)'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-neutral-500 uppercase tracking-widest italic">Tú</span>
+                            <button onClick={() => handleToggleParticipa(u.id, u.participa !== false)}
+                              className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.participa !== false ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20' : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-400 border border-neutral-700'}`}
+                              title={u.participa !== false ? 'Cambiar a Visor' : 'Cambiar a Participante'}>
+                              {u.participa !== false ? '⚽ Participa' : '👁 Visor'}
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>

@@ -63,9 +63,17 @@ async function notifyUpcomingMatches() {
   for (const m of matches.rows) {
     const diffMs = new Date(m.fecha).getTime() - Date.now();
     const diffMins = Math.round(diffMs / 60000);
-    const tiempoRestanteStr = diffMins > 60 
-      ? `1 hora y ${diffMins - 60} minutos` 
-      : `${diffMins} minutos`;
+    
+    let tiempoRestanteStr = '';
+    if (diffMins >= 60) {
+      const hrs = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      const hrsText = hrs === 1 ? '1 hora' : `${hrs} horas`;
+      const minsText = mins > 0 ? ` y ${mins} minutos` : '';
+      tiempoRestanteStr = `${hrsText}${minsText}`;
+    } else {
+      tiempoRestanteStr = `${diffMins} minutos`;
+    }
 
     const titulo = `⚽ Partido próximo: ${m.local} vs ${m.visitante}`;
     const contenido = `Falta ${tiempoRestanteStr} para el inicio del partido. ¡Registra tu pronóstico ahora! Recuerda que las apuestas cierran 1 hora antes de que inicie el partido.`;

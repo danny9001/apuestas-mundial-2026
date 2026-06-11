@@ -3374,30 +3374,32 @@ export default function PWAAppPage() {
                     });
                   })()}
                 </div>
-                <div className="mt-12 bg-neutral-900/50 border border-neutral-800 rounded-3xl p-8">
-                  <h3 className="text-xl font-black text-yellow-500 uppercase tracking-widest mb-2 flex items-center gap-2"><Trophy className="w-6 h-6" /> Tincaso Mundial</h3>
-                  <p className="text-sm text-neutral-400 mb-6">Selecciona tu equipo ganador del torneo. Si aciertas al final del campeonato, ganarás 3 puntos extra.</p>
-                  <div className="flex flex-col sm:flex-row items-center gap-4">
-                    <select 
-                      className="bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-100 font-bold focus:border-yellow-500 w-full sm:w-auto flex-1"
-                      value={tincasoSelection}
-                      onChange={(e) => setTincasoSelection(e.target.value)}
-                    >
-                      <option value="">Seleccionar Equipo...</option>
-                      {Array.from(new Set(matches.flatMap(m => [m.equipo_local, m.equipo_visitante]))).filter(t => t && t !== 'Por definir' && !t.includes('Ganador')).sort().map(team => (
-                        <option key={team} value={team}>{team}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={handleTincasoSubmit}
-                      disabled={tincasoSubmitting || !tincasoSelection}
-                      className="btn-primary-stitch px-8 py-3 w-full sm:w-auto"
-                    >
-                      {tincasoSubmitting ? 'Guardando...' : 'Apostar (3 pts)'}
-                    </button>
-                  </div>
-                </div>
               )}
+
+              {/* Tincaso Apuesta Global del Fixture */}
+              <div className="mt-12 bg-neutral-900/50 border border-neutral-800 rounded-3xl p-8">
+                <h3 className="text-xl font-black text-yellow-500 uppercase tracking-widest mb-2 flex items-center gap-2"><Trophy className="w-6 h-6" /> Tincaso Mundial</h3>
+                <p className="text-sm text-neutral-400 mb-6">Selecciona tu equipo ganador del torneo. Si aciertas al final del campeonato, ganarás 3 puntos extra.</p>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <select 
+                    className="bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-100 font-bold focus:border-yellow-500 w-full sm:w-auto flex-1"
+                    value={tincasoSelection}
+                    onChange={(e) => setTincasoSelection(e.target.value)}
+                  >
+                    <option value="">Seleccionar Equipo...</option>
+                    {Array.from(new Set(matches.flatMap(m => [m.equipo_local, m.equipo_visitante]))).filter(t => t && t !== 'Por definir' && !t.includes('Ganador')).sort().map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleTincasoSubmit}
+                    disabled={tincasoSubmitting || !tincasoSelection}
+                    className="btn-primary-stitch px-8 py-3 w-full sm:w-auto"
+                  >
+                    {tincasoSubmitting ? 'Guardando...' : 'Apostar (3 pts)'}
+                  </button>
+                </div>
+              </div>
             </section>
           )}
 

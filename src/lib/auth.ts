@@ -6,10 +6,13 @@ export interface UserSession {
   id: number;
   nombre: string;
   email: string;
-  tipo: 'interno' | 'externo' | 'admin' | 'superadmin';
   avatar: string;
+  tipo: string;
   aprobado: boolean;
   denegado: boolean;
+  telefono?: string;
+  tincaso?: string;
+  notif_prefs?: any;
 }
 
 const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12h
@@ -36,7 +39,7 @@ export async function getSessionUser(): Promise<UserSession | null> {
     if (!payload.id) return null;
 
     const res = await pool.query(
-      'SELECT id, nombre, email, tipo, avatar, activo, aprobado, denegado FROM users WHERE id = $1',
+      'SELECT id, nombre, email, avatar, tipo, aprobado, denegado, telefono, tincaso, notif_prefs, activo FROM users WHERE id = $1',
       [payload.id]
     );
 
@@ -50,6 +53,9 @@ export async function getSessionUser(): Promise<UserSession | null> {
       avatar: res.rows[0].avatar,
       aprobado: !!res.rows[0].aprobado,
       denegado: !!res.rows[0].denegado,
+      telefono: res.rows[0].telefono,
+      tincaso: res.rows[0].tincaso,
+      notif_prefs: res.rows[0].notif_prefs,
     };
   } catch {
     return null;
@@ -73,7 +79,7 @@ export async function setSession(user: {
   cookieStore.set('apuestas_session', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',
     maxAge: SESSION_TTL_SECONDS,
     path: '/',
   });

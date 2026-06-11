@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    await setSession({
+    const sessionToken = await setSession({
       id:     user.id,
       nombre: user.nombre,
       email:  user.email,
@@ -154,7 +154,19 @@ export async function GET(req: NextRequest) {
     const dest = redirectTo.startsWith('http')
       ? redirectTo
       : `${base}${redirectTo.startsWith('/') ? '' : '/'}${redirectTo}`;
-    return NextResponse.redirect(dest);
+
+    const response = NextResponse.redirect(dest);
+
+    // Establecer cookie explícitamente en el response (como lo hace reservas)
+    response.cookies.set('apuestas_session', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 12,
+      path: '/',
+    });
+
+    return response;
   } catch (err) {
     console.error('identity-callback error:', err);
     return NextResponse.redirect(`${base}/?error=sso_failed`);

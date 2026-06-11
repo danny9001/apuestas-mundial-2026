@@ -83,6 +83,8 @@ export async function setSession(user: {
     maxAge: SESSION_TTL_SECONDS,
     path: '/',
   });
+
+  return token;
 }
 
 export async function clearSession() {

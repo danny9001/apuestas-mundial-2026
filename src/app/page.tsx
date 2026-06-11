@@ -3634,19 +3634,17 @@ export default function PWAAppPage() {
                   </div>
                 )}
 
-                <button
-                  onClick={handlePasskeyRegister}
-                  disabled={passkeyRegistering}
+                <a
+                  href="https://id.genial-it.net/dashboard/perfil"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-full bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-yellow-500/40 text-neutral-300 hover:text-neutral-100 py-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.99] uppercase tracking-wider"
                 >
-                  <span className="text-base">➕</span>
-                  <span>{passkeyRegistering ? 'Registrando...' : userPasskeys.length > 0 ? 'Agregar otra llave FIDO' : 'Registrar llave FIDO / Passkey'}</span>
-                </button>
-                {passkeyError && (
-                  <div className="bg-red-950/30 border border-red-800/40 text-red-400 text-xs p-3 rounded-lg">{passkeyError}</div>
-                )}
+                  <span className="text-base">🔑</span>
+                  <span>Gestionar Passkeys en ElitePass Identity</span>
+                </a>
                 <p className="text-[10px] text-neutral-600 leading-relaxed">
-                  Touch ID (Mac) · Windows Hello · YubiKey · Face ID (iPhone/Android) · Puedes agregar múltiples llaves para cada dispositivo.
+                  Las passkeys se gestionan centralmente en ElitePass Identity. Al registrar una allí, podrás usarla para iniciar sesión en todas las apps del ecosistema.
                 </p>
               </div>
 

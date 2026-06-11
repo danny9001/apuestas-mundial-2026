@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { KeyRound, Building2, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { KeyRound, Building2, Loader2, AlertTriangle } from 'lucide-react';
 
 interface Invitation {
   token: string;
   company_nombre: string;
   company_color: string;
-  used: boolean;
   expired: boolean;
   expires_at: string;
 }
@@ -25,7 +24,8 @@ export default function InvitacionPage() {
     fetch(`/api/invitations?token=${token}`)
       .then(r => r.json())
       .then(d => {
-        if (d.error) { setError(d.error); } else { setInv(d); }
+        if (d.error) setError(d.error);
+        else setInv(d);
       })
       .catch(() => setError('Error de red'))
       .finally(() => setLoading(false));
@@ -63,17 +63,15 @@ export default function InvitacionPage() {
           </div>
         )}
 
-        {inv && (inv.used || inv.expired) && (
+        {inv?.expired && (
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <AlertTriangle className="w-8 h-8 text-amber-400" />
-            <p className="text-sm text-amber-400 font-semibold">
-              {inv.used ? 'Esta invitación ya fue utilizada.' : 'Esta invitación ha expirado.'}
-            </p>
+            <p className="text-sm text-amber-400 font-semibold">Esta invitación ha expirado.</p>
             <a href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition">Ir al inicio</a>
           </div>
         )}
 
-        {inv && !inv.used && !inv.expired && (
+        {inv && !inv.expired && (
           <>
             <div className="mb-5 p-4 rounded-xl border text-center"
               style={{ backgroundColor: (inv.company_color || '#eab308') + '15', borderColor: (inv.company_color || '#eab308') + '40' }}>
@@ -90,7 +88,7 @@ export default function InvitacionPage() {
               Ingresar con ElitePass Identity
             </button>
             <p className="text-[10px] text-neutral-600 text-center mt-4">
-              Expira el {new Date(inv.expires_at).toLocaleDateString('es-BO', { day: '2-digit', month: 'long', year: 'numeric' })}
+              Válido hasta el {new Date(inv.expires_at).toLocaleDateString('es-BO', { day: '2-digit', month: 'long', year: 'numeric' })}
             </p>
           </>
         )}

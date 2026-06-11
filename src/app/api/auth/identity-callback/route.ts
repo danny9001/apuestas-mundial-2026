@@ -96,12 +96,12 @@ export async function GET(req: NextRequest) {
     if (inviteToken) {
       try {
         const inv = await pool.query(
-          'SELECT id, company_id, used, expires_at FROM invitations WHERE token = $1',
+          'SELECT id, company_id, expires_at FROM invitations WHERE token = $1',
           [inviteToken]
         );
         if (inv.rows.length > 0) {
           const invitation = inv.rows[0];
-          if (!invitation.used && new Date(invitation.expires_at) >= new Date()) {
+          if (new Date(invitation.expires_at) >= new Date()) {
             if (invitation.company_id) {
               await pool.query(
                 'INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
               }
             }
             await pool.query(
-              'UPDATE invitations SET used = TRUE, email_usado = $1 WHERE id = $2',
+              'UPDATE invitations SET email_usado = $1 WHERE id = $2',
               [user.email.toLowerCase(), invitation.id]
             );
           }

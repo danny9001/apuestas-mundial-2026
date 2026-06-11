@@ -97,7 +97,23 @@ export async function POST(req: NextRequest) {
           errors.push({ matchId, error: 'Apuestas cerradas' }); continue;
         }
         if (existingSet.has(matchId)) {
-          errors.push({ matchId, error: 'La apuesta ya ha sido confirmada y no se puede modificar.' }); continue;
+          // Allow correction within 3 minutes of original bet
+          const existingPred = await pool.query(
+            'SELECT id, created_at FROM predictions WHERE user_id = $1 AND match_id = $2',
+            [user.id, matchId]
+          );
+          const minsAgo = existingPred.rows.length > 0
+            ? (now.getTime() - new Date(existingPred.rows[0].created_at).getTime()) / 60000
+            : Infinity;
+          if (minsAgo > 3) {
+            errors.push({ matchId, error: 'El período de corrección (3 min) ha vencido.' }); continue;
+          }
+          const upd = await pool.query(
+            'UPDATE predictions SET pred_local = $1, pred_visitante = $2 WHERE user_id = $3 AND match_id = $4 RETURNING *',
+            [parseInt(predLocal), parseInt(predVisitante), user.id, matchId]
+          );
+          results.push({ ...upd.rows[0], corrected: true });
+          continue;
         }
 
         const res = await pool.query(
@@ -117,6 +133,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
     }
 
+    const now = new Date();
     const matchRes = await pool.query(
       'SELECT fecha, estado FROM matches WHERE id = $1',
       [matchId]
@@ -127,7 +144,6 @@ export async function POST(req: NextRequest) {
     }
 
     const match = matchRes.rows[0];
-    const now = new Date();
     const matchTime = new Date(match.fecha);
 
     if (match.estado !== 'upcoming' || now >= matchTime) {
@@ -139,16 +155,25 @@ export async function POST(req: NextRequest) {
 
     // Check if prediction already exists for this user and match
     const existingPredRes = await pool.query(
-      'SELECT id FROM predictions WHERE user_id = $1 AND match_id = $2',
+      'SELECT id, created_at FROM predictions WHERE user_id = $1 AND match_id = $2',
       [user.id, matchId]
     );
 
     if (existingPredRes.rows.length > 0) {
-      return NextResponse.json(
-        { error: 'La apuesta ya ha sido confirmada y no se puede modificar.' },
-        { status: 400 }
+      const minsAgo = (now.getTime() - new Date(existingPredRes.rows[0].created_at).getTime()) / 60000;
+      if (minsAgo > 3) {
+        return NextResponse.json(
+          { error: 'El período de corrección (3 min) ha vencido. No se puede modificar la apuesta.' },
+          { status: 400 }
+        );
+      }
+      const upd = await pool.query(
+        'UPDATE predictions SET pred_local = $1, pred_visitante = $2 WHERE user_id = $3 AND match_id = $4 RETURNING *',
+        [parseInt(predLocal), parseInt(predVisitante), user.id, matchId]
       );
+      return NextResponse.json({ success: true, prediction: upd.rows[0], corrected: true });
     }
+
 
     const insertQuery = `
       INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante)

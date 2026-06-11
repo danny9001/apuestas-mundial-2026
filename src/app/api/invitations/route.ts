@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
       if (res.rows.length === 0) return NextResponse.json({ error: 'Invitación no encontrada' }, { status: 404 });
       const row = res.rows[0];
       const expired = new Date(row.expires_at) < new Date();
-      return NextResponse.json({ ...row, expired });
+      return NextResponse.json({ ...row, expired, used: false });
     }
 
     const companyFilter = user.tipo === 'admin'
@@ -55,18 +55,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action } = body;
 
-    // Public endpoint: consume an invitation (called from identity-callback)
+    // Public endpoint: consume an invitation — multi-use until expiry
     if (action === 'consume') {
       const { token, email } = body;
       if (!token || !email) return NextResponse.json({ error: 'token y email requeridos' }, { status: 400 });
 
       const inv = await pool.query(
-        'SELECT id, company_id, used, expires_at FROM invitations WHERE token = $1',
+        'SELECT id, company_id, expires_at FROM invitations WHERE token = $1',
         [token]
       );
       if (inv.rows.length === 0) return NextResponse.json({ error: 'Invitación no encontrada' }, { status: 404 });
       const invitation = inv.rows[0];
-      if (invitation.used) return NextResponse.json({ error: 'Invitación ya usada' }, { status: 409 });
       if (new Date(invitation.expires_at) < new Date()) return NextResponse.json({ error: 'Invitación expirada' }, { status: 410 });
 
       const user = await pool.query('SELECT id FROM users WHERE lower(email) = lower($1)', [email]);
@@ -79,8 +78,9 @@ export async function POST(req: NextRequest) {
           [userId, invitation.company_id]
         );
       }
+      // Track last use for auditing (but don't block reuse)
       await pool.query(
-        'UPDATE invitations SET used = TRUE, email_usado = $1 WHERE id = $2',
+        'UPDATE invitations SET email_usado = $1 WHERE id = $2',
         [email.toLowerCase(), invitation.id]
       );
       return NextResponse.json({ success: true, company_id: invitation.company_id, user_id: userId });

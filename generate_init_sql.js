@@ -16,6 +16,7 @@ CREATE TABLE users (
   tipo VARCHAR(50) DEFAULT 'externo', -- 'interno', 'externo', 'admin'
   avatar TEXT,
   activo BOOLEAN DEFAULT TRUE,
+  aprobado BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -73,6 +74,22 @@ CREATE TABLE sync_log (
   duration_ms INTEGER
 );
 
+-- 5b. Create COMPANIES table
+CREATE TABLE companies (
+  id SERIAL PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  descripcion TEXT,
+  activo BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5c. Create USER_COMPANIES junction table
+CREATE TABLE user_companies (
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, company_id)
+);
+
 -- 6. FUNCTION TO RECALCULATE LEADERBOARD
 CREATE OR REPLACE FUNCTION recalculate_leaderboard() 
 RETURNS void AS $$
@@ -87,7 +104,7 @@ BEGIN
   WHERE user_id NOT IN (
     SELECT id FROM users 
     WHERE activo = true 
-      AND participa = true
+      AND aprobado = true
       AND (tipo != 'superadmin' OR EXISTS (SELECT 1 FROM user_companies WHERE user_id = id))
   );
 
@@ -116,7 +133,7 @@ BEGIN
       FROM users u
       LEFT JOIN predictions p ON u.id = p.user_id
       WHERE u.activo = true
-        AND u.participa = true
+        AND u.aprobado = true
         AND (u.tipo != 'superadmin' OR EXISTS (SELECT 1 FROM user_companies WHERE user_id = u.id))
       GROUP BY u.id
     ),

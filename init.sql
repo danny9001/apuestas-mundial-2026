@@ -34,7 +34,6 @@ CREATE TABLE matches (
   grupo VARCHAR(10),
   estadio VARCHAR(255),
   stats JSONB DEFAULT '{}',
-  transmision_enlaces TEXT DEFAULT '',
   last_synced_at TIMESTAMP WITH TIME ZONE,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -62,31 +61,7 @@ CREATE TABLE leaderboard (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Create PASSKEYS table (WebAuthn / FIDO2)
-CREATE TABLE passkeys (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  credential_id TEXT UNIQUE NOT NULL,
-  public_key BYTEA NOT NULL,
-  counter BIGINT DEFAULT 0,
-  device_type VARCHAR(32) DEFAULT 'singleDevice',
-  backed_up BOOLEAN DEFAULT FALSE,
-  transports TEXT[],
-  label VARCHAR(120),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  last_used_at TIMESTAMP WITH TIME ZONE
-);
-
--- WebAuthn challenge store (shared across all app replicas, TTL 5 min)
-CREATE TABLE IF NOT EXISTS webauthn_challenges (
-  challenge_key  VARCHAR(300) NOT NULL,
-  challenge      TEXT         NOT NULL,
-  expires_at     TIMESTAMPTZ  NOT NULL DEFAULT (NOW() + INTERVAL '5 minutes'),
-  PRIMARY KEY (challenge_key)
-);
-CREATE INDEX IF NOT EXISTS idx_wac_expires ON webauthn_challenges(expires_at);
-
--- 6. Create SYNC_LOG table
+-- 5. Create SYNC_LOG table
 CREATE TABLE sync_log (
   id SERIAL PRIMARY KEY,
   synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -95,6 +70,22 @@ CREATE TABLE sync_log (
   matches_finished INTEGER DEFAULT 0,
   errors TEXT[],
   duration_ms INTEGER
+);
+
+-- 5b. Create COMPANIES table
+CREATE TABLE companies (
+  id SERIAL PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  descripcion TEXT,
+  activo BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5c. Create USER_COMPANIES junction table
+CREATE TABLE user_companies (
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, company_id)
 );
 
 -- 6. FUNCTION TO RECALCULATE LEADERBOARD
@@ -111,7 +102,7 @@ BEGIN
   WHERE user_id NOT IN (
     SELECT id FROM users 
     WHERE activo = true 
-      AND participa = true
+      AND aprobado = true
       AND (tipo != 'superadmin' OR EXISTS (SELECT 1 FROM user_companies WHERE user_id = id))
   );
 
@@ -140,7 +131,7 @@ BEGIN
       FROM users u
       LEFT JOIN predictions p ON u.id = p.user_id
       WHERE u.activo = true
-        AND u.participa = true
+        AND u.aprobado = true
         AND (u.tipo != 'superadmin' OR EXISTS (SELECT 1 FROM user_companies WHERE user_id = u.id))
       GROUP BY u.id
     ),
@@ -188,7 +179,7 @@ $$ LANGUAGE plpgsql;
 
 -- 7. SEED USERS
 INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo) VALUES
-('Daniel Admin', 'admin@mundial.com', '$2b$10$tS4j1b8mT9FZtZ/D8Cvr3eyJwGSAZTs327bkZfwrijzN5eZDEFGEi', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true);
+('Daniel Admin', 'admin@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true);
 
 
 -- 8. SEED ALL 104 MATCHES (48 Group Stage + 56 Knockout Stage)

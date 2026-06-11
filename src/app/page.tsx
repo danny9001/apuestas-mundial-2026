@@ -2365,6 +2365,27 @@ export default function PWAAppPage() {
             return (
               <section className="space-y-6 max-w-5xl mx-auto pb-8">
                 
+                {/* PWA Install Alert Banner on screen */}
+                {!isInstalled && deferredPrompt && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in shadow-md">
+                    <div className="flex items-center gap-3 text-left">
+                      <span className="text-2xl flex-shrink-0">📱</span>
+                      <div>
+                        <h4 className="text-xs font-black uppercase text-yellow-500 tracking-wider">¡Instala la Aplicación!</h4>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">
+                          Para recibir alertas de goles en tiempo real, recordatorios de partidos y notificaciones de ranking al instante, instala la PWA en tu pantalla de inicio.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleInstallPWA}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-black uppercase tracking-wider px-4 py-2 rounded-xl transition active:scale-[0.98] w-full sm:w-auto text-center"
+                    >
+                      Instalar PWA
+                    </button>
+                  </div>
+                )}
+
                 {/* Welcome Card */}
                 {user ? (
                   <div className="bg-gradient-to-r from-yellow-500/15 via-amber-500/5 to-transparent border border-yellow-500/20 rounded-3xl p-6 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg animate-fade-in">

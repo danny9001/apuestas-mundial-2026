@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser();
     if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin')) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      return NextResponse.json({ error: `No autorizado (User: ${user?.tipo || 'null'})` }, { status: 403 });
     }
 
     const body = await req.json();
@@ -136,10 +136,10 @@ export async function POST(req: NextRequest) {
         const targetRes = await pool.query('SELECT tipo FROM users WHERE id = $1', [targetId]);
         const targetTipo = targetRes.rows[0]?.tipo;
         if (targetTipo === 'admin' || targetTipo === 'superadmin') {
-          return NextResponse.json({ error: 'No autorizado para editar administradores' }, { status: 403 });
+          return NextResponse.json({ error: 'No autorizado para editar administradores (Tu rol es admin)' }, { status: 403 });
         }
         if (tipo === 'admin' || tipo === 'superadmin') {
-          return NextResponse.json({ error: 'No autorizado para asignar ese rol' }, { status: 403 });
+          return NextResponse.json({ error: 'No autorizado para asignar rol de admin/superadmin' }, { status: 403 });
         }
       }
 
@@ -172,6 +172,7 @@ export async function POST(req: NextRequest) {
       if (r.rows.length === 0) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
       // Sync password to Identity if it was changed
       if (password?.trim()) {
+        void syncUserToIdentity({ email: emailNorm, name: nombreSafe, password: password.trim() });
         void syncUserPassword({ email: emailNorm, password: password.trim() });
       }
       return NextResponse.json({ success: true, user: r.rows[0] });
@@ -411,11 +412,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No puedes desactivarte a ti mismo' }, { status: 400 });
     }
 
-    // Company admin cannot modify other admins or superadmins
+    // Company admin cannot modify superadmins
     if (user.tipo === 'admin') {
       const targetRes = await pool.query('SELECT tipo FROM users WHERE id = $1', [userId]);
-      if (targetRes.rows.length > 0 && (targetRes.rows[0].tipo === 'admin' || targetRes.rows[0].tipo === 'superadmin')) {
-        return NextResponse.json({ error: 'No autorizado para modificar administradores' }, { status: 403 });
+      if (targetRes.rows.length > 0 && targetRes.rows[0].tipo === 'superadmin') {
+        return NextResponse.json({ error: 'No autorizado para modificar superadministradores' }, { status: 403 });
       }
     }
 

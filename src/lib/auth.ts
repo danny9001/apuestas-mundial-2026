@@ -27,23 +27,37 @@ export async function getSessionUser(): Promise<UserSession | null> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('apuestas_session');
-    if (!sessionCookie?.value) return null;
+    if (!sessionCookie?.value) {
+      console.log('[getSessionUser] No session cookie found');
+      return null;
+    }
 
     let payload: { id: number; tipo: string };
     try {
       payload = jwt.verify(sessionCookie.value, getJwtSecret()) as { id: number; tipo: string };
-    } catch {
+    } catch (e: any) {
+      console.log('[getSessionUser] JWT verify failed:', e.message);
       return null;
     }
 
-    if (!payload.id) return null;
+    if (!payload.id) {
+      console.log('[getSessionUser] No payload ID');
+      return null;
+    }
 
     const res = await pool.query(
       'SELECT id, nombre, email, avatar, tipo, aprobado, denegado, telefono, tincaso, notif_prefs, activo FROM users WHERE id = $1',
       [payload.id]
     );
 
-    if (res.rows.length === 0 || !res.rows[0].activo) return null;
+    if (res.rows.length === 0) {
+      console.log('[getSessionUser] User not found in DB:', payload.id);
+      return null;
+    }
+    if (!res.rows[0].activo) {
+      console.log('[getSessionUser] User inactive:', payload.id);
+      return null;
+    }
 
     return {
       id: res.rows[0].id,
@@ -57,7 +71,8 @@ export async function getSessionUser(): Promise<UserSession | null> {
       tincaso: res.rows[0].tincaso,
       notif_prefs: res.rows[0].notif_prefs,
     };
-  } catch {
+  } catch (err: any) {
+    console.error('[getSessionUser] Catch all error:', err);
     return null;
   }
 }

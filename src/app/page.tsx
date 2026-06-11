@@ -386,6 +386,8 @@ export default function PWAAppPage() {
   const [notifTargetId, setNotifTargetId] = useState<number | null>(null);
   const [notifExpiresAt, setNotifExpiresAt] = useState('');
   const [notifSubmitting, setNotifSubmitting] = useState(false);
+  const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
+  const [editingNotif, setEditingNotif] = useState<any | null>(null);
 
   // Notifications — user-facing
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -1036,6 +1038,9 @@ export default function PWAAppPage() {
   // Load admin data when admin tab is opened
   useEffect(() => {
     if (user && activeTab === 'admin') {
+      if (user.tipo === 'superadmin' || user.tipo === 'admin') {
+        fetchAdminNotifications();
+      }
       if (user.tipo === 'superadmin') {
         fetchSyncStatus();
         fetchGroups();
@@ -2009,29 +2014,82 @@ export default function PWAAppPage() {
   };
 
   // --- Notification handlers ---
+  const fetchAdminNotifications = async () => {
+    try {
+      const res = await fetch(`/api/notifications?admin=true&t=${Date.now()}`);
+      if (res.ok) {
+        setAdminNotifications(await res.json());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleStartEditNotification = (n: any) => {
+    setEditingNotif(n);
+    setNotifTitulo(n.titulo);
+    setNotifContenido(n.contenido);
+    setNotifTipo(n.tipo);
+    setNotifTargetType(n.target_type);
+    setNotifTargetId(n.target_id);
+    setNotifExpiresAt(n.expires_at ? new Date(n.expires_at).toISOString().slice(0, 16) : '');
+  };
+
+  const handleCancelEditNotification = () => {
+    setEditingNotif(null);
+    setNotifTitulo('');
+    setNotifContenido('');
+    setNotifTargetType('all');
+    setNotifTargetId(null);
+    setNotifExpiresAt('');
+  };
+
+  const handleDeleteNotificationAdmin = async (id: number) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este mensaje?')) return;
+    try {
+      const res = await fetch(`/api/notifications?id=${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        showToast('🗑️ Mensaje eliminado');
+        fetchAdminNotifications();
+      } else {
+        const d = await res.json();
+        showToast(d.error || 'Error');
+      }
+    } catch { showToast('Error de red'); }
+  };
+
   const handleCreateNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     setNotifSubmitting(true);
     try {
-      const res = await fetch('/api/notifications', {
-        method: 'POST',
+      const url = '/api/notifications';
+      const method = editingNotif ? 'PUT' : 'POST';
+      const body = {
+        id: editingNotif ? editingNotif.id : undefined,
+        titulo: notifTitulo,
+        contenido: notifContenido,
+        tipo: notifTipo,
+        target_type: notifTargetType,
+        target_id: notifTargetId,
+        expires_at: notifExpiresAt || null,
+      };
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          titulo: notifTitulo,
-          contenido: notifContenido,
-          tipo: notifTipo,
-          target_type: notifTargetType,
-          target_id: notifTargetId,
-          expires_at: notifExpiresAt || null,
-        }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
-        showToast('🔔 Notificación enviada');
+        showToast(editingNotif ? '🔔 Notificación actualizada' : '🔔 Notificación enviada');
         setNotifTitulo('');
         setNotifContenido('');
         setNotifTargetType('all');
         setNotifTargetId(null);
         setNotifExpiresAt('');
+        setEditingNotif(null);
+        fetchAdminNotifications();
       } else {
         const d = await res.json();
         showToast(d.error || 'Error');
@@ -2373,7 +2431,7 @@ export default function PWAAppPage() {
                       <div>
                         <h4 className="text-xs font-black uppercase text-yellow-500 tracking-wider">¡Instala la Aplicación!</h4>
                         <p className="text-[11px] text-neutral-400 mt-0.5">
-                          Para recibir alertas de goles en tiempo real, recordatorios de partidos y notificaciones de ranking al instante, instala la PWA en tu pantalla de inicio.
+                          Para recibir alertas de goles en tiempo real, recordatorios de partidos y notificaciones de ranking al instante, instala la PWA como aplicación.
                         </p>
                       </div>
                     </div>
@@ -2381,7 +2439,7 @@ export default function PWAAppPage() {
                       onClick={handleInstallPWA}
                       className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-black uppercase tracking-wider px-4 py-2 rounded-xl transition active:scale-[0.98] w-full sm:w-auto text-center"
                     >
-                      Instalar PWA
+                      Instalar aplicación
                     </button>
                   </div>
                 )}
@@ -4787,13 +4845,58 @@ export default function PWAAppPage() {
                     <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Expira (opcional)</label>
                     <input type="datetime-local" value={notifExpiresAt} onChange={(e) => setNotifExpiresAt(e.target.value)} className="input-stitch px-3 py-2 text-xs" />
                   </div>
-                  <div className="flex justify-end pt-2">
+                  <div className="flex justify-end pt-2 gap-2">
+                    {editingNotif && (
+                      <button type="button" onClick={handleCancelEditNotification} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold px-4 py-2 rounded-lg transition active:scale-95">
+                        Cancelar Edición
+                      </button>
+                    )}
                     <button type="submit" disabled={notifSubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-neutral-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95">
                       <Bell className="w-3.5 h-3.5" />
-                      <span>{notifSubmitting ? 'Enviando...' : 'Enviar Notificación'}</span>
+                      <span>{notifSubmitting ? 'Enviando...' : editingNotif ? 'Guardar Cambios' : 'Enviar Notificación'}</span>
                     </button>
                   </div>
                 </form>
+
+                {/* Historial de Mensajes / Notificaciones */}
+                <div className="space-y-3 max-w-2xl">
+                  <div className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2">
+                    Historial de Mensajes Enviados
+                  </div>
+                  <div className="bg-neutral-900/40 border border-neutral-900 divide-y divide-neutral-900 rounded-2xl overflow-hidden shadow-lg">
+                    {adminNotifications.length === 0 && (
+                      <div className="p-6 text-center text-neutral-500 text-xs">No hay mensajes enviados registrados</div>
+                    )}
+                    {adminNotifications.map((n) => {
+                      const colorMap: Record<string, string> = { info: 'text-neutral-300 border-neutral-700/50 bg-neutral-500/5', warning: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5', success: 'text-green-400 border-green-500/30 bg-green-500/5', error: 'text-red-400 border-red-500/30 bg-red-500/5' };
+                      const cls = colorMap[n.tipo] || colorMap.info;
+                      return (
+                        <div key={n.id} className="p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs">
+                          <div className="space-y-1.5 min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${cls}`}>{n.tipo}</span>
+                              <span className="text-[9px] bg-neutral-850 text-neutral-400 border border-neutral-800 px-1.5 py-0.5 rounded-full font-bold">Destino: {n.target_type} {n.target_id ? `(ID: ${n.target_id})` : ''}</span>
+                            </div>
+                            <div className="font-bold text-neutral-200">{n.titulo}</div>
+                            <div className="text-neutral-500 leading-relaxed text-[11px] whitespace-pre-wrap">{n.contenido}</div>
+                            <div className="text-[9px] text-neutral-600 font-mono pt-1">
+                              Creado {new Date(n.created_at).toLocaleString('es-BO')}
+                              {n.expires_at && ` · Expira ${new Date(n.expires_at).toLocaleString('es-BO')}`}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button onClick={() => handleStartEditNotification(n)} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold px-2.5 py-1.5 rounded-lg border border-neutral-700 transition text-[10px]">
+                              Editar
+                            </button>
+                            <button onClick={() => handleDeleteNotificationAdmin(n.id)} className="bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold px-2.5 py-1.5 rounded-lg border border-red-900/30 transition text-[10px]">
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* Notificaciones automáticas: disparador manual (superadmin) */}
                 {user.tipo === 'superadmin' && (

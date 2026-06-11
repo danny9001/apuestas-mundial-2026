@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     const apiKey = 'a42fa223449069d6825989f8206335ca';
-    const res = await fetch('http://10.0.0.4:5001/api/v1/notifications/send', {
+    const res = await fetch('http://10.0.0.4:3200/api/v1/notifications/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

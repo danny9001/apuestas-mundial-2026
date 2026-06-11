@@ -29,7 +29,7 @@ async function ensureNotificationsTables() {
   `);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser();
     if (!user) {
@@ -37,6 +37,35 @@ export async function GET() {
     }
 
     await ensureNotificationsTables();
+
+    const { searchParams } = new URL(req.url);
+    const isAdminQuery = searchParams.get('admin') === 'true';
+
+    if (isAdminQuery) {
+      if (user.tipo !== 'admin' && user.tipo !== 'superadmin') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+
+      let query = `
+        SELECT n.id, n.titulo, n.contenido, n.tipo, n.target_type, n.target_id, n.expires_at, n.created_at, n.created_by,
+               u.nombre as creator_name
+        FROM notifications n
+        LEFT JOIN users u ON u.id = n.created_by
+      `;
+      let params: any[] = [];
+
+      if (user.tipo !== 'superadmin') {
+        query += ` WHERE n.created_by = $1`;
+        params.push(user.id);
+      }
+
+      query += ` ORDER BY n.created_at DESC LIMIT 100`;
+
+      const res = await pool.query(query, params);
+      const response = NextResponse.json(res.rows);
+      response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+      return response;
+    }
 
     const res = await pool.query(
       `SELECT n.id, n.titulo, n.contenido, n.tipo, n.target_type, n.target_id,
@@ -114,3 +143,91 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
   }
 }
+
+export async function PUT(req: NextRequest) {
+  try {
+    const user = await getSessionUser();
+    if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { id, titulo, contenido, tipo, target_type, target_id, expires_at } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
+    }
+
+    if (!titulo?.trim() || !contenido?.trim()) {
+      return NextResponse.json({ error: 'Título y contenido son requeridos' }, { status: 400 });
+    }
+
+    // Admins can only edit notifications they created, superadmins can edit anything
+    let query = `UPDATE notifications SET titulo = $1, contenido = $2, tipo = $3, target_type = $4, target_id = $5, expires_at = $6 WHERE id = $7`;
+    let params = [titulo.trim(), contenido.trim(), tipo || 'info', target_type || 'all', target_id || null, expires_at || null, id];
+
+    if (user.tipo !== 'superadmin') {
+      query += ` AND created_by = $8`;
+      params.push(user.id);
+    }
+
+    const res = await pool.query(query + ` RETURNING *`, params);
+    if (res.rows.length === 0) {
+      return NextResponse.json({ error: 'Notificación no encontrada o no tienes permisos' }, { status: 404 });
+    }
+
+    broadcastUpdate('notification', {
+      notificationId: res.rows[0].id,
+      titulo: res.rows[0].titulo,
+      tipo: res.rows[0].tipo,
+      target_type: res.rows[0].target_type,
+      target_id: res.rows[0].target_id,
+      updated: true
+    });
+
+    return NextResponse.json({ success: true, notification: res.rows[0] });
+  } catch (error: any) {
+    console.error('Error updating notification:', error);
+    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getSessionUser();
+    if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
+    }
+
+    let query = `DELETE FROM notifications WHERE id = $1`;
+    let params = [parseInt(id)];
+
+    if (user.tipo !== 'superadmin') {
+      query += ` AND created_by = $2`;
+      params.push(user.id);
+    }
+
+    const res = await pool.query(query + ` RETURNING id`, params);
+    if (res.rows.length === 0) {
+      return NextResponse.json({ error: 'Notificación no encontrada o no tienes permisos' }, { status: 404 });
+    }
+
+    broadcastUpdate('notification', {
+      notificationId: parseInt(id),
+      deleted: true
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting notification:', error);
+    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+  }
+}
+

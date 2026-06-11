@@ -11,7 +11,7 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
     const res = await pool.query(
-      `SELECT id, credential_id, device_type, backed_up, transports, label, created_at, last_used_at
+      `SELECT id, credential_id, device_type, backed_up, transports, NULL as label, created_at, last_used_at
        FROM passkeys WHERE user_id = $1 ORDER BY created_at ASC`,
       [user.id]
     );

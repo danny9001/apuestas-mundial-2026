@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const user = await getSessionUser();
-    if (!user || user.tipo !== 'admin') {
+    if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
@@ -30,7 +30,7 @@ export async function GET() {
 export async function POST() {
   try {
     const user = await getSessionUser();
-    if (!user || user.tipo !== 'admin') {
+    if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 

@@ -96,7 +96,17 @@ DECLARE
   prev_pos INTEGER;
   new_pos INTEGER;
   new_tendencia VARCHAR(10);
+  final_winner VARCHAR(100) := NULL;
 BEGIN
+  -- Get the winner of the final match (ID 104)
+  SELECT CASE 
+    WHEN goles_local > goles_visitante THEN local
+    WHEN goles_local < goles_visitante THEN visitante
+    ELSE COALESCE(stats->>'ganador', stats->>'winner', '')
+  END INTO final_winner
+  FROM matches
+  WHERE id = 104 AND estado = 'finished';
+
   -- Delete users from leaderboard who are no longer active or participating
   DELETE FROM leaderboard
   WHERE user_id NOT IN (
@@ -106,9 +116,11 @@ BEGIN
       AND (tipo != 'superadmin' OR EXISTS (SELECT 1 FROM user_companies WHERE user_id = id))
   );
 
-  -- First update all predictions points for finished matches
+  -- First update all predictions points for matches (finished, live, or upcoming)
   UPDATE predictions p
   SET puntos = CASE
+    -- If upcoming, reset to 0
+    WHEN m.estado = 'upcoming' THEN 0
     -- Exact match (3 points)
     WHEN p.pred_local = m.goles_local AND p.pred_visitante = m.goles_visitante THEN 3
     -- Correct winner/draw (1 point)
@@ -119,21 +131,21 @@ BEGIN
     ELSE 0
   END
   FROM matches m
-  WHERE p.match_id = m.id AND m.estado = 'finished';
+  WHERE p.match_id = m.id;
 
   -- Loop through calculated ranked scores
   FOR r IN (
     WITH user_scores AS (
       SELECT 
         u.id AS u_id,
-        COALESCE(SUM(p.puntos), 0) AS total_pts,
+        COALESCE(SUM(p.puntos), 0) + (CASE WHEN final_winner IS NOT NULL AND final_winner <> '' AND u.tincaso = final_winner THEN 5 ELSE 0 END) AS total_pts,
         COALESCE(SUM(CASE WHEN p.puntos = 3 THEN 1 ELSE 0 END), 0) AS exact_cnt
       FROM users u
       LEFT JOIN predictions p ON u.id = p.user_id
       WHERE u.activo = true
         AND u.aprobado = true
         AND (u.tipo != 'superadmin' OR EXISTS (SELECT 1 FROM user_companies WHERE user_id = u.id))
-      GROUP BY u.id
+      GROUP BY u.id, u.tincaso
     ),
     ranked AS (
       SELECT 

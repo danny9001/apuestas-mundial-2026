@@ -17,10 +17,39 @@ export async function GET() {
     // Use defaults if DB unavailable
   }
 
-  const icons = [
+  let logoType = 'image/svg+xml';
+  let logoSizes = 'any';
+
+  if (appLogo) {
+    if (appLogo.startsWith('/uploads/')) {
+      const ext = appLogo.split('.').pop()?.toLowerCase();
+      if (ext === 'png') {
+        logoType = 'image/png';
+        logoSizes = '64x64';
+      } else if (ext === 'webp') {
+        logoType = 'image/webp';
+        logoSizes = '64x64';
+      } else if (ext === 'jpg' || ext === 'jpeg') {
+        logoType = 'image/jpeg';
+        logoSizes = '64x64';
+      } else if (ext === 'avif') {
+        logoType = 'image/avif';
+        logoSizes = '64x64';
+      }
+    } else if (appLogo.startsWith('http')) {
+      logoType = 'image/png';
+      logoSizes = '64x64';
+    }
+  }
+
+  const icons = logoSizes === 'any' ? [
     { src: '/api/favicon', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
     { src: '/icon-192x192.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
     { src: '/icon-512x512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
+  ] : [
+    { src: '/api/favicon', sizes: logoSizes, type: logoType, purpose: 'any' },
+    { src: '/api/favicon?size=192', sizes: '192x192', type: logoType, purpose: 'any maskable' },
+    { src: '/api/favicon?size=512', sizes: '512x512', type: logoType, purpose: 'any maskable' },
   ];
 
   const manifest = {

@@ -59,6 +59,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tu cuenta está pendiente de aprobación por el administrador para participar.' }, { status: 403 });
     }
 
+    if (user.tipo !== 'superadmin') {
+      const companyCheck = await pool.query(
+        'SELECT 1 FROM user_companies WHERE user_id = $1 LIMIT 1',
+        [user.id]
+      );
+      if (companyCheck.rows.length === 0) {
+        return NextResponse.json({ error: 'Debes tener una empresa asignada para poder guardar pronósticos.' }, { status: 403 });
+      }
+    }
+
     const body = await req.json();
 
     // Check if the request is a batch array
@@ -99,22 +109,7 @@ export async function POST(req: NextRequest) {
           errors.push({ matchId, error: 'Apuestas cerradas (cierran 1 hora antes del partido)' }); continue;
         }
         if (existingSet.has(matchId)) {
-          // Allow correction within 3 minutes of original bet
-          const existingPred = await pool.query(
-            'SELECT id, created_at FROM predictions WHERE user_id = $1 AND match_id = $2',
-            [user.id, matchId]
-          );
-          const minsAgo = existingPred.rows.length > 0
-            ? (now.getTime() - new Date(existingPred.rows[0].created_at).getTime()) / 60000
-            : Infinity;
-          if (minsAgo > 3) {
-            errors.push({ matchId, error: 'El período de corrección (3 min) ha vencido.' }); continue;
-          }
-          const upd = await pool.query(
-            'UPDATE predictions SET pred_local = $1, pred_visitante = $2 WHERE user_id = $3 AND match_id = $4 RETURNING *',
-            [parseInt(predLocal), parseInt(predVisitante), user.id, matchId]
-          );
-          results.push({ ...upd.rows[0], corrected: true });
+          errors.push({ matchId, error: 'Ya has guardado un pronóstico para este partido. No se permite modificar.' });
           continue;
         }
 
@@ -129,10 +124,21 @@ export async function POST(req: NextRequest) {
     }
 
     // Otherwise, handle standard single prediction
-    const { matchId, predLocal, predVisitante } = body;
+    const { matchId, predLocal, predVisitante, userId } = body;
 
     if (matchId === undefined || predLocal === undefined || predVisitante === undefined) {
       return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
+    }
+
+    let targetUserId = user.id;
+    let isSuperAdminBypass = false;
+
+    if (userId !== undefined && parseInt(userId) !== user.id) {
+      if (user.tipo !== 'superadmin') {
+        return NextResponse.json({ error: 'No autorizado para editar predicciones de otros usuarios' }, { status: 403 });
+      }
+      targetUserId = parseInt(userId);
+      isSuperAdminBypass = true;
     }
 
     const now = new Date();
@@ -148,36 +154,36 @@ export async function POST(req: NextRequest) {
     const match = matchRes.rows[0];
     const matchTime = new Date(match.fecha);
 
-    // Bets close 1 hour before match starts
-    const closeTime = new Date(matchTime.getTime() - 60 * 60 * 1000);
-    if (match.estado !== 'upcoming' || now >= closeTime) {
-      return NextResponse.json(
-        { error: 'Apuestas cerradas. Los pronósticos se cierran 1 hora antes del inicio.' },
-        { status: 400 }
-      );
+    // Bets close 1 hour before match starts (bypass for superadmin editing others)
+    if (!isSuperAdminBypass) {
+      const closeTime = new Date(matchTime.getTime() - 60 * 60 * 1000);
+      if (match.estado !== 'upcoming' || now >= closeTime) {
+        return NextResponse.json(
+          { error: 'Apuestas cerradas. Los pronósticos se cierran 1 hora antes del inicio.' },
+          { status: 400 }
+        );
+      }
     }
 
     // Check if prediction already exists for this user and match
     const existingPredRes = await pool.query(
       'SELECT id, created_at FROM predictions WHERE user_id = $1 AND match_id = $2',
-      [user.id, matchId]
+      [targetUserId, matchId]
     );
 
     if (existingPredRes.rows.length > 0) {
-      const minsAgo = (now.getTime() - new Date(existingPredRes.rows[0].created_at).getTime()) / 60000;
-      if (minsAgo > 3) {
+      if (!isSuperAdminBypass) {
         return NextResponse.json(
-          { error: 'El período de corrección (3 min) ha vencido. No se puede modificar la apuesta.' },
+          { error: 'Ya has guardado un pronóstico para este partido. No se permite modificar.' },
           { status: 400 }
         );
       }
       const upd = await pool.query(
         'UPDATE predictions SET pred_local = $1, pred_visitante = $2 WHERE user_id = $3 AND match_id = $4 RETURNING *',
-        [parseInt(predLocal), parseInt(predVisitante), user.id, matchId]
+        [parseInt(predLocal), parseInt(predVisitante), targetUserId, matchId]
       );
       return NextResponse.json({ success: true, prediction: upd.rows[0], corrected: true });
     }
-
 
     const insertQuery = `
       INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante)
@@ -186,7 +192,7 @@ export async function POST(req: NextRequest) {
     `;
 
     const res = await pool.query(insertQuery, [
-      user.id,
+      targetUserId,
       matchId,
       parseInt(predLocal),
       parseInt(predVisitante)

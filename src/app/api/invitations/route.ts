@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(listRes.rows);
   } catch (e: unknown) {
+    console.error('GET /api/invitations error:', e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

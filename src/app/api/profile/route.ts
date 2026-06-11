@@ -74,6 +74,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Fetch companies to keep session in sync
+    const compRes = await pool.query(
+      `SELECT c.id, c.nombre, c.color, c.monto_participacion FROM companies c
+       JOIN user_companies uc ON uc.company_id = c.id
+       WHERE uc.user_id = $1`,
+      [user.id]
+    );
+
     // Refresh Session Cookie
     const updatedSession = {
       id: user.id,
@@ -81,7 +89,8 @@ export async function POST(req: NextRequest) {
       email: user.email,
       tipo: user.tipo,
       avatar: avatarPath,
-      telefono: telefonoSafe
+      telefono: telefonoSafe,
+      companies: compRes.rows
     };
     await setSession(updatedSession);
 

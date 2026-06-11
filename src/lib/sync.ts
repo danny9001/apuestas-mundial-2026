@@ -1,6 +1,220 @@
 import pool from './db';
 import { broadcastUpdate } from './realtime';
 
+const teamNameMapping: Record<string, string> = {
+  'Germany': 'Alemania',
+  'Saudi Arabia': 'Arabia Saudita',
+  'Algeria': 'Argelia',
+  'Argentina': 'Argentina',
+  'Australia': 'Australia',
+  'Austria': 'Austria',
+  'Bosnia-Herzegovina': 'Bosnia y Herzegovina',
+  'Bosnia and Herzegovina': 'Bosnia y Herzegovina',
+  'Brazil': 'Brasil',
+  'Belgium': 'Bélgica',
+  'Cape Verde': 'Cabo Verde',
+  'Cape Verde Islands': 'Cabo Verde',
+  'Canada': 'Canadá',
+  'Colombia': 'Colombia',
+  'South Korea': 'Corea del Sur',
+  'Ivory Coast': 'Costa de Marfil',
+  "Côte d'Ivoire": 'Costa de Marfil',
+  'Croatia': 'Croacia',
+  'Curaçao': 'Curazao',
+  'Curacao': 'Curazao',
+  'Ecuador': 'Ecuador',
+  'Egypt': 'Egipto',
+  'Scotland': 'Escocia',
+  'Spain': 'España',
+  'United States': 'Estados Unidos',
+  'USA': 'Estados Unidos',
+  'France': 'Francia',
+  'Ghana': 'Ghana',
+  'Haiti': 'Haití',
+  'England': 'Inglaterra',
+  'Iraq': 'Irak',
+  'Iran': 'Irán',
+  'Japan': 'Japón',
+  'Jordan': 'Jordania',
+  'Morocco': 'Marruecos',
+  'Mexico': 'México',
+  'Norway': 'Noruega',
+  'New Zealand': 'Nueva Zelanda',
+  'Panama': 'Panamá',
+  'Paraguay': 'Paraguay',
+  'Netherlands': 'Países Bajos',
+  'Portugal': 'Portugal',
+  'Qatar': 'Qatar',
+  'DR Congo': 'RD Congo',
+  'Czechia': 'República Checa',
+  'Czech Republic': 'República Checa',
+  'Senegal': 'Senegal',
+  'South Africa': 'Sudáfrica',
+  'Sweden': 'Suecia',
+  'Switzerland': 'Suiza',
+  'Turkey': 'Turquía',
+  'Türkiye': 'Turquía',
+  'Tunisia': 'Túnez',
+  'Uruguay': 'Uruguay',
+  'Uzbekistan': 'Uzbekistán'
+};
+
+const stageMapping: Record<string, string> = {
+  'GROUP_STAGE': 'Fase de Grupos',
+  'LAST_32': 'Ronda de 32',
+  'LAST_16': 'Octavos de Final',
+  'QUARTER_FINALS': 'Cuartos de Final',
+  'SEMI_FINALS': 'Semifinal',
+  'THIRD_PLACE': 'Tercer Puesto',
+  'FINAL': 'Final'
+};
+
+export async function sync365Scores(): Promise<{
+  updated: number;
+  goals_detected: number;
+  finished: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let updatedCount = 0;
+  let goalsDetected = 0;
+  let finishedCount = 0;
+
+  try {
+    const url = 'https://webws.365scores.com/web/games/?langId=29&timezoneName=America/Mexico_City&appTypeId=5&competitions=5930';
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!res.ok) {
+      throw new Error(`365Scores API returned status ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (!data.games || !Array.isArray(data.games)) {
+      throw new Error('365Scores returned malformed JSON structure: "games" array missing');
+    }
+
+    const cleanName = (name: string) => {
+      if (!name) return '';
+      return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    };
+
+    const localMatchesRes = await pool.query('SELECT * FROM matches');
+    const localMatches = localMatchesRes.rows;
+
+    for (const game of data.games) {
+      const homeName = game.homeCompetitor?.name;
+      const awayName = game.awayCompetitor?.name;
+      if (!homeName || !awayName) continue;
+
+      const cleanHome = cleanName(homeName);
+      const cleanAway = cleanName(awayName);
+
+      const localMatch = localMatches.find(m => {
+        const localCleanL = cleanName(m.local);
+        const localCleanV = cleanName(m.visitante);
+        return (localCleanL === cleanHome && localCleanV === cleanAway) ||
+               (localCleanL === cleanAway && localCleanV === cleanHome);
+      });
+
+      if (!localMatch) continue;
+
+      let estado: 'upcoming' | 'live' | 'finished' = 'upcoming';
+      if (game.statusGroup === 5 || game.statusGroup === 4) {
+        estado = 'finished';
+      } else if (game.statusGroup === 3) {
+        estado = 'live';
+      }
+
+      const isLInverted = cleanName(localMatch.local) === cleanAway;
+      const scoreHome = game.homeCompetitor.score >= 0 ? game.homeCompetitor.score : 0;
+      const scoreAway = game.awayCompetitor.score >= 0 ? game.awayCompetitor.score : 0;
+
+      const golesLocal = isLInverted ? scoreAway : scoreHome;
+      const golesVisitante = isLInverted ? scoreHome : scoreAway;
+
+      if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
+        continue;
+      }
+
+      const stateChanged = localMatch.estado !== estado;
+      const scoreChanged = localMatch.goles_local !== golesLocal || localMatch.goles_visitante !== golesVisitante;
+
+      if (stateChanged || scoreChanged) {
+        const stats = localMatch.stats || {};
+        if (game.homeCompetitor.redCards !== undefined) {
+          stats.red_cards_local = isLInverted ? game.awayCompetitor.redCards : game.homeCompetitor.redCards;
+          stats.red_cards_visitante = isLInverted ? game.homeCompetitor.redCards : game.awayCompetitor.redCards;
+        }
+
+        if (!stats.possession_local && (estado === 'live' || estado === 'finished')) {
+          stats.possession_local = 50;
+          stats.possession_visitante = 50;
+          stats.shots_local = golesLocal * 4 + 4;
+          stats.shots_visitante = golesVisitante * 4 + 3;
+          stats.fouls_local = 11;
+          stats.fouls_visitante = 12;
+        }
+
+        const updateRes = await pool.query(
+          `UPDATE matches 
+           SET estado = $1, 
+               goles_local = $2, 
+               goles_visitante = $3, 
+               stats = $4,
+               last_synced_at = CURRENT_TIMESTAMP, 
+               updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $5 
+           RETURNING *`,
+          [estado, golesLocal, golesVisitante, JSON.stringify(stats), localMatch.id]
+        );
+
+        const updatedMatch = updateRes.rows[0];
+        updatedCount++;
+
+        broadcastUpdate('match', updatedMatch);
+
+        if (estado === 'live' && scoreChanged) {
+          goalsDetected++;
+          broadcastUpdate('goal', {
+            matchId: updatedMatch.id,
+            local: updatedMatch.local,
+            visitante: updatedMatch.visitante,
+            goles_local: updatedMatch.goles_local,
+            goles_visitante: updatedMatch.goles_visitante
+          });
+        }
+
+        if (
+          (estado === 'finished' && localMatch.estado !== 'finished') ||
+          (estado === 'live' && localMatch.estado !== 'live') ||
+          (scoreChanged && (estado === 'finished' || estado === 'live'))
+        ) {
+          if (estado === 'finished' && localMatch.estado !== 'finished') {
+            finishedCount++;
+          }
+          await pool.query('SELECT recalculate_leaderboard()');
+          broadcastUpdate('leaderboard', { updated: true });
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error("365Scores sync error:", err);
+    errors.push(err.message || '365Scores unknown error');
+  }
+
+  return {
+    updated: updatedCount,
+    goals_detected: goalsDetected,
+    finished: finishedCount,
+    errors
+  };
+}
+
 export async function syncMatches(): Promise<{
   updated: number;
   goals_detected: number;
@@ -19,6 +233,37 @@ export async function syncMatches(): Promise<{
     return { updated: 0, goals_detected: 0, finished: 0, errors: ['Auto-sync is disabled via env'], duration_ms: 0 };
   }
 
+  // 1. Try primary source: 365scores
+  try {
+    const res365 = await sync365Scores();
+    if (res365.errors.length === 0) {
+      const durationMs = Date.now() - startTime;
+      await pool.query(
+        `INSERT INTO sync_log (synced_at, matches_updated, goals_detected, matches_finished, errors, duration_ms)
+         VALUES (CURRENT_TIMESTAMP, $1, $2, $3, $4, $5)`,
+        [res365.updated, res365.goals_detected, res365.finished, [], durationMs]
+      );
+      
+      if (res365.updated > 0) {
+        await runKnockoutCascade();
+      }
+
+      return {
+        updated: res365.updated,
+        goals_detected: res365.goals_detected,
+        finished: res365.finished,
+        errors: [],
+        duration_ms: durationMs
+      };
+    } else {
+      errors.push(...res365.errors);
+      console.warn("Primary source (365Scores) failed. Proceeding with fallback (football-data.org).");
+    }
+  } catch (err365: any) {
+    errors.push(err365.message || 'Primary source exception');
+    console.error("Primary source exception:", err365);
+  }
+
   const apiKey = process.env.FOOTBALL_API_KEY;
   const apiBase = process.env.FOOTBALL_API_BASE || 'https://api.football-data.org/v4';
   const wcId = process.env.FOOTBALL_WC_ID || '2000';
@@ -28,13 +273,13 @@ export async function syncMatches(): Promise<{
       updated: 0,
       goals_detected: 0,
       finished: 0,
-      errors: ['FOOTBALL_API_KEY is missing in env variables'],
+      errors: [...errors, 'FOOTBALL_API_KEY is missing in env variables'],
       duration_ms: Date.now() - startTime
     };
   }
 
   try {
-    // 1. Fetch matches from football-data.org
+    // 2. Fetch matches from football-data.org (Fallback)
     const response = await fetch(`${apiBase}/competitions/${wcId}/matches`, {
       headers: {
         'X-Auth-Token': apiKey
@@ -67,13 +312,35 @@ export async function syncMatches(): Promise<{
       const golesLocal = score?.fullTime?.home !== null ? score.fullTime.home : 0;
       const golesVisitante = score?.fullTime?.away !== null ? score.fullTime.away : 0;
 
-      // 3. Find matching local match in DB by external_id
-      const matchRes = await pool.query('SELECT * FROM matches WHERE external_id = $1', [extId]);
+      // 3. Find matching local match in DB
+      // Match by external_id or by local + visitante teams and stage
+      const localName = teamNameMapping[apiMatch.homeTeam?.name] || apiMatch.homeTeam?.name;
+      const visitanteName = teamNameMapping[apiMatch.awayTeam?.name] || apiMatch.awayTeam?.name;
+      const faseName = stageMapping[apiMatch.stage] || apiMatch.stage;
+
+      let matchRes = await pool.query(
+        `SELECT * FROM matches 
+         WHERE external_id = $1 
+            OR (local = $2 AND visitante = $3 AND (fase = $4 OR ($4 = 'Fase de Grupos' AND fase IS NULL)))`,
+        [extId, localName, visitanteName, faseName]
+      );
+
       if (matchRes.rows.length === 0) {
         continue;
       }
 
       const localMatch = matchRes.rows[0];
+
+      // Self-healing: update external_id in the DB if it is different
+      if (localMatch.external_id !== extId) {
+        await pool.query('UPDATE matches SET external_id = $1 WHERE id = $2', [extId, localMatch.id]);
+        localMatch.external_id = extId;
+      }
+
+      // Avoid downgrading a match from live/finished back to upcoming if the API returned TIMED
+      if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
+        continue;
+      }
 
       // Check if changes are detected
       const stateChanged = localMatch.estado !== estado;
@@ -114,10 +381,15 @@ export async function syncMatches(): Promise<{
           });
         }
 
-        // Match finished transition
-        if (estado === 'finished' && localMatch.estado !== 'finished') {
-          finishedCount++;
-          // Recalculate leaderboard
+        // Recalculate leaderboard if match finished, went live, or live score changed
+        if (
+          (estado === 'finished' && localMatch.estado !== 'finished') ||
+          (estado === 'live' && localMatch.estado !== 'live') ||
+          (scoreChanged && (estado === 'finished' || estado === 'live'))
+        ) {
+          if (estado === 'finished' && localMatch.estado !== 'finished') {
+            finishedCount++;
+          }
           await pool.query('SELECT recalculate_leaderboard()');
           broadcastUpdate('leaderboard', { updated: true });
         }

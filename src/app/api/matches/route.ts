@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser();
-    if (!user || user.tipo !== 'admin') {
+    if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
@@ -121,12 +121,12 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // If transition to finished, run the leaderboard points recalculator
-      if (estado === 'finished' && prevMatch.estado !== 'finished') {
-        await pool.query('SELECT recalculate_leaderboard()');
-        broadcastUpdate('leaderboard', { updated: true });
-      } else if (scoreChanged && updatedMatch.estado === 'finished') {
-        // If score corrected in finished, recalculate as well
+      // If transition to finished, live, or score changed, run the leaderboard points recalculator
+      if (
+        (estado === 'finished' && prevMatch.estado !== 'finished') ||
+        (estado === 'live' && prevMatch.estado !== 'live') ||
+        (scoreChanged && (updatedMatch.estado === 'finished' || updatedMatch.estado === 'live'))
+      ) {
         await pool.query('SELECT recalculate_leaderboard()');
         broadcastUpdate('leaderboard', { updated: true });
       }

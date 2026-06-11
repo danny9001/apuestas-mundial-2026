@@ -17,6 +17,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
     }
 
+    // Check if tincaso was already bet on
+    const checkRes = await pool.query('SELECT tincaso FROM users WHERE id = $1', [user.id]);
+    if (checkRes.rows.length > 0 && checkRes.rows[0].tincaso) {
+      return NextResponse.json({ error: 'Ya has guardado tu tincaso. Solo se permite una vez.' }, { status: 400 });
+    }
+
     await pool.query('UPDATE users SET tincaso = $1 WHERE id = $2', [tincaso, user.id]);
 
     const updatedSession = { ...user, tincaso };

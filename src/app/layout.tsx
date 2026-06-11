@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { InactivityGuard } from "@/components/InactivityGuard";
 
 export const metadata: Metadata = {
   title: "Apuestas Mundial 2026",
@@ -56,6 +57,7 @@ export default function RootLayout({
       </head>
       <body className={`h-full bg-neutral-950 text-neutral-100 antialiased overflow-x-hidden`}>
         {children}
+        <InactivityGuard />
       </body>
     </html>
   );

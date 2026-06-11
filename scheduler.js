@@ -71,5 +71,5 @@ function scheduleWeeklyRankings() {
 // Arranque
 console.log(`[scheduler] Iniciado. BASE_URL=${BASE_URL}`);
 runMatchReminders();
-setInterval(runMatchReminders, 60 * 60 * 1000); // cada hora
+setInterval(runMatchReminders, 15 * 60 * 1000); // cada 15 mins
 scheduleWeeklyRankings();

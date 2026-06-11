@@ -149,6 +149,7 @@ export async function GET(req: NextRequest) {
       process.env.JWT_SECRET!,
       { expiresIn: 60 * 60 * 12 }
     );
+    console.log('Generated sessionToken for:', user.email, 'length:', sessionToken.length);
 
     const dest = redirectTo.startsWith('http')
       ? redirectTo

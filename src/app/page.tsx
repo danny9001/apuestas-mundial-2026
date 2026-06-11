@@ -365,6 +365,17 @@ export default function PWAAppPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [tincasoSelection, setTincasoSelection] = useState<string>('');
+  const [tincasoSubmitting, setTincasoSubmitting] = useState(false);
+  const [rankingFilter, setRankingFilter] = useState<'participantes' | 'visores'>('participantes');
+  const [showAllNotifs, setShowAllNotifs] = useState(false);
+  const [telegramSubmitting, setTelegramSubmitting] = useState(false);
+  
+  useEffect(() => {
+    if (user && user.tincaso && !tincasoSelection) {
+      setTincasoSelection(user.tincaso);
+    }
+  }, [user]);
 
   // Extended branding settings
   const [editPrimaryColor, setEditPrimaryColor] = useState('#eab308');
@@ -489,7 +500,7 @@ export default function PWAAppPage() {
   // Helper to render a single match card
   const renderMatchCard = (m: any) => {
     const myPred = predictions.find((p) => p.match_id === m.id);
-    const isClosed = m.estado !== 'upcoming' || new Date() >= new Date(m.fecha);
+    const isClosed = m.estado !== 'upcoming' || new Date().getTime() >= new Date(m.fecha).getTime() - 60 * 60 * 1000;
     
     if (compactView) {
       return (
@@ -1508,6 +1519,52 @@ export default function PWAAppPage() {
         const d = await res.json(); showToast(d.error || 'Error');
       }
     } catch { showToast('Error de red'); }
+  };
+
+  const handleTelegramSubscribe = async () => {
+    if (!user?.telefono) {
+      showToast('❌ Debes completar tu perfil con tu celular para suscribirte a Telegram.');
+      setActiveTab('perfil');
+      setNotifPanelOpen(false);
+      return;
+    }
+    setTelegramSubmitting(true);
+    try {
+      const res = await fetch('/api/telegram/subscribe', { method: 'POST' });
+      if (res.ok) {
+        showToast('✅ ¡Suscripción exitosa a Telegram!');
+      } else {
+        const data = await res.json();
+        showToast('❌ ' + (data.error || 'Error al suscribirse'));
+        if (data.botUrl) window.open(data.botUrl, '_blank');
+      }
+    } catch {
+      showToast('❌ Error de red al conectar con Telegram');
+    }
+    setTelegramSubmitting(false);
+  };
+
+  const handleTincasoSubmit = async () => {
+    if (!tincasoSelection) {
+      showToast('⚠️ Selecciona un equipo primero');
+      return;
+    }
+    setTincasoSubmitting(true);
+    try {
+      const res = await fetch('/api/tincaso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tincaso: tincasoSelection })
+      });
+      if (res.ok) {
+        showToast('✅ ¡Apuesta Tincaso guardada con éxito! (3 pts si aciertas)');
+      } else {
+        showToast('❌ Error al guardar Tincaso');
+      }
+    } catch {
+      showToast('❌ Error de red');
+    }
+    setTincasoSubmitting(false);
   };
 
   // Admin Recalculate Leaderboard
@@ -2986,6 +3043,8 @@ export default function PWAAppPage() {
               ) : (() => {
                 const availableCompanies = getAvailableCompanies();
                 const filteredLeaderboard = leaderboard.filter(row => {
+                  if (rankingFilter === 'participantes' && row.participa === false) return false;
+                  if (rankingFilter === 'visores' && row.participa !== false) return false;
                   if (!selectedCompanyId) return false;
                   return (row.companies || []).some((c: any) => c.id === selectedCompanyId);
                 });
@@ -3005,6 +3064,12 @@ export default function PWAAppPage() {
                 return (
                   <>
                     {/* Top Leaderboard Title */}
+                    <div className="flex justify-center mb-6">
+                      <div className="bg-neutral-900 border border-neutral-800 p-1 rounded-full flex gap-1">
+                        <button onClick={() => setRankingFilter('participantes')} className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-wider transition ${rankingFilter === 'participantes' ? 'bg-yellow-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}>Participantes</button>
+                        <button onClick={() => setRankingFilter('visores')} className={`px-6 py-2 rounded-full text-xs font-black uppercase tracking-wider transition ${rankingFilter === 'visores' ? 'bg-yellow-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}>Visores</button>
+                      </div>
+                    </div>
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <Trophy className="w-5 h-5 text-yellow-500" />
@@ -3040,10 +3105,18 @@ export default function PWAAppPage() {
                     })()}
 
                     {/* Pozo Acumulado */}
-                    {filteredLeaderboard.length > 0 && (() => {
+                    {(() => {
                       const selectedCompany = availableCompanies.find((c: any) => c.id === selectedCompanyId);
                       const monto = parseFloat(selectedCompany?.monto_participacion) || 150;
-                      const pozo = filteredLeaderboard.length * monto;
+                      const participantesCount = leaderboard.filter(row => {
+                         if (row.participa === false) return false;
+                         if (!selectedCompanyId) return false;
+                         return (row.companies || []).some((c: any) => c.id === selectedCompanyId);
+                      }).length;
+                      
+                      if (participantesCount === 0) return null;
+                      const pozo = participantesCount * monto;
+                      
                       return (
                         <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
                           <div>
@@ -3051,7 +3124,7 @@ export default function PWAAppPage() {
                             <div className="text-2xl font-black text-yellow-500 font-mono mt-0.5">
                               Bs. {pozo.toLocaleString('es-BO', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                             </div>
-                            <div className="text-[10px] text-neutral-500 mt-0.5">{filteredLeaderboard.length} participantes × Bs. {monto.toLocaleString('es-BO')}</div>
+                            <div className="text-[10px] text-neutral-500 mt-0.5">{participantesCount} participantes × Bs. {monto.toLocaleString('es-BO')}</div>
                           </div>
                           <div className="text-4xl">🏆</div>
                         </div>
@@ -3300,6 +3373,29 @@ export default function PWAAppPage() {
                       );
                     });
                   })()}
+                </div>
+                <div className="mt-12 bg-neutral-900/50 border border-neutral-800 rounded-3xl p-8">
+                  <h3 className="text-xl font-black text-yellow-500 uppercase tracking-widest mb-2 flex items-center gap-2"><Trophy className="w-6 h-6" /> Tincaso Mundial</h3>
+                  <p className="text-sm text-neutral-400 mb-6">Selecciona tu equipo ganador del torneo. Si aciertas al final del campeonato, ganarás 3 puntos extra.</p>
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <select 
+                      className="bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-100 font-bold focus:border-yellow-500 w-full sm:w-auto flex-1"
+                      value={tincasoSelection}
+                      onChange={(e) => setTincasoSelection(e.target.value)}
+                    >
+                      <option value="">Seleccionar Equipo...</option>
+                      {Array.from(new Set(matches.flatMap(m => [m.equipo_local, m.equipo_visitante]))).filter(t => t && t !== 'Por definir' && !t.includes('Ganador')).sort().map(team => (
+                        <option key={team} value={team}>{team}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleTincasoSubmit}
+                      disabled={tincasoSubmitting || !tincasoSelection}
+                      className="btn-primary-stitch px-8 py-3 w-full sm:w-auto"
+                    >
+                      {tincasoSubmitting ? 'Guardando...' : 'Apostar (3 pts)'}
+                    </button>
+                  </div>
                 </div>
               )}
             </section>
@@ -4694,7 +4790,7 @@ export default function PWAAppPage() {
                 {notifications.length === 0 && (
                   <div className="p-8 text-center text-neutral-500 text-xs">Sin notificaciones</div>
                 )}
-                {notifications.map((n) => {
+                {(showAllNotifs ? notifications : notifications.slice(0, 5)).map((n) => {
                   const colorMap: Record<string, string> = { info: 'text-neutral-300 border-neutral-700/50 bg-neutral-500/5', warning: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5', success: 'text-green-400 border-green-500/30 bg-green-500/5', error: 'text-red-400 border-red-500/30 bg-red-500/5' };
                   const cls = colorMap[n.tipo] || colorMap.info;
                   return (
@@ -4710,6 +4806,47 @@ export default function PWAAppPage() {
                     </div>
                   );
                 })}
+              </div>
+              {!showAllNotifs && notifications.length > 5 && (
+                <button onClick={() => setShowAllNotifs(true)} className="p-4 text-xs font-black text-yellow-500 text-center uppercase tracking-wider bg-neutral-900/30 hover:bg-neutral-900 transition">
+                  Ver historial completo ({notifications.length})
+                </button>
+              )}
+              {showAllNotifs && (
+                <button onClick={() => setShowAllNotifs(false)} className="p-4 text-xs font-black text-neutral-500 text-center uppercase tracking-wider bg-neutral-900/30 hover:bg-neutral-900 transition">
+                  Mostrar menos
+                </button>
+              )}
+              <div className="p-6 mt-auto bg-blue-900/20 border-t border-blue-900/30">
+                <h4 className="text-sm font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">📱 Alertas por Telegram</h4>
+                <p className="text-[10px] text-blue-300/70 mb-4">
+                  ¿Quieres recibir el ganador del mundial o notificaciones instantáneas? Suscríbete y configura tus alertas.
+                </p>
+                
+                <div className="space-y-2 mb-4">
+                  <h5 className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2">Preferencias de Noticias</h5>
+                  <label className="flex items-start gap-2 cursor-pointer group">
+                    <input type="checkbox" defaultChecked className="mt-0.5 rounded bg-neutral-900 border-neutral-700 text-blue-500 focus:ring-blue-500" />
+                    <span className="text-[10px] text-neutral-300 group-hover:text-white transition">El país ganador del mundial (Actualizaciones)</span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer group">
+                    <input type="checkbox" defaultChecked className="mt-0.5 rounded bg-neutral-900 border-neutral-700 text-blue-500 focus:ring-blue-500" />
+                    <span className="text-[10px] text-neutral-300 group-hover:text-white transition">Recordatorios de partidos y cierres de apuestas</span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer group">
+                    <input type="checkbox" defaultChecked className="mt-0.5 rounded bg-neutral-900 border-neutral-700 text-blue-500 focus:ring-blue-500" />
+                    <span className="text-[10px] text-neutral-300 group-hover:text-white transition">Resultados y Ranking semanal</span>
+                  </label>
+                </div>
+
+                <button 
+                  onClick={handleTelegramSubscribe}
+                  disabled={telegramSubmitting}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-3 rounded-xl transition uppercase tracking-wider"
+                >
+                  {telegramSubmitting ? 'Conectando...' : 'Suscribirme a Telegram'}
+                </button>
+                {!user?.telefono && <p className="text-[9px] text-red-400 mt-2 text-center">* Requiere celular en tu perfil.</p>}
               </div>
             </div>
           </div>

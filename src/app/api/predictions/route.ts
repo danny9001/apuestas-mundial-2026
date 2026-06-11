@@ -93,8 +93,10 @@ export async function POST(req: NextRequest) {
         const { matchId, predLocal, predVisitante } = item;
         const match = matchMap.get(matchId);
         if (!match) { errors.push({ matchId, error: 'Partido no encontrado' }); continue; }
-        if (match.estado !== 'upcoming' || now >= new Date(match.fecha)) {
-          errors.push({ matchId, error: 'Apuestas cerradas' }); continue;
+        // Bets close 1 hour before match starts
+        const closeTime = new Date(new Date(match.fecha).getTime() - 60 * 60 * 1000);
+        if (match.estado !== 'upcoming' || now >= closeTime) {
+          errors.push({ matchId, error: 'Apuestas cerradas (cierran 1 hora antes del partido)' }); continue;
         }
         if (existingSet.has(matchId)) {
           // Allow correction within 3 minutes of original bet
@@ -146,9 +148,11 @@ export async function POST(req: NextRequest) {
     const match = matchRes.rows[0];
     const matchTime = new Date(match.fecha);
 
-    if (match.estado !== 'upcoming' || now >= matchTime) {
+    // Bets close 1 hour before match starts
+    const closeTime = new Date(matchTime.getTime() - 60 * 60 * 1000);
+    if (match.estado !== 'upcoming' || now >= closeTime) {
       return NextResponse.json(
-        { error: 'El partido ya ha comenzado. Apuestas cerradas.' },
+        { error: 'Apuestas cerradas. Los pronósticos se cierran 1 hora antes del inicio.' },
         { status: 400 }
       );
     }

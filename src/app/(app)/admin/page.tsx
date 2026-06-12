@@ -2278,7 +2278,7 @@ export default function AdminPage() {
                                   ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
                                   : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
                               }`}>
-                                {log.nivel.toUpperCase()}
+                                {(log.nivel || 'info').toUpperCase()}
                               </span>
                             </td>
                             <td className="p-3 text-neutral-300 font-mono">{log.categoria}</td>

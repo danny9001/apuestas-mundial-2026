@@ -49,23 +49,15 @@ async function insertNotification(titulo: string, contenido: string, tipo: strin
 
 
 
-/** Envía aviso de partidos próximas 24h (o 36h si es forzado) que aún no se han notificado */
+/** Envía aviso de partidos próximas 12h que aún no se han notificado */
 async function notifyUpcomingMatches(force: boolean = false) {
   let query = `
     SELECT m.id, m.local, m.visitante, m.fecha, m.fase
     FROM matches m
     WHERE m.estado = 'upcoming'
-      AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '24 hours'
+      AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '12 hours'
   `;
-  if (force) {
-    // When forced from admin panel, extend window to 36 hours and allow notifying already notified matches
-    query = `
-      SELECT m.id, m.local, m.visitante, m.fecha, m.fase
-      FROM matches m
-      WHERE m.estado = 'upcoming'
-        AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '36 hours'
-    `;
-  } else {
+  if (!force) {
     query += `
       AND NOT EXISTS (
         SELECT 1 FROM scheduled_notify_log WHERE tipo = 'match_reminder' AND referencia_id = m.id

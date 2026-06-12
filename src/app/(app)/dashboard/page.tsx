@@ -118,7 +118,7 @@ export default function DashboardPage() {
   const countdownMatch = matches.filter(m => m.estado === 'upcoming' && new Date(m.fecha).getTime() > Date.now()).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
 
   return (
-    <section className="space-y-6 max-w-screen-2xl mx-auto pb-8">
+    <section className="space-y-6 pb-8">
 
       {/* Welcome Card */}
       <div className="bg-gradient-to-r from-yellow-500/15 via-amber-500/5 to-transparent border border-yellow-500/20 rounded-2xl p-6 xl:p-8 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg animate-fade-in">
@@ -172,7 +172,7 @@ export default function DashboardPage() {
 
       {/* Stats cards */}
       {user && (
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 xl:gap-4">
+        <div className="grid grid-cols-2 xl:grid-cols-4 2xl:grid-cols-4 gap-3 xl:gap-4">
           {[
             { label: 'Puntos Totales', value: myRank?.puntos_totales ?? 0, sub: 'Acumulados en todos los partidos', color: 'text-yellow-500' },
             { label: 'Posición General', value: myCompanyRank ? `#${myCompanyRank}` : '--', sub: myCompanyRank ? (myRank?.tendencia === 'up' ? '▲ Subiendo' : myRank?.tendencia === 'down' ? '▼ Bajando' : '● Estable') : 'Aún sin clasificar', color: 'text-amber-500' },
@@ -282,7 +282,7 @@ export default function DashboardPage() {
             <h3 className="text-xs xl:text-sm font-black text-neutral-400 uppercase tracking-widest">Próximos Partidos</h3>
             <Link href="/partidos" className="text-[10px] xl:text-xs text-yellow-500 hover:text-yellow-400 font-bold uppercase tracking-wider transition">Ver todos →</Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
             {upcomingMatches.map(m => (
               <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
                 onBet={() => setSummaryMatch(m)} />
@@ -353,7 +353,7 @@ export default function DashboardPage() {
           <h3 className="text-xs xl:text-sm font-black text-neutral-400 uppercase tracking-widest flex items-center gap-2">
             <Bell className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-yellow-500" /> Noticias y Avisos
           </h3>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 xl:gap-3">
+          <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-2 xl:gap-3">
             {notifications.slice(0, 6).map(n => (
               <div key={n.id} className="bg-neutral-900/50 border border-neutral-850 rounded-xl p-4 xl:p-5 flex gap-3 items-start">
                 <span className="text-xl flex-shrink-0">

@@ -100,7 +100,7 @@ export default function PerfilPage() {
   const avatarSrc = profileAvatarPreview || ((user.avatar && user.avatar !== 'null' && user.avatar !== 'undefined') ? user.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp');
 
   return (
-    <section className="space-y-6 max-w-screen-xl mx-auto">
+    <section className="space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <User className="w-5 h-5 text-yellow-500" />
@@ -170,7 +170,10 @@ export default function PerfilPage() {
         </div>
       )}
 
-      {/* Profile Editor */}
+      {/* Grid wrapper for desktop layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+      {/* Left Column: Profile Editor */}
       <div className="glass-card rounded-3xl p-6 md:p-8 shadow-2xl border border-neutral-800/80">
         <form onSubmit={handleSaveProfile} className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8">
           {/* Avatar */}
@@ -276,6 +279,9 @@ export default function PerfilPage() {
         </form>
       </div>
 
+      {/* Right Column: Push + Passkeys + Stats */}
+      <div className="space-y-6">
+
       {/* Push Notifications */}
       <div className="glass-card border border-neutral-800/80 rounded-2xl p-5 flex items-center justify-between gap-4">
         <div>
@@ -373,6 +379,8 @@ export default function PerfilPage() {
           </div>
         </div>
       )}
+      </div>
+      </div>
 
       {/* Logout */}
       <div className="glass-card border border-neutral-800/40 p-4 rounded-xl md:hidden">

@@ -13,7 +13,7 @@ export default function PartidosPage() {
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [betModalMatch, setBetModalMatch] = useState<any | null>(null);
-  const [compactView, setCompactView] = useState(true);
+  const [compactView, setCompactView] = useState(false);
   const [filterFase, setFilterFase] = useState('ALL');
   const [filterGrupo, setFilterGrupo] = useState('ALL');
   const [groupDate, setGroupDate] = useState(true);
@@ -65,7 +65,7 @@ export default function PartidosPage() {
     .filter(m => filterGrupo === 'ALL' || m.grupo === filterGrupo)
     .filter(m => filterFase === 'ALL' || m.fase === filterFase);
 
-  const gridClass = compactView ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
+  const gridClass = compactView ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4';
 
   const renderCards = (list: any[]) => list.map(m => (
     <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
@@ -78,7 +78,7 @@ export default function PartidosPage() {
       <div className="flex justify-between items-center gap-4 border-b border-neutral-900 pb-2">
         <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Filtrar Partidos</div>
         <button onClick={() => setCompactView(v => !v)}
-          className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition border ${
+          className={`flex-shrink-0 lg:hidden px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition border ${
             compactView ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' : 'bg-neutral-900 text-neutral-500 border-neutral-800 hover:border-yellow-500/30 hover:text-neutral-300'
           }`}>
           {compactView ? '📱 Vista Normal' : '🔍 Vista Compacta'}

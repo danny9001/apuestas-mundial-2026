@@ -46,6 +46,8 @@ export default function RankingPage() {
       } catch {}
       setLoading(false);
     })();
+    // Pre-load Tinkaso stats on mount for desktop
+    fetchTinkasoStats();
   }, []);
 
   const availableCompanies = !user ? [] : user.tipo === 'superadmin' ? companies : (user.companies || []);
@@ -95,9 +97,10 @@ export default function RankingPage() {
   }).length;
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="lg:col-span-2 space-y-6">
       {/* Filter toggle */}
-      <div className="flex justify-center mb-6">
+      <div className="flex justify-center">
         <div className="bg-neutral-900 border border-neutral-800 p-1 rounded-full flex gap-1">
           {(['participantes', 'visores'] as const).map(f => (
             <button key={f} onClick={() => setRankingFilter(f)}
@@ -120,7 +123,7 @@ export default function RankingPage() {
 
       {/* Company selector */}
       {availableCompanies.length > 0 && (
-        <div className="flex items-center justify-between gap-3 max-w-screen-xl mx-auto">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <Building2 className="w-4 h-4 text-neutral-400 flex-shrink-0" />
             <span className="text-xs font-black uppercase tracking-wider text-neutral-400">Equipo:</span>
@@ -136,7 +139,7 @@ export default function RankingPage() {
       )}
 
       {/* Pozo & Tinkaso Button */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-screen-xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {participantesCount > 0 && (
           <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
             <div>
@@ -150,7 +153,7 @@ export default function RankingPage() {
           </div>
         )}
         <button onClick={() => fetchTinkasoStats()}
-          className="bg-neutral-900/50 border border-neutral-800 hover:border-yellow-500/30 rounded-2xl p-4 flex items-center justify-between shadow-md transition group text-left">
+          className="lg:hidden bg-neutral-900/50 border border-neutral-800 hover:border-yellow-500/30 rounded-2xl p-4 flex items-center justify-between shadow-md transition group text-left">
           <div>
             <div className="text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Tinkaso Stats</div>
             <div className="text-lg font-black text-neutral-100 mt-1 group-hover:text-yellow-500 transition">¿Quién ganará el Mundial?</div>
@@ -161,7 +164,7 @@ export default function RankingPage() {
       </div>
 
       {/* Podium */}
-      <div className="grid grid-cols-3 gap-4 pt-2 max-w-2xl mx-auto">
+      <div className="grid grid-cols-3 gap-4 pt-2">
         {filteredLeaderboard[1] && (
           <div className="glass-card rounded-xl p-4 text-center flex flex-col items-center justify-between order-1 shadow-md">
             <div className="text-3xl">🥈</div>
@@ -190,7 +193,7 @@ export default function RankingPage() {
       </div>
 
       {/* Full ranking table */}
-      <div className="glass-card border border-neutral-800/40 rounded-xl overflow-hidden mt-6 max-w-screen-xl mx-auto shadow-2xl">
+      <div className="glass-card border border-neutral-800/40 rounded-xl overflow-hidden mt-6 shadow-2xl">
         <div className="divide-y divide-neutral-900 text-sm">
           {filteredLeaderboard.map((row, index) => {
             const isMe = user?.id === row.user_id;
@@ -225,6 +228,50 @@ export default function RankingPage() {
               </div>
             );
           })}
+        </div>
+      </div>
+      </div>
+
+      {/* Desktop: Tinkaso Panel — siempre visible, columna derecha */}
+      <div className="hidden lg:flex flex-col sticky top-4">
+        <div className="glass-card border border-neutral-800/40 rounded-2xl p-5 space-y-5">
+          <div className="flex items-center gap-2 pb-2 border-b border-neutral-850">
+            <span className="text-lg">📊</span>
+            <h3 className="text-sm font-black uppercase tracking-wider text-neutral-100">Tinkaso Stats</h3>
+          </div>
+
+          {tinkasoLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500"></div>
+            </div>
+          ) : (
+            <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
+              {tinkasoStats.length === 0 ? (
+                <p className="text-center text-xs text-neutral-500 py-6">Aún no hay votos registrados para el Tinkaso.</p>
+              ) : (
+                tinkasoStats.map((stat, idx) => (
+                  <div key={stat.team} className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-neutral-500 w-5">#{idx + 1}</span>
+                        <span className="text-sm">{getTeamFlag(stat.team)}</span>
+                        <span className="font-bold text-neutral-200">{stat.team}</span>
+                      </div>
+                      <span className="font-mono font-bold text-yellow-500">{stat.percentage}%</span>
+                    </div>
+                    <div className="w-full bg-neutral-900 rounded-full h-2 overflow-hidden border border-neutral-850">
+                      <div className="bg-gradient-to-r from-yellow-500 to-amber-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${stat.percentage}%` }} />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          <div className="text-[10px] text-neutral-500 text-center pt-2">
+            Los porcentajes se calculan en base a todos los usuarios con Tinkaso registrado.
+          </div>
         </div>
       </div>
 

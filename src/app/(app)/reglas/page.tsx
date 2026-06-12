@@ -4,7 +4,7 @@ import { BookOpen } from 'lucide-react';
 
 export default function ReglasPage() {
   return (
-    <section className="space-y-6 max-w-screen-xl mx-auto">
+    <section className="space-y-6">
       <div className="flex items-center gap-2">
         <BookOpen className="w-5 h-5 text-yellow-500" />
         <h2 className="text-lg font-black tracking-wider text-neutral-100 uppercase">Reglas del Juego</h2>

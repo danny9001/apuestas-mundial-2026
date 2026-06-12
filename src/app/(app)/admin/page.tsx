@@ -849,7 +849,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <section className="space-y-6 max-w-screen-xl mx-auto">
+      <section className="space-y-6 flex flex-col lg:flex-row gap-6 items-start">
 
         {/* ── Header ── */}
         <div className="flex justify-between items-center flex-wrap gap-3">
@@ -877,8 +877,8 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* ── Sub-tabs ── */}
-        <div className="flex gap-1 border-b border-neutral-800 pb-0">
+        {/* ── Sub-tabs Mobile ── */}
+        <div className="lg:hidden flex gap-1 border-b border-neutral-800 pb-0 overflow-x-auto">
           {([
             { key: 'usuarios', label: 'Usuarios', icon: <Users className="w-3.5 h-3.5" /> },
             { key: 'empresa', label: 'Empresa', icon: <Building2 className="w-3.5 h-3.5" /> },
@@ -898,6 +898,31 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+
+        {/* ── Sub-tabs Desktop Sidebar ── */}
+        <aside className="hidden lg:flex flex-col w-52 flex-shrink-0 gap-1 sticky top-4">
+          {([
+            { key: 'usuarios', label: 'Usuarios', icon: <Users className="w-3.5 h-3.5" /> },
+            { key: 'empresa', label: 'Empresa', icon: <Building2 className="w-3.5 h-3.5" /> },
+            { key: 'mensajes', label: 'Mensajes', icon: <MessageSquare className="w-3.5 h-3.5" /> },
+            { key: 'pagos', label: 'Pagos 💰', icon: <Coins className="w-3.5 h-3.5" /> },
+          ] as const).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setAdminSubTab(t.key)}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition text-left ${
+                adminSubTab === t.key
+                  ? 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-500'
+                  : 'text-neutral-500 hover:bg-neutral-900/50 border border-transparent hover:text-neutral-300'
+              }`}
+            >
+              {t.icon}{t.label}
+            </button>
+          ))}
+        </aside>
+
+        {/* ── Main content wrapper ── */}
+        <div className="lg:flex-1 w-full space-y-6">
 
         {/* ── Stats (superadmin only) ── */}
         {user.tipo === 'superadmin' && (
@@ -2032,6 +2057,7 @@ export default function AdminPage() {
             </div>
           );
         })()}
+        </div>
       </section>
 
       {/* ── MODAL: Group Members ── */}

@@ -82,6 +82,9 @@ export async function POST(req: NextRequest) {
       [user.id]
     );
 
+    // Fetch aprobado/denegado to keep session complete
+    const userRow = await pool.query('SELECT aprobado, denegado FROM users WHERE id = $1', [user.id]);
+
     // Refresh Session Cookie
     const updatedSession = {
       id: user.id,
@@ -90,6 +93,8 @@ export async function POST(req: NextRequest) {
       tipo: user.tipo,
       avatar: avatarPath,
       telefono: telefonoSafe,
+      aprobado: userRow.rows[0]?.aprobado ?? user.aprobado,
+      denegado: userRow.rows[0]?.denegado ?? user.denegado,
       companies: compRes.rows
     };
     await setSession(updatedSession);

@@ -86,3 +86,35 @@ export async function sendPushToAdmins(payload: PushPayload): Promise<void> {
     console.error('sendPushToAdmins failed:', error);
   }
 }
+
+export async function sendPushToAllActive(payload: PushPayload): Promise<void> {
+  try {
+    const users = await pool.query(
+      `SELECT DISTINCT ps.user_id
+       FROM push_subscriptions ps
+       JOIN users u ON u.id = ps.user_id
+       WHERE u.activo = true`
+    );
+    await Promise.all(users.rows.map((row) => sendPushNotification(row.user_id, payload)));
+  } catch (error) {
+    console.error('sendPushToAllActive failed:', error);
+  }
+}
+
+export async function sendPushToUsersWithoutPrediction(matchId: number, payload: PushPayload): Promise<void> {
+  try {
+    const users = await pool.query(
+      `SELECT DISTINCT ps.user_id
+       FROM push_subscriptions ps
+       JOIN users u ON u.id = ps.user_id
+       WHERE u.activo = true AND u.aprobado = true
+         AND NOT EXISTS (
+           SELECT 1 FROM predictions p WHERE p.user_id = ps.user_id AND p.match_id = $1
+         )`,
+      [matchId]
+    );
+    await Promise.all(users.rows.map((row) => sendPushNotification(row.user_id, payload)));
+  } catch (error) {
+    console.error('sendPushToUsersWithoutPrediction failed:', error);
+  }
+}

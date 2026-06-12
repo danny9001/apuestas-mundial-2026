@@ -53,7 +53,7 @@ async function notifyUpcomingMatches() {
     SELECT m.id, m.local, m.visitante, m.fecha, m.fase
     FROM matches m
     WHERE m.estado = 'upcoming'
-      AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '2.5 hours'
+      AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '24 hours'
       AND NOT EXISTS (
         SELECT 1 FROM scheduled_notify_log WHERE tipo = 'match_reminder' AND referencia_id = m.id
       )
@@ -113,16 +113,19 @@ async function notifyWeeklyRankings() {
       FROM leaderboard l
       JOIN users u ON u.id = l.user_id
       JOIN user_companies uc ON uc.user_id = u.id
-      WHERE uc.company_id = $1
+      WHERE uc.company_id = $1 AND u.participa IS NOT FALSE
       ORDER BY l.posicion ASC
-      LIMIT 3
+      LIMIT 10
     `, [c.id]);
 
     if (top.rows.length === 0) continue;
 
-    const podio = top.rows.map((r: any, i: number) => `${['🥇','🥈','🥉'][i]} ${r.nombre}: ${r.puntos_totales} pts`).join('\n');
+    const podio = top.rows.map((r: any, i: number) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      return `${medal} ${r.nombre}: ${r.puntos_totales} pts`;
+    }).join('\n');
     const titulo = `📊 Ranking semanal — ${c.nombre}`;
-    const contenido = `Top 3 de esta semana:\n${podio}`;
+    const contenido = `Top 10 de esta semana:\n${podio}`;
 
     await insertNotification(titulo, contenido, 'info', 'company', c.id);
 

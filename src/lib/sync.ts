@@ -1,5 +1,21 @@
 import pool from './db';
 import { broadcastUpdate } from './realtime';
+import { sendPushToAllActive, sendPushToUsersWithoutPrediction } from './push';
+
+async function notifSent(matchId: number, event: string): Promise<boolean> {
+  const res = await pool.query(
+    'SELECT 1 FROM match_notif_log WHERE match_id = $1 AND event = $2',
+    [matchId, event]
+  );
+  return res.rows.length > 0;
+}
+
+async function markNotifSent(matchId: number, event: string): Promise<void> {
+  await pool.query(
+    'INSERT INTO match_notif_log (match_id, event) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+    [matchId, event]
+  );
+}
 
 const teamNameMapping: Record<string, string> = {
   'Germany': 'Alemania',
@@ -178,6 +194,28 @@ export async function sync365Scores(): Promise<{
 
         broadcastUpdate('match', updatedMatch);
 
+        // Push + notification: match goes live
+        if (estado === 'live' && localMatch.estado !== 'live') {
+          const key = `live`;
+          if (!(await notifSent(updatedMatch.id, key))) {
+            await markNotifSent(updatedMatch.id, key);
+            await pool.query(
+              `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+               VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
+              [
+                `⚽ En Vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
+                `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`
+              ]
+            );
+            broadcastUpdate('notification', { auto: true });
+            void sendPushToAllActive({
+              title: `⚽ Partido en vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
+              body: `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`,
+              url: '/fixture'
+            });
+          }
+        }
+
         if (estado === 'live' && scoreChanged) {
           goalsDetected++;
           broadcastUpdate('goal', {
@@ -187,6 +225,28 @@ export async function sync365Scores(): Promise<{
             goles_local: updatedMatch.goles_local,
             goles_visitante: updatedMatch.goles_visitante
           });
+
+          // Push + notification: goal (deduplicated by score)
+          const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
+          if (!(await notifSent(updatedMatch.id, goalKey))) {
+            await markNotifSent(updatedMatch.id, goalKey);
+            const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
+              ? updatedMatch.local : updatedMatch.visitante;
+            await pool.query(
+              `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+               VALUES ($1, $2, 'success', 'all', NOW() + INTERVAL '3 hours')`,
+              [
+                `🥅 ¡GOL de ${scoringTeam}!`,
+                `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`
+              ]
+            );
+            broadcastUpdate('notification', { auto: true });
+            void sendPushToAllActive({
+              title: `🥅 ¡GOL de ${scoringTeam}!`,
+              body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+              url: '/fixture'
+            });
+          }
         }
 
         if (
@@ -196,9 +256,31 @@ export async function sync365Scores(): Promise<{
         ) {
           if (estado === 'finished' && localMatch.estado !== 'finished') {
             finishedCount++;
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
+            // Push + notification: match finished + leaderboard
+            const finKey = `finished`;
+            if (!(await notifSent(updatedMatch.id, finKey))) {
+              await markNotifSent(updatedMatch.id, finKey);
+              await pool.query(
+                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+                 VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
+                [
+                  `🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+                  `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`
+                ]
+              );
+              broadcastUpdate('notification', { auto: true });
+              void sendPushToAllActive({
+                title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+                body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`,
+                url: '/ranking'
+              });
+            }
+          } else {
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
           }
-          await pool.query('SELECT recalculate_leaderboard()');
-          broadcastUpdate('leaderboard', { updated: true });
         }
       }
     }
@@ -232,6 +314,9 @@ export async function syncMatches(): Promise<{
   if (!SYNC_ENABLED) {
     return { updated: 0, goals_detected: 0, finished: 0, errors: ['Auto-sync is disabled via env'], duration_ms: 0 };
   }
+
+  // Send reminders for upcoming matches (60 min and 30 min before kickoff)
+  await sendUpcomingReminders();
 
   // 1. Try primary source: 365scores
   try {
@@ -369,6 +454,28 @@ export async function syncMatches(): Promise<{
         // Broadcast to clients
         broadcastUpdate('match', updatedMatch);
 
+        // Push + notification: match goes live
+        if (estado === 'live' && localMatch.estado !== 'live') {
+          const key = `live`;
+          if (!(await notifSent(updatedMatch.id, key))) {
+            await markNotifSent(updatedMatch.id, key);
+            await pool.query(
+              `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+               VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
+              [
+                `⚽ En Vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
+                `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`
+              ]
+            );
+            broadcastUpdate('notification', { auto: true });
+            void sendPushToAllActive({
+              title: `⚽ Partido en vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
+              body: `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`,
+              url: '/fixture'
+            });
+          }
+        }
+
         // Goal detection (during active live matches)
         if (estado === 'live' && scoreChanged) {
           goalsDetected++;
@@ -379,6 +486,28 @@ export async function syncMatches(): Promise<{
             goles_local: updatedMatch.goles_local,
             goles_visitante: updatedMatch.goles_visitante
           });
+
+          // Push + notification: goal
+          const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
+          if (!(await notifSent(updatedMatch.id, goalKey))) {
+            await markNotifSent(updatedMatch.id, goalKey);
+            const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
+              ? updatedMatch.local : updatedMatch.visitante;
+            await pool.query(
+              `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+               VALUES ($1, $2, 'success', 'all', NOW() + INTERVAL '3 hours')`,
+              [
+                `🥅 ¡GOL de ${scoringTeam}!`,
+                `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`
+              ]
+            );
+            broadcastUpdate('notification', { auto: true });
+            void sendPushToAllActive({
+              title: `🥅 ¡GOL de ${scoringTeam}!`,
+              body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+              url: '/fixture'
+            });
+          }
         }
 
         // Recalculate leaderboard if match finished, went live, or live score changed
@@ -389,9 +518,31 @@ export async function syncMatches(): Promise<{
         ) {
           if (estado === 'finished' && localMatch.estado !== 'finished') {
             finishedCount++;
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
+            // Push + notification: match finished + leaderboard
+            const finKey = `finished`;
+            if (!(await notifSent(updatedMatch.id, finKey))) {
+              await markNotifSent(updatedMatch.id, finKey);
+              await pool.query(
+                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+                 VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
+                [
+                  `🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+                  `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`
+                ]
+              );
+              broadcastUpdate('notification', { auto: true });
+              void sendPushToAllActive({
+                title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+                body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`,
+                url: '/ranking'
+              });
+            }
+          } else {
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
           }
-          await pool.query('SELECT recalculate_leaderboard()');
-          broadcastUpdate('leaderboard', { updated: true });
         }
       }
     }
@@ -436,6 +587,66 @@ export async function syncMatches(): Promise<{
       errors,
       duration_ms: durationMs
     };
+  }
+}
+
+async function sendUpcomingReminders() {
+  try {
+    // Find upcoming matches starting in 25-65 minutes (covers both 30min and 60min windows)
+    const res = await pool.query(
+      `SELECT id, local, visitante, fecha FROM matches
+       WHERE estado = 'upcoming'
+         AND fecha > NOW() + INTERVAL '24 minutes'
+         AND fecha < NOW() + INTERVAL '66 minutes'`
+    );
+
+    for (const match of res.rows) {
+      const minutesUntil = Math.round((new Date(match.fecha).getTime() - Date.now()) / 60000);
+
+      if (minutesUntil >= 55 && minutesUntil <= 65) {
+        // 60-minute reminder
+        const key60 = `reminder_60`;
+        if (!(await notifSent(match.id, key60))) {
+          await markNotifSent(match.id, key60);
+          // Insert notification record for in-app notification tab
+          await pool.query(
+            `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+             VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '4 hours')`,
+            [
+              `⏰ Próximo partido en 1 hora`,
+              `${match.local} vs ${match.visitante} comienza en aproximadamente 60 minutos. ¡No olvides hacer tu pronóstico antes de que cierre!`
+            ]
+          );
+          void sendPushToUsersWithoutPrediction(match.id, {
+            title: `⏰ Pronóstico pendiente – ${match.local} vs ${match.visitante}`,
+            body: `El partido inicia en ~60 minutos. ¡Aún estás a tiempo de apostar!`,
+            url: '/partidos'
+          });
+        }
+      } else if (minutesUntil >= 25 && minutesUntil <= 35) {
+        // 30-minute reminder
+        const key30 = `reminder_30`;
+        if (!(await notifSent(match.id, key30))) {
+          await markNotifSent(match.id, key30);
+          // Insert notification record for in-app notification tab
+          await pool.query(
+            `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+             VALUES ($1, $2, 'warning', 'all', NOW() + INTERVAL '2 hours')`,
+            [
+              `🚨 Último aviso – ${match.local} vs ${match.visitante}`,
+              `El partido inicia en ~30 minutos. ¡Las apuestas cierran pronto!`
+            ]
+          );
+          void sendPushToUsersWithoutPrediction(match.id, {
+            title: `🚨 ¡Último aviso! ${match.local} vs ${match.visitante}`,
+            body: `Solo quedan ~30 minutos para apostar. ¡No te quedes sin pronóstico!`,
+            url: '/partidos'
+          });
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('sendUpcomingReminders error:', err);
   }
 }
 

@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [newPaymentMonto, setNewPaymentMonto] = useState('');
   const [newPaymentFecha, setNewPaymentFecha] = useState('');
   const [newPaymentFile, setNewPaymentFile] = useState<File | null>(null);
+  const [newPaymentNotas, setNewPaymentNotas] = useState('');
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [managePaymentsUser, setManagePaymentsUser] = useState<any | null>(null);
   const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
@@ -203,6 +204,7 @@ export default function AdminPage() {
       formData.append('monto', String(monto));
       if (newPaymentFecha) formData.append('fecha', newPaymentFecha);
       if (newPaymentFile) formData.append('file', newPaymentFile);
+      if (newPaymentNotas.trim()) formData.append('notas', newPaymentNotas.trim());
 
       const res = await fetch('/api/admin/payments', {
         method: 'POST',
@@ -214,6 +216,7 @@ export default function AdminPage() {
         setNewPaymentMonto('');
         setNewPaymentFecha('');
         setNewPaymentFile(null);
+        setNewPaymentNotas('');
         await fetchPaymentsUsers();
       } else {
         const data = await res.json();
@@ -2372,6 +2375,17 @@ export default function AdminPage() {
                   accept="image/*,application/pdf"
                   onChange={e => setNewPaymentFile(e.target.files?.[0] || null)}
                   className="w-full bg-neutral-950 border border-neutral-850 rounded-xl px-3 py-2 text-xs text-neutral-400 file:mr-3 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-neutral-800 file:text-neutral-200 hover:file:bg-neutral-700 cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Notas / Observaciones (Opcional)</label>
+                <input
+                  type="text"
+                  value={newPaymentNotas}
+                  onChange={e => setNewPaymentNotas(e.target.value)}
+                  placeholder="Ej: Pago de cuota de inscripción"
+                  className="w-full input-stitch px-3 py-2 text-xs bg-neutral-950 border border-neutral-850 rounded-xl"
                 />
               </div>
 

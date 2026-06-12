@@ -82,6 +82,24 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
     }
   };
 
+  useEffect(() => {
+    if (!user) return;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+    const key = `pwa_synced_${user.id}_${isStandalone}`;
+    if (sessionStorage.getItem(key)) return;
+
+    fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pwaInstalled: isStandalone }),
+    })
+      .then((res) => {
+        if (res.ok) sessionStorage.setItem(key, 'true');
+      })
+      .catch(() => {});
+  }, [user, isInstalled]);
+
+
 
   const navLinks = [
     { href: '/dashboard', label: 'Inicio', icon: <Home className="w-4 h-4" /> },

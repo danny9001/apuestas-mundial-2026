@@ -65,7 +65,7 @@ export async function GET() {
     let res;
     if (user.tipo === 'superadmin') {
       res = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso, u.pwa_installed, u.pwa_updated_at,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -79,7 +79,7 @@ export async function GET() {
     } else {
       // Company admin: only users in shared companies OR users with no company assigned (pending approval)
       res = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso, u.pwa_installed, u.pwa_updated_at,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -94,7 +94,7 @@ export async function GET() {
            )
          ) OR u.id = $1 OR NOT EXISTS (SELECT 1 FROM user_companies uc3 WHERE uc3.user_id = u.id))
          AND u.tipo != 'superadmin'
-         GROUP BY u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.tincaso
+         GROUP BY u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.tincaso, u.pwa_installed, u.pwa_updated_at
          ORDER BY u.id ASC`,
         [user.id]
       );

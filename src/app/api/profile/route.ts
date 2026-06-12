@@ -115,3 +115,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Error del servidor: ${error.message || error}` }, { status: 500 });
   }
 }
+
+export async function PUT(req: NextRequest) {
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { pwaInstalled } = body;
+
+    if (typeof pwaInstalled !== 'boolean') {
+      return NextResponse.json({ error: 'Parámetro inválido' }, { status: 400 });
+    }
+
+    await pool.query(
+      'UPDATE users SET pwa_installed = $1, pwa_updated_at = NOW() WHERE id = $2',
+      [pwaInstalled, user.id]
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error updating PWA status:', error);
+    return NextResponse.json({ error: `Error del servidor: ${error.message || error}` }, { status: 500 });
+  }
+}

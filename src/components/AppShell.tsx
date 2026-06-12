@@ -22,7 +22,7 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
     user, appName, appLogo, notifications, unreadCount,
     pushSubscribed, goalAlert, toastMessage,
     handleLogout, handleIdentityLogin, handleTogglePush,
-    handleMarkNotificationRead,
+    handleMarkNotificationRead, setGoalAlert,
   } = useApp();
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -111,8 +111,8 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
           {user ? (
             <div className="bg-neutral-950/60 border border-neutral-850 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <img src={user.avatar} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.nombre)}`; }}
-                  className="w-8 h-8 rounded-full border border-neutral-800 bg-neutral-900 flex-shrink-0" alt="avatar" />
+                <img src={(user.avatar && user.avatar !== 'null' && user.avatar !== 'undefined') ? user.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }}
+                  className={`w-8 h-8 rounded-full border border-neutral-800 flex-shrink-0 object-cover ${(!user.avatar || user.avatar === 'null' || user.avatar === 'undefined' || user.avatar.includes('avatar_5.png') || user.avatar.includes('default.webp')) ? 'bg-white' : 'bg-neutral-900'}`} alt="avatar" />
                 <div className="truncate">
                   <div className="text-xs font-bold text-neutral-300 truncate">{user.nombre}</div>
                   <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-mono">{user.tipo}</div>
@@ -152,28 +152,108 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
 
         {/* Full-Screen Goal Alert */}
         {goalAlert && (
-          <div className="fixed inset-0 z-[999] flex items-center justify-center pointer-events-none overflow-hidden">
+          <div className="fixed inset-0 z-[999] flex items-center justify-center overflow-hidden">
+            {/* Styles for fireworks and animations */}
+            <style>{`
+              @keyframes burst-firework {
+                0% { transform: translate(0, 0) scale(1); opacity: 1; }
+                80% { opacity: 1; }
+                100% { transform: translate(var(--tx), var(--ty)) scale(0.1); opacity: 0; }
+              }
+              .firework-spark {
+                position: absolute;
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                animation: burst-firework 1.8s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+                box-shadow: 0 0 10px currentColor;
+              }
+              .pulse-glow {
+                animation: pulse-glow-keyframes 1.5s infinite alternate;
+              }
+              @keyframes pulse-glow-keyframes {
+                0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(234,179,8,0.5)); }
+                100% { transform: scale(1.15); filter: drop-shadow(0 0 25px rgba(234,179,8,0.95)); }
+              }
+            `}</style>
+
             {/* Dark overlay */}
-            <div className="absolute inset-0 bg-neutral-950/70 backdrop-blur-sm animate-fade-in" />
-            {/* Animated confetti rings */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-96 h-96 rounded-full border-4 border-yellow-500/30 animate-ping" style={{ animationDuration: '1s' }} />
-              <div className="absolute w-64 h-64 rounded-full border-4 border-yellow-500/50 animate-ping" style={{ animationDuration: '0.8s', animationDelay: '0.1s' }} />
-              <div className="absolute w-32 h-32 rounded-full border-4 border-yellow-500/70 animate-ping" style={{ animationDuration: '0.6s', animationDelay: '0.2s' }} />
+            <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-sm animate-fade-in" />
+
+            {/* Fireworks background */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              {[
+                { x: 25, y: 30, color: '#eab308' },
+                { x: 75, y: 25, color: '#ec4899' },
+                { x: 30, y: 70, color: '#06b6d4' },
+                { x: 70, y: 75, color: '#10b981' },
+                { x: 50, y: 15, color: '#f97316' }
+              ].map((b, bIdx) => (
+                <div key={bIdx} className="absolute" style={{ left: `${b.x}%`, top: `${b.y}%` }}>
+                  {Array.from({ length: 16 }).map((_, i) => {
+                    const angle = (i * 360) / 16;
+                    const rad = (angle * Math.PI) / 180;
+                    const velocity = 80 + Math.random() * 100;
+                    const tx = Math.cos(rad) * velocity;
+                    const ty = Math.sin(rad) * velocity;
+                    return (
+                      <div
+                        key={i}
+                        className="firework-spark"
+                        style={{
+                          '--tx': `${tx}px`,
+                          '--ty': `${ty}px`,
+                          color: b.color,
+                          backgroundColor: b.color,
+                          animationDelay: `${Math.random() * 0.3}s`,
+                        } as any}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
             </div>
-            {/* Main card */}
-            <div className="relative flex flex-col items-center gap-4 bg-gradient-to-b from-yellow-500 to-amber-600 text-neutral-950 px-10 py-8 rounded-3xl shadow-[0_0_80px_rgba(234,179,8,0.6)] border-4 border-neutral-950 animate-bounce max-w-sm mx-4 text-center">
-              <div className="text-7xl animate-bounce" style={{ animationDuration: '0.5s' }}>⚽</div>
-              <div className="text-xs font-black uppercase tracking-[0.3em] text-neutral-800 mt-1">
-                {goalAlert.missed ? '¡Gol Reciente!' : '¡GOL EN VIVO!'}
-              </div>
-              <div className="text-3xl font-black tracking-tight leading-tight">
-                {goalAlert.local}
-                <span className="text-5xl mx-3 font-black font-mono text-neutral-950">
-                  {goalAlert.goles_local} – {goalAlert.goles_visitante}
+
+            {/* Close Button X at the top of the overlay */}
+            <button
+              onClick={() => setGoalAlert(null)}
+              className="absolute top-10 bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 hover:border-red-500/50 text-neutral-400 hover:text-white px-4 py-2.5 rounded-full transition pointer-events-auto shadow-2xl flex items-center gap-1.5 text-xs font-black uppercase tracking-wider z-50 animate-fade-in"
+            >
+              <X className="w-4 h-4" /> Cerrar
+            </button>
+
+            {/* Circular Soccer Ball Card */}
+            <div className="relative w-80 h-80 sm:w-96 sm:h-96 rounded-full overflow-hidden flex flex-col items-center justify-between shadow-[0_0_80px_rgba(255,255,255,0.15)] border-4 border-neutral-900 bg-white pointer-events-auto animate-bounce z-10">
+              
+              {/* Soccer Ball Pattern Image (matching JD8031 design) */}
+              <div 
+                className="absolute inset-0 w-full h-full select-none pointer-events-none bg-cover bg-center bg-no-repeat"
+                style={{ 
+                  backgroundImage: "url('https://mexicofanshop.com/cdn/shop/files/JD8031_1_HARDWARE_Photography_Front-Center-View_transparent.png?v=1759434220&width=5000')",
+                  backgroundColor: '#ffffff'
+                }}
+              />
+
+              {/* Goal Title / Indicator */}
+              <div className="mt-12 sm:mt-16 z-10 flex flex-col items-center">
+                <span className="bg-red-500 text-white font-black text-[9px] sm:text-[10px] tracking-[0.2em] uppercase px-3 py-1 rounded-full shadow-lg border border-red-400/35 animate-pulse">
+                  {goalAlert.missed ? 'GOL RECIENTE' : 'GOL EN VIVO'}
                 </span>
-                {goalAlert.visitante}
+                <h2 className="text-4xl sm:text-5xl font-black text-yellow-500 uppercase tracking-wide pulse-glow mt-3 select-none">
+                  ¡GOL!
+                </h2>
               </div>
+
+              {/* Bottom Card Info: Who vs Who & Score */}
+              <div className="w-full bg-neutral-950/90 border-t border-neutral-900 py-5 sm:py-6 text-center z-10 flex flex-col items-center justify-center">
+                <div className="text-[10px] sm:text-xs font-black text-neutral-300 uppercase tracking-widest px-4 truncate max-w-full">
+                  {goalAlert.local} <span className="text-yellow-500 mx-1">VS</span> {goalAlert.visitante}
+                </div>
+                <div className="text-3xl sm:text-4xl font-mono font-black text-white mt-1.5 tracking-wider select-none">
+                  {goalAlert.goles_local} – {goalAlert.goles_visitante}
+                </div>
+              </div>
+
             </div>
           </div>
         )}
@@ -213,7 +293,7 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
                   {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
                 </button>
                 <div className="bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 flex items-center gap-1.5 text-xs text-neutral-300">
-                  <img src={user.avatar} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.nombre)}`; }} className="w-4 h-4 rounded-full" alt="avatar" />
+                  <img src={(user.avatar && user.avatar !== 'null' && user.avatar !== 'undefined') ? user.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }} className={`w-4 h-4 rounded-full object-cover ${(!user.avatar || user.avatar === 'null' || user.avatar === 'undefined' || user.avatar.includes('avatar_5.png') || user.avatar.includes('default.webp')) ? 'bg-white' : 'bg-neutral-900'}`} alt="avatar" />
                   <span className="font-bold max-w-[80px] truncate">{user.nombre.split(' ')[0]}</span>
                 </div>
               </>

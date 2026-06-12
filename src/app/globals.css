@@ -512,6 +512,31 @@ body {
   color: #e5e5e5;
 }
 
+/* === MATCH CARD STITCH SYSTEM === */
+.match-card-stitch {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-bright);
+  border-radius: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.match-card-stitch:hover {
+  border-color: rgba(255, 209, 101, 0.20);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+.match-card-live-stitch {
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+  animation: border-pulse 3.5s infinite ease-in-out;
+}
+.light .match-card-stitch {
+  background: #ffffff;
+  border-color: #e5e5e5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.light .match-card-live-stitch {
+  background: #fff5f5 !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
 /* ============================================================
    CYBER-SPORTSBOOK FIXTURE SYSTEM
    ============================================================ */

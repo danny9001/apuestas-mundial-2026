@@ -5,7 +5,7 @@ import { broadcastUpdate } from '@/lib/realtime';
 import { sendPushNotification } from '@/lib/push';
 import { sendMail, buildApprovalEmail, buildDenialEmail } from '@/lib/mail';
 import { isValidEmail, sanitizeText, validatePassword, isValidRole, BCRYPT_ROUNDS } from '@/lib/validation';
-import { syncCompanyAssignment, syncUserToIdentity, syncUserPassword } from '@/lib/identity-sync';
+import { syncCompanyAssignment, unsyncCompanyAssignment, syncUserToIdentity, syncUserPassword } from '@/lib/identity-sync';
 
 async function ensureNotificationsTables() {
   await pool.query(`
@@ -274,7 +274,14 @@ export async function POST(req: NextRequest) {
           syncCompanyAssignment(targetUser.rows[0].email, company.rows[0].nombre, targetUser.rows[0].tipo).catch(() => {});
         }
       } else {
+        const [targetUser, company] = await Promise.all([
+          pool.query('SELECT email FROM users WHERE id = $1', [targetUserId]),
+          pool.query('SELECT nombre FROM companies WHERE id = $1', [companyId]),
+        ]);
         await pool.query('DELETE FROM user_companies WHERE user_id = $1 AND company_id = $2', [targetUserId, companyId]);
+        if (targetUser.rows.length > 0 && company.rows.length > 0) {
+          unsyncCompanyAssignment(targetUser.rows[0].email, company.rows[0].nombre).catch(() => {});
+        }
       }
       return NextResponse.json({ success: true });
     }
@@ -293,10 +300,30 @@ export async function POST(req: NextRequest) {
       const { userId: targetUserId, companyIds } = body;
       if (!targetUserId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
       
+      const targetUserRes = await pool.query('SELECT email, tipo FROM users WHERE id = $1', [targetUserId]);
+      const targetUser = targetUserRes.rows[0];
+      if (!targetUser) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+      
       if (user.tipo === 'superadmin') {
+        const currentCompaniesRes = await pool.query('SELECT company_id FROM user_companies WHERE user_id = $1', [targetUserId]);
+        const currentCompanyIds = currentCompaniesRes.rows.map(r => r.company_id);
+
         await pool.query('DELETE FROM user_companies WHERE user_id = $1', [targetUserId]);
         for (const cid of (companyIds || [])) {
           await pool.query('INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [targetUserId, cid]);
+          const companyRes = await pool.query('SELECT nombre FROM companies WHERE id = $1', [cid]);
+          if (companyRes.rows.length > 0) {
+            syncCompanyAssignment(targetUser.email, companyRes.rows[0].nombre, targetUser.tipo).catch(() => {});
+          }
+        }
+
+        for (const cid of currentCompanyIds) {
+          if (!(companyIds || []).includes(cid)) {
+            const companyRes = await pool.query('SELECT nombre FROM companies WHERE id = $1', [cid]);
+            if (companyRes.rows.length > 0) {
+              unsyncCompanyAssignment(targetUser.email, companyRes.rows[0].nombre).catch(() => {});
+            }
+          }
         }
       } else if (user.tipo === 'admin') {
         // Admin can only replace companies they own

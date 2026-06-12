@@ -23,6 +23,13 @@ export default function ReglasPage() {
       <div className="glass-card border border-neutral-800/80 rounded-2xl p-5 space-y-4">
         <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2">Sistema de Puntuación</h3>
         <div className="space-y-3">
+          <div className="flex items-center justify-between bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
+            <div>
+              <div className="text-yellow-400 font-black text-sm">Tinkazo (Resultado Exacto Especial)</div>
+              <div className="text-neutral-400 text-xs mt-0.5">Tinkazo vale 5 puntos</div>
+            </div>
+            <div className="text-yellow-400 font-black text-3xl font-mono">5 PTS</div>
+          </div>
           <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-xl p-4">
             <div>
               <div className="text-green-400 font-black text-sm">Resultado Exacto</div>

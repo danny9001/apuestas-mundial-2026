@@ -18,6 +18,7 @@ export default function PerfilPage() {
 
   const [userPasskeys, setUserPasskeys] = useState<any[]>([]);
   const [myStats, setMyStats] = useState<any>(null);
+  const [paymentInfo, setPaymentInfo] = useState<any>(null);
 
   useEffect(() => {
     if (user) {
@@ -30,7 +31,15 @@ export default function PerfilPage() {
     if (!user) return;
     fetchPasskeys();
     fetchMyStats();
+    fetchPaymentInfo();
   }, [user]);
+
+  const fetchPaymentInfo = async () => {
+    try {
+      const res = await fetch(`/api/profile/payments?t=${Date.now()}`);
+      if (res.ok) setPaymentInfo(await res.json());
+    } catch {}
+  };
 
   const fetchPasskeys = async () => {
     try {
@@ -88,7 +97,7 @@ export default function PerfilPage() {
 
   if (!user) return null;
 
-  const avatarSrc = profileAvatarPreview || user.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.nombre)}`;
+  const avatarSrc = profileAvatarPreview || ((user.avatar && user.avatar !== 'null' && user.avatar !== 'undefined') ? user.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp');
 
   return (
     <section className="space-y-6 max-w-4xl mx-auto">
@@ -127,6 +136,37 @@ export default function PerfilPage() {
         )
       )}
 
+      {/* Payment Status Card */}
+      {paymentInfo && user.tipo !== 'superadmin' && (
+        <div className={`border rounded-2xl p-5 flex gap-3 text-xs font-semibold ${
+          paymentInfo.pagadoCompleto 
+            ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' 
+            : 'bg-yellow-500/5 border-yellow-500/20 text-yellow-500'
+        }`}>
+          <span className="text-xl">💰</span>
+          <div className="space-y-1 flex-1">
+            <p className="font-extrabold uppercase text-[10px] tracking-wider">
+              Estado de Pago: {paymentInfo.pagadoCompleto ? '🟢 Pago Completado' : '🔴 Pago Incompleto / Pendiente'}
+            </p>
+            <p className="text-neutral-400 leading-relaxed text-[11px]">
+              {paymentInfo.pagadoCompleto 
+                ? `¡Gracias! Has cubierto la totalidad de tu cuota de Bs. ${paymentInfo.cuota.toLocaleString('es-BO')}.`
+                : `Has pagado Bs. ${paymentInfo.totalPagado.toLocaleString('es-BO')} de un total de Bs. ${paymentInfo.cuota.toLocaleString('es-BO')}. Saldo pendiente: Bs. ${(paymentInfo.cuota - paymentInfo.totalPagado).toLocaleString('es-BO')}.`
+              }
+            </p>
+            {paymentInfo.payments.length > 0 && (
+              <div className="pt-2 flex flex-wrap gap-1.5">
+                {paymentInfo.payments.map((p: any) => (
+                  <span key={p.id} className="inline-flex items-center text-[9px] font-mono font-bold bg-neutral-900 border border-neutral-800 rounded-md px-1.5 py-0.5 text-neutral-400">
+                    Bs. {parseFloat(p.monto).toLocaleString('es-BO')} ({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Profile Editor */}
       <div className="glass-card rounded-3xl p-6 md:p-8 shadow-2xl border border-neutral-800/80">
         <form onSubmit={handleSaveProfile} className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8">
@@ -135,8 +175,8 @@ export default function PerfilPage() {
             <div className="relative group">
               <img
                 src={avatarSrc}
-                onError={(e) => { const img = e.target as HTMLImageElement; if (!img.src.includes('dicebear')) img.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.nombre)}`; }}
-                className="w-32 h-32 rounded-full border-2 border-yellow-500/50 bg-neutral-950 p-1 shadow-2xl object-cover transition duration-300 group-hover:opacity-85"
+                onError={(e) => { const img = e.target as HTMLImageElement; if (!img.src.includes('default.webp')) img.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }}
+                className={`w-32 h-32 rounded-full border-2 border-yellow-500/50 p-1 shadow-2xl object-cover transition duration-300 group-hover:opacity-85 ${(!avatarSrc || avatarSrc === 'null' || avatarSrc === 'undefined' || avatarSrc.includes('avatar_5.png') || avatarSrc.includes('default.webp')) ? 'bg-white' : 'bg-neutral-950'}`}
                 alt="avatar"
               />
               <label className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center text-[10px] text-white font-extrabold uppercase opacity-0 group-hover:opacity-100 transition cursor-pointer select-none">

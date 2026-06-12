@@ -7,7 +7,7 @@ import MatchCard from '@/components/MatchCard';
 import BetModal from '@/components/BetModal';
 
 export default function PartidosPage() {
-  const { user, showToast } = useApp();
+  const { user, showToast, lastMatchUpdate } = useApp();
   const [matches, setMatches] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
@@ -35,6 +35,16 @@ export default function PartidosPage() {
       setLoading(false);
     })();
   }, [user]);
+
+  useEffect(() => {
+    if (lastMatchUpdate === 0) return;
+    (async () => {
+      try {
+        const mRes = await fetch(`/api/matches?t=${Date.now()}`);
+        if (mRes.ok) setMatches(await mRes.json());
+      } catch {}
+    })();
+  }, [lastMatchUpdate]);
 
   const handleSavePrediction = async (matchId: number, predLocal: number, predVisitante: number, userId: number) => {
     const res = await fetch('/api/predictions', {

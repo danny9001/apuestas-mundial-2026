@@ -25,6 +25,7 @@ interface AppContextValue {
   pushSubscribed: boolean;
   goalAlert: any | null;
   toastMessage: string | null;
+  lastMatchUpdate: number;
   setUser: (u: AppUser | null) => void;
   setPushSubscribed: (v: boolean) => void;
   setGoalAlert: (v: any | null) => void;
@@ -34,6 +35,8 @@ interface AppContextValue {
   handleLogout: () => Promise<void>;
   handleIdentityLogin: () => void;
   handleTogglePush: () => Promise<void>;
+  setAppName: (v: string) => void;
+  setAppLogo: (v: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -48,6 +51,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [goalAlert, setGoalAlert] = useState<any | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [lastMatchUpdate, setLastMatchUpdate] = useState<number>(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((msg: string) => {
@@ -149,15 +153,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             m.updated_at && new Date(m.updated_at).getTime() > fiveMinutesAgo
           );
           if (recentGoalMatch) {
-            setGoalAlert({
-              matchId: recentGoalMatch.id,
-              local: recentGoalMatch.local,
-              visitante: recentGoalMatch.visitante,
-              goles_local: recentGoalMatch.goles_local,
-              goles_visitante: recentGoalMatch.goles_visitante,
-              missed: true,
-            });
-            setTimeout(() => setGoalAlert(null), 6000);
+            const goalKey = `seen_goal_${recentGoalMatch.id}_${recentGoalMatch.goles_local}_${recentGoalMatch.goles_visitante}`;
+            if (!localStorage.getItem(goalKey)) {
+              localStorage.setItem(goalKey, 'true');
+              setGoalAlert({
+                matchId: recentGoalMatch.id,
+                local: recentGoalMatch.local,
+                visitante: recentGoalMatch.visitante,
+                goles_local: recentGoalMatch.goles_local,
+                goles_visitante: recentGoalMatch.goles_visitante,
+                missed: true,
+              });
+              setTimeout(() => setGoalAlert(null), 10000);
+            }
           }
         }
       } catch {}
@@ -182,13 +190,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const payload = JSON.parse(event.data);
         if (payload.type === 'goal') {
+          const goalKey = `seen_goal_${payload.data.matchId}_${payload.data.goles_local}_${payload.data.goles_visitante}`;
+          localStorage.setItem(goalKey, 'true');
           setGoalAlert(payload.data);
-          setTimeout(() => setGoalAlert(null), 5000);
+          setTimeout(() => setGoalAlert(null), 10000);
         } else if (payload.type === 'notification') {
           fetchNotifications();
           showToast(`🔔 ${payload.data.titulo}`);
         } else if (payload.type === 'match') {
-          showToast(`Partido actualizado: ${payload.data.local} vs ${payload.data.visitante}`);
+          setLastMatchUpdate(Date.now());
+          showToast(`⚽ ${payload.data.local} ${payload.data.goles_local ?? ''} - ${payload.data.goles_visitante ?? ''} ${payload.data.visitante}`);
         } else if (payload.type === 'leaderboard') {
           showToast('¡La clasificación general ha cambiado!');
         }
@@ -201,10 +212,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider value={{
       user, authChecked, appName, appLogo,
       notifications, unreadCount, pushSubscribed,
-      goalAlert, toastMessage,
+      goalAlert, toastMessage, lastMatchUpdate,
       setUser, setPushSubscribed, setGoalAlert, showToast,
       fetchNotifications, handleMarkNotificationRead,
       handleLogout, handleIdentityLogin, handleTogglePush,
+      setAppName, setAppLogo,
     }}>
       {children}
     </AppContext.Provider>

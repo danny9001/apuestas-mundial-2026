@@ -9,7 +9,7 @@ import MatchCard from '@/components/MatchCard';
 import BetModal from '@/components/BetModal';
 
 export default function DashboardPage() {
-  const { user, showToast, notifications } = useApp();
+  const { user, showToast, notifications, lastMatchUpdate } = useApp();
   const [matches, setMatches] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -50,6 +50,17 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData();
   }, [user]);
+
+  // Re-fetch matches when a live update arrives via SSE
+  useEffect(() => {
+    if (lastMatchUpdate === 0) return;
+    (async () => {
+      try {
+        const mRes = await fetch(`/api/matches?t=${Date.now()}`);
+        if (mRes.ok) setMatches(await mRes.json());
+      } catch {}
+    })();
+  }, [lastMatchUpdate]);
 
   useEffect(() => {
     if (user?.companies?.length) {
@@ -223,16 +234,25 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Live Matches */}
+      {/* Live Matches — promoted, larger cards */}
       {liveMatches.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs xl:text-sm font-black text-red-400 uppercase tracking-widest flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" /> En Vivo Ahora
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 xl:gap-4">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3.5 w-3.5 flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500" />
+            </span>
+            <h3 className="text-sm xl:text-base font-black text-red-400 uppercase tracking-widest">
+              En Vivo Ahora
+            </h3>
+            <span className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-mono font-black animate-pulse">
+              {liveMatches.length} {liveMatches.length === 1 ? 'partido' : 'partidos'}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {liveMatches.map(m => (
               <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
-                compact onBet={() => setBetModalMatch(m)} />
+                compact={false} onBet={() => setBetModalMatch(m)} />
             ))}
           </div>
         </div>
@@ -288,8 +308,8 @@ export default function DashboardPage() {
                   <div key={row.user_id} className={`flex items-center justify-between px-4 py-3 xl:px-6 xl:py-4 transition ${isMe ? 'bg-yellow-500/5 border-l-4 border-yellow-500 font-bold' : 'hover:bg-neutral-900/20'}`}>
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-neutral-400 w-6 font-mono text-center text-xs xl:text-sm">#{idx + 1}</span>
-                      <img src={row.avatar} onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.nombre)}`; }}
-                        className="w-9 h-9 xl:w-11 xl:h-11 rounded-full border border-neutral-800 bg-neutral-950 shadow" alt="avatar" />
+                      <img src={(row.avatar && row.avatar !== 'null' && row.avatar !== 'undefined') ? row.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }}
+                        className={`w-9 h-9 xl:w-11 xl:h-11 rounded-full border border-neutral-800 shadow object-cover ${(!row.avatar || row.avatar === 'null' || row.avatar === 'undefined' || row.avatar.includes('avatar_5.png') || row.avatar.includes('default.webp')) ? 'bg-white' : 'bg-neutral-950'}`} alt="avatar" />
                       <div className="text-neutral-200 text-xs xl:text-sm flex items-center gap-2 flex-wrap">
                         <span>{row.nombre}</span>
                         {isMe && <span className="bg-yellow-500 text-neutral-950 font-black text-[9px] px-1.5 py-0.5 rounded uppercase">Yo</span>}

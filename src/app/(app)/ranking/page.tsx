@@ -168,8 +168,8 @@ export default function RankingPage() {
                 <div className="flex items-center gap-4">
                   <span className="font-bold text-neutral-400 w-6 font-mono text-center">#{index + 1}</span>
                   <div className="flex items-center gap-3">
-                    <img src={row.avatar} onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.nombre)}`; }}
-                      className="w-10 h-10 rounded-full border border-neutral-800 bg-neutral-950 shadow" alt="avatar" />
+                    <img src={(row.avatar && row.avatar !== 'null' && row.avatar !== 'undefined') ? row.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }}
+                      className={`w-10 h-10 rounded-full border border-neutral-800 shadow object-cover ${(!row.avatar || row.avatar === 'null' || row.avatar === 'undefined' || row.avatar.includes('avatar_5.png') || row.avatar.includes('default.webp')) ? 'bg-white' : 'bg-neutral-950'}`} alt="avatar" />
                     <div className="text-neutral-200 text-sm flex items-center gap-2 flex-wrap">
                       <span>{row.nombre}</span>
                       {isMe && <span className="bg-yellow-500 text-neutral-950 font-black text-[9px] px-1 rounded uppercase">Yo</span>}

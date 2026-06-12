@@ -49,6 +49,32 @@ export async function syncCompanyAssignment(
   }
 }
 
+export async function unsyncCompanyAssignment(
+  userEmail: string,
+  companyNombre: string,
+): Promise<{ ok: boolean }> {
+  const { appSecret, baseUrl } = getIdentityConfig();
+  if (!appSecret) return { ok: false };
+
+  const empresaSlug = slugify(companyNombre);
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-app-secret': appSecret },
+      body: JSON.stringify({
+        action: 'delete-user-empresa',
+        email: userEmail.toLowerCase(),
+        empresaSlug,
+        appSlug: 'mundial',
+      }),
+    });
+    return { ok: res.ok };
+  } catch (err) {
+    console.error('[identity-sync] Failed to unsync:', err);
+    return { ok: false };
+  }
+}
+
 /** Create or update the user's credential account in Identity with a bcrypt-12 password. */
 export async function syncUserToIdentity(params: {
   email: string;

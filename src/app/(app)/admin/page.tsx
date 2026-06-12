@@ -1667,6 +1667,32 @@ export default function AdminPage() {
               </div>
             </form>
 
+            {/* Notificaciones automáticas (admin y superadmin) */}
+            {(user.tipo === 'superadmin' || user.tipo === 'admin') && (
+              <div className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-3 max-w-2xl">
+                <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-2">
+                  <Send className="w-3.5 h-3.5 text-neutral-300" /> Notificaciones Automáticas
+                </div>
+                <p className="text-[10px] text-neutral-500">El scheduler envía avisos de partidos cada hora y rankings semanales los lunes. También puedes dispararlo manualmente.</p>
+                <div className="flex gap-2 flex-wrap">
+                  <button type="button" onClick={async () => {
+                    const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo: 'matches', force: true }) });
+                    const d = await r.json();
+                    showToast(r.ok ? `✅ ${d.matches_notified ?? 0} avisos de partidos enviados` : d.error);
+                  }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-neutral-700/50 bg-neutral-800/50 text-neutral-300 hover:bg-neutral-700/50 transition">
+                    ⚽ Avisos de Partidos
+                  </button>
+                  <button type="button" onClick={async () => {
+                    const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo: 'rankings', force: true }) });
+                    const d = await r.json();
+                    showToast(r.ok ? `✅ Rankings enviados a ${d.companies_notified ?? 0} empresa(s)` : d.error);
+                  }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition">
+                    📊 Rankings Semanales
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Historial */}
             <div className="space-y-3 max-w-2xl">
               <div className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2">
@@ -1689,49 +1715,27 @@ export default function AdminPage() {
                         <div className="font-bold text-neutral-200">{n.titulo}</div>
                         <div className="text-neutral-500 leading-relaxed text-[11px] whitespace-pre-wrap">{n.contenido}</div>
                         <div className="text-[9px] text-neutral-600 font-mono pt-1">
-                          Creado {new Date(n.created_at).toLocaleString('es-BO')}
+                          Creado por {n.creator_name || 'Sistema'} · {new Date(n.created_at).toLocaleString('es-BO')}
                           {n.expires_at && ` · Expira ${new Date(n.expires_at).toLocaleString('es-BO')}`}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <button onClick={() => handleStartEditNotification(n)} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold px-2.5 py-1.5 rounded-lg border border-neutral-700 transition text-[10px]">
-                          Editar
-                        </button>
-                        <button onClick={() => handleDeleteNotificationAdmin(n.id)} className="bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold px-2.5 py-1.5 rounded-lg border border-red-900/30 transition text-[10px]">
-                          Eliminar
-                        </button>
+                        {(user.tipo === 'superadmin' || user.id === n.created_by) && (
+                          <>
+                            <button onClick={() => handleStartEditNotification(n)} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold px-2.5 py-1.5 rounded-lg border border-neutral-700 transition text-[10px]">
+                              Editar
+                            </button>
+                            <button onClick={() => handleDeleteNotificationAdmin(n.id)} className="bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold px-2.5 py-1.5 rounded-lg border border-red-900/30 transition text-[10px]">
+                              Eliminar
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-
-            {/* Notificaciones automáticas (superadmin) */}
-            {user.tipo === 'superadmin' && (
-              <div className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-3 max-w-2xl">
-                <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-2">
-                  <Send className="w-3.5 h-3.5 text-neutral-300" /> Notificaciones Automáticas
-                </div>
-                <p className="text-[10px] text-neutral-500">El scheduler envía avisos de partidos cada hora y rankings semanales los lunes. También puedes dispararlo manualmente.</p>
-                <div className="flex gap-2 flex-wrap">
-                  <button type="button" onClick={async () => {
-                    const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo: 'matches', force: true }) });
-                    const d = await r.json();
-                    showToast(r.ok ? `✅ ${d.matches_notified ?? 0} avisos de partidos enviados` : d.error);
-                  }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-neutral-700/50 bg-neutral-800/50 text-neutral-300 hover:bg-neutral-700/50 transition">
-                    ⚽ Avisos de Partidos
-                  </button>
-                  <button type="button" onClick={async () => {
-                    const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo: 'rankings' }) });
-                    const d = await r.json();
-                    showToast(r.ok ? `✅ Rankings enviados a ${d.companies_notified ?? 0} empresa(s)` : d.error);
-                  }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition">
-                    📊 Rankings Semanales
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
         {/* ══════════ TAB: PAGOS ══════════ */}

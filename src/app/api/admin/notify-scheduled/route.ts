@@ -111,14 +111,16 @@ async function notifyUpcomingMatches(force: boolean = false) {
 }
 
 /** Envía ranking semanal por empresa (lunes) */
-async function notifyWeeklyRankings() {
-  const alreadySentThisWeek = await pool.query(`
-    SELECT 1 FROM scheduled_notify_log
-    WHERE tipo = 'weekly_ranking'
-      AND enviado_at > DATE_TRUNC('week', NOW())
-    LIMIT 1
-  `);
-  if (alreadySentThisWeek.rows.length > 0) return 0;
+async function notifyWeeklyRankings(force: boolean = false) {
+  if (!force) {
+    const alreadySentThisWeek = await pool.query(`
+      SELECT 1 FROM scheduled_notify_log
+      WHERE tipo = 'weekly_ranking'
+        AND enviado_at > DATE_TRUNC('week', NOW())
+      LIMIT 1
+    `);
+    if (alreadySentThisWeek.rows.length > 0) return 0;
+  }
 
   const companies = await pool.query('SELECT id, nombre FROM companies WHERE activo = true');
 
@@ -153,7 +155,9 @@ async function notifyWeeklyRankings() {
     }
   }
 
-  await pool.query('INSERT INTO scheduled_notify_log (tipo) VALUES ($1)', ['weekly_ranking']);
+  if (!force) {
+    await pool.query('INSERT INTO scheduled_notify_log (tipo) VALUES ($1)', ['weekly_ranking']);
+  }
   return companies.rows.length;
 }
 
@@ -179,7 +183,7 @@ export async function GET() {
 // POST: ejecutar notificaciones programadas
 export async function POST(req: NextRequest) {
   try {
-    // Requires internal secret or superadmin session
+    // Requires internal secret or admin/superadmin session
     const body = await req.json().catch(() => ({}));
     const secret = req.headers.get('x-scheduler-secret');
     const validSecret = secret === process.env.SCHEDULER_SECRET;
@@ -187,7 +191,7 @@ export async function POST(req: NextRequest) {
     if (!validSecret) {
       const { getSessionUser } = await import('@/lib/auth');
       const user = await getSessionUser();
-      if (!user || user.tipo !== 'superadmin') {
+      if (!user || (user.tipo !== 'admin' && user.tipo !== 'superadmin')) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
     }
@@ -202,7 +206,7 @@ export async function POST(req: NextRequest) {
       results.matches_notified = await notifyUpcomingMatches(force);
     }
     if (tipo === 'all' || tipo === 'rankings') {
-      results.companies_notified = await notifyWeeklyRankings();
+      results.companies_notified = await notifyWeeklyRankings(force);
     }
 
     return NextResponse.json({ success: true, ...results });

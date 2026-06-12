@@ -55,7 +55,13 @@ export async function GET(req: NextRequest) {
       let params: any[] = [];
 
       if (user.tipo !== 'superadmin') {
-        query += ` WHERE n.created_by = $1`;
+        // Admins can see notifications they created OR notifications targeted to their companies
+        query += `
+          WHERE n.created_by = $1
+             OR (n.target_type = 'company' AND n.target_id IN (
+               SELECT company_id FROM user_companies WHERE user_id = $1
+             ))
+        `;
         params.push(user.id);
       }
 

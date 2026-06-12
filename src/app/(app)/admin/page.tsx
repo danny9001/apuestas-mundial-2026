@@ -960,7 +960,7 @@ export default function AdminPage() {
             </div>
 
             {/* Create user form */}
-            <form onSubmit={handleCreateUser} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4 max-w-2xl shadow-lg">
+            <form onSubmit={handleCreateUser} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4 shadow-lg">
               <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-2">
                 <Users className="w-3.5 h-3.5 text-yellow-500" />
                 {user.tipo === 'superadmin' ? 'Crear Nuevo Usuario / Administrador' : 'Agregar Usuario a Mi Empresa'}
@@ -1048,7 +1048,7 @@ export default function AdminPage() {
               const pendientes = adminUsers.filter(u => !u.aprobado && !u.denegado && u.tipo !== 'admin' && u.tipo !== 'superadmin' && u.id !== user.id);
               if (!pendientes.length) return null;
               return (
-                <div className="space-y-2 max-w-4xl">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2 text-[10px] font-black text-yellow-500 uppercase tracking-widest">
                     <span className="h-2 w-2 rounded-full bg-yellow-500 animate-ping inline-block" />
                     Solicitudes Pendientes ({pendientes.length})
@@ -1097,7 +1097,7 @@ export default function AdminPage() {
             <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-black pt-2">
               {user.tipo === 'superadmin' ? `Todos los usuarios (${adminUsers.length})` : `Usuarios de mi empresa (${adminUsers.filter(u => u.id !== user.id).length})`}
             </div>
-            <div className="bg-neutral-900/40 border border-neutral-900 divide-y divide-neutral-900 rounded-2xl overflow-hidden shadow-lg max-w-4xl">
+            <div className="bg-neutral-900/40 border border-neutral-900 divide-y divide-neutral-900 rounded-2xl overflow-hidden shadow-lg">
               {adminUsers.map(u => (
                 <div key={u.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 text-xs gap-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -1205,7 +1205,7 @@ export default function AdminPage() {
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2 flex items-center gap-2">
                   <Settings className="w-3.5 h-3.5" /> Personalización del Sistema
                 </h3>
-                <form onSubmit={handleSaveSettings} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                <form onSubmit={handleSaveSettings} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Nombre del Sistema</label>
@@ -1220,7 +1220,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                   {editLogoType === 'emoji' ? (
-                    <div className="space-y-1.5 max-w-xs">
+                    <div className="space-y-1.5">
                       <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Emoji o Icono</label>
                       <div className="flex gap-2">
                         <input type="text" required value={editLogoEmoji} onChange={e => setEditLogoEmoji(e.target.value)} className="w-full input-stitch px-3 py-2 text-xs" />
@@ -1284,7 +1284,7 @@ export default function AdminPage() {
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2 flex items-center gap-2">
                   <Building2 className="w-3.5 h-3.5" /> Gestión de Empresas
                 </h3>
-                <form onSubmit={handleCreateCompany} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                <form onSubmit={handleCreateCompany} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4">
                   <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Crear Empresa</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -1319,7 +1319,7 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </form>
-                <div className="bg-neutral-900/40 border border-neutral-900 divide-y divide-neutral-900 rounded-2xl overflow-hidden max-w-2xl">
+                <div className="bg-neutral-900/40 border border-neutral-900 divide-y divide-neutral-900 rounded-2xl overflow-hidden">
                   {companies.length === 0 && <div className="p-6 text-center text-neutral-500 text-xs">Sin empresas registradas</div>}
                   {companies.map(c => {
                     const cModos: Record<string, string> = (c.modos_por_fase && typeof c.modos_por_fase === 'object') ? c.modos_por_fase : {};
@@ -1394,7 +1394,7 @@ export default function AdminPage() {
             {user.tipo === 'admin' && (user.companies || []).map((c: any) => {
               const adminCModos: Record<string, string> = (c.modos_por_fase && typeof c.modos_por_fase === 'object') ? c.modos_por_fase : {};
               return (
-                <div key={c.id} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                <div key={c.id} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4">
                   <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
                     {c.nombre}
@@ -1442,7 +1442,7 @@ export default function AdminPage() {
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2 flex items-center gap-2">
                   <Users className="w-3.5 h-3.5" /> Grupos de Usuarios
                 </h3>
-                <form onSubmit={handleCreateGroup} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+                <form onSubmit={handleCreateGroup} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4">
                   <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Crear Grupo</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -1463,7 +1463,7 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </form>
-                <div className="bg-neutral-900/40 border border-neutral-900 divide-y divide-neutral-900 rounded-2xl overflow-hidden max-w-2xl">
+                <div className="bg-neutral-900/40 border border-neutral-900 divide-y divide-neutral-900 rounded-2xl overflow-hidden">
                   {groups.length === 0 && <div className="p-6 text-center text-neutral-500 text-xs">Sin grupos creados</div>}
                   {groups.map(g => (
                     <div key={g.id} className="flex justify-between items-center p-4">
@@ -1621,7 +1621,7 @@ export default function AdminPage() {
             <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2 flex items-center gap-2">
               <MessageSquare className="w-3.5 h-3.5" /> Enviar Mensaje / Notificación
             </h3>
-            <form onSubmit={handleCreateNotification} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4 max-w-2xl">
+            <form onSubmit={handleCreateNotification} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4">
               <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Enviar Notificación</div>
               <div className="space-y-1.5">
                 <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Título</label>
@@ -1703,7 +1703,7 @@ export default function AdminPage() {
 
             {/* Notificaciones automáticas (admin y superadmin) */}
             {(user.tipo === 'superadmin' || user.tipo === 'admin') && (
-              <div className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-3 max-w-2xl">
+              <div className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-3">
                 <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-2">
                   <Send className="w-3.5 h-3.5 text-neutral-300" /> Notificaciones Automáticas
                 </div>
@@ -1728,7 +1728,7 @@ export default function AdminPage() {
             )}
 
             {/* Historial */}
-            <div className="space-y-3 max-w-2xl">
+            <div className="space-y-3">
               <div className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2">
                 Historial de Mensajes Enviados
               </div>

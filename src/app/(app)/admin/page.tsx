@@ -58,6 +58,8 @@ export default function AdminPage() {
   const [editLogoType, setEditLogoType] = useState<'emoji' | 'file'>('emoji');
   const [editLogoEmoji, setEditLogoEmoji] = useState('🏆');
   const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
+  const [editingPaymentFile, setEditingPaymentFile] = useState<File | null>(null);
+  const [editingPaymentNotas, setEditingPaymentNotas] = useState('');
   const [editSubtitle, setEditSubtitle] = useState('');
   const [editContactWhatsapp, setEditContactWhatsapp] = useState('');
   const [editContactEmail, setEditContactEmail] = useState('');
@@ -270,22 +272,26 @@ export default function AdminPage() {
       return;
     }
     try {
+      const formData = new FormData();
+      formData.append('action', 'update');
+      formData.append('paymentId', String(paymentId));
+      formData.append('monto', String(monto));
+      if (editingPaymentFecha) formData.append('fecha', editingPaymentFecha);
+      if (editingPaymentFile) formData.append('file', editingPaymentFile);
+      formData.append('notas', editingPaymentNotas.trim());
+
       const res = await fetch('/api/admin/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update',
-          paymentId,
-          monto,
-          fecha: editingPaymentFecha || undefined,
-        }),
+        body: formData,
       });
       if (res.ok) {
         showToast('✏️ Pago actualizado');
         setEditingPaymentId(null);
+        setEditingPaymentFile(null);
+        setEditingPaymentNotas('');
         if (managePaymentsUser) {
           const updatedPayments = managePaymentsUser.payments.map((p: any) =>
-            p.id === paymentId ? { ...p, monto, fecha: editingPaymentFecha ? new Date(editingPaymentFecha).toISOString() : p.fecha } : p
+            p.id === paymentId ? { ...p, monto, fecha: editingPaymentFecha ? new Date(editingPaymentFecha).toISOString() : p.fecha, notas: editingPaymentNotas.trim() } : p
           );
           const updatedUser = { ...managePaymentsUser, payments: updatedPayments };
           setManagePaymentsUser(updatedUser);
@@ -2610,32 +2616,68 @@ export default function AdminPage() {
                   managePaymentsUser.payments.map((p: any) => (
                     <div key={p.id} className="py-3 flex items-center justify-between gap-3 text-xs">
                       {editingPaymentId === p.id ? (
-                        <div className="flex-1 flex gap-2 items-center">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={editingPaymentMonto}
-                            onChange={e => setEditingPaymentMonto(e.target.value)}
-                            className="w-24 bg-neutral-950 border border-neutral-850 rounded-lg px-2 py-1 text-xs text-neutral-200"
-                          />
-                          <input
-                            type="date"
-                            value={editingPaymentFecha}
-                            onChange={e => setEditingPaymentFecha(e.target.value)}
-                            className="bg-neutral-950 border border-neutral-850 rounded-lg px-2 py-1 text-xs text-neutral-200"
-                          />
-                          <button
-                            onClick={() => handleUpdatePayment(p.id)}
-                            className="bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 px-2 py-1 rounded-lg font-bold"
-                          >
-                            ✓
-                          </button>
-                          <button
-                            onClick={() => setEditingPaymentId(null)}
-                            className="bg-neutral-800 hover:bg-neutral-750 text-neutral-400 px-2 py-1 rounded-lg"
-                          >
-                            ✕
-                          </button>
+                        <div className="flex-1 flex flex-col gap-2 p-2 bg-neutral-950/60 border border-neutral-850 rounded-xl">
+                          <div className="flex gap-2 items-center">
+                            <span className="text-[10px] text-neutral-500 font-bold uppercase w-12">Monto:</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editingPaymentMonto}
+                              onChange={e => setEditingPaymentMonto(e.target.value)}
+                              className="w-24 bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-neutral-200"
+                            />
+                            <span className="text-[10px] text-neutral-500 font-bold uppercase ml-2">Fecha:</span>
+                            <input
+                              type="date"
+                              value={editingPaymentFecha}
+                              onChange={e => setEditingPaymentFecha(e.target.value)}
+                              className="bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-neutral-200"
+                            />
+                          </div>
+                          
+                          <div className="flex gap-2 items-center">
+                            <span className="text-[10px] text-neutral-500 font-bold uppercase w-12">Notas:</span>
+                            <input
+                              type="text"
+                              value={editingPaymentNotas}
+                              onChange={e => setEditingPaymentNotas(e.target.value)}
+                              placeholder="Ej: Pago de cuota de inscripción"
+                              className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-neutral-200"
+                            />
+                          </div>
+
+                          <div className="flex gap-2 items-center justify-between">
+                            <div className="flex gap-2 items-center flex-1">
+                              <span className="text-[10px] text-neutral-500 font-bold uppercase w-12">Voucher:</span>
+                              <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                onChange={e => setEditingPaymentFile(e.target.files?.[0] || null)}
+                                className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-0.5 text-[10px] text-neutral-400 file:mr-2 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[9px] file:bg-neutral-800 file:text-neutral-200 cursor-pointer"
+                              />
+                            </div>
+                            
+                            <div className="flex gap-1.5 ml-2">
+                              <button
+                                onClick={() => handleUpdatePayment(p.id)}
+                                className="bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 px-2.5 py-1 rounded-lg font-bold transition active:scale-95"
+                                title="Guardar cambios"
+                              >
+                                Guardar
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingPaymentId(null);
+                                  setEditingPaymentFile(null);
+                                  setEditingPaymentNotas('');
+                                }}
+                                className="bg-neutral-850 hover:bg-neutral-750 text-neutral-400 px-2.5 py-1 rounded-lg border border-neutral-800 transition active:scale-95"
+                                title="Cancelar"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <>
@@ -2663,6 +2705,7 @@ export default function AdminPage() {
                                 setEditingPaymentId(p.id);
                                 setEditingPaymentMonto(String(p.monto));
                                 setEditingPaymentFecha(p.fecha.split('T')[0]);
+                                setEditingPaymentNotas(p.notas || '');
                               }}
                               className="text-neutral-400 hover:text-neutral-200 p-1.5 transition"
                               title="Editar"

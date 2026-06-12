@@ -47,18 +47,34 @@ async function insertNotification(titulo: string, contenido: string, tipo: strin
   return res.rows[0];
 }
 
-/** Envía aviso de partidos próximas 24h que aún no se han notificado */
-async function notifyUpcomingMatches() {
-  const matches = await pool.query(`
+
+
+/** Envía aviso de partidos próximas 24h (o 36h si es forzado) que aún no se han notificado */
+async function notifyUpcomingMatches(force: boolean = false) {
+  let query = `
     SELECT m.id, m.local, m.visitante, m.fecha, m.fase
     FROM matches m
     WHERE m.estado = 'upcoming'
       AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '24 hours'
+  `;
+  if (force) {
+    // When forced from admin panel, extend window to 36 hours and allow notifying already notified matches
+    query = `
+      SELECT m.id, m.local, m.visitante, m.fecha, m.fase
+      FROM matches m
+      WHERE m.estado = 'upcoming'
+        AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '36 hours'
+    `;
+  } else {
+    query += `
       AND NOT EXISTS (
         SELECT 1 FROM scheduled_notify_log WHERE tipo = 'match_reminder' AND referencia_id = m.id
       )
-    ORDER BY m.fecha ASC
-  `);
+    `;
+  }
+  query += ` ORDER BY m.fecha ASC`;
+
+  const matches = await pool.query(query);
 
   for (const m of matches.rows) {
     const diffMs = new Date(m.fecha).getTime() - Date.now();
@@ -86,10 +102,17 @@ async function notifyUpcomingMatches() {
       await sendPushNotification(u.id, { title: titulo, body: contenido, icon: '/icon-192x192.svg', url: '/' });
     }
 
-    await pool.query(
-      'INSERT INTO scheduled_notify_log (tipo, referencia_id) VALUES ($1, $2)',
+    // Insert to log only if not already there to avoid duplicates in automated runs
+    const logCheck = await pool.query(
+      'SELECT id FROM scheduled_notify_log WHERE tipo = $1 AND referencia_id = $2',
       ['match_reminder', m.id]
     );
+    if (logCheck.rows.length === 0) {
+      await pool.query(
+        'INSERT INTO scheduled_notify_log (tipo, referencia_id) VALUES ($1, $2)',
+        ['match_reminder', m.id]
+      );
+    }
   }
 
   return matches.rows.length;
@@ -180,10 +203,11 @@ export async function POST(req: NextRequest) {
     await ensureNotifTables();
 
     const tipo = body.tipo || 'all';
+    const force = body.force === true;
     const results: Record<string, number> = {};
 
     if (tipo === 'all' || tipo === 'matches') {
-      results.matches_notified = await notifyUpcomingMatches();
+      results.matches_notified = await notifyUpcomingMatches(force);
     }
     if (tipo === 'all' || tipo === 'rankings') {
       results.companies_notified = await notifyWeeklyRankings();

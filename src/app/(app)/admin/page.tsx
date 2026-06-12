@@ -1716,7 +1716,7 @@ export default function AdminPage() {
                 <p className="text-[10px] text-neutral-500">El scheduler envía avisos de partidos cada hora y rankings semanales los lunes. También puedes dispararlo manualmente.</p>
                 <div className="flex gap-2 flex-wrap">
                   <button type="button" onClick={async () => {
-                    const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo: 'matches' }) });
+                    const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo: 'matches', force: true }) });
                     const d = await r.json();
                     showToast(r.ok ? `✅ ${d.matches_notified ?? 0} avisos de partidos enviados` : d.error);
                   }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-neutral-700/50 bg-neutral-800/50 text-neutral-300 hover:bg-neutral-700/50 transition">

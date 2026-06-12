@@ -1,62 +1,25 @@
 #!/bin/bash
+set -e
 
-echo "🚀 DEPLOY ELITEPASS MUNDIAL - v0e2eedd"
-echo "=========================================="
-echo ""
+echo "▶ Building..."
+pnpm build
 
-# Variables
-SERVER="10.0.0.4"
-PORT="5001"
-APP_PATH="/home/soporte/elitepass-mundial"
+echo "▶ Restarting PM2..."
+pm2 reload elitepass-mundial --update-env
 
-echo "📍 Servidor: $SERVER:$PORT"
-echo "📁 Ruta: $APP_PATH"
-echo ""
+echo "▶ Purging Cloudflare cache..."
+CF_ZONE_ID=$(grep '^CF_ZONE_ID=' .env.local | cut -d= -f2)
+CF_API_TOKEN=$(grep '^CF_API_TOKEN=' .env.local | cut -d= -f2)
 
-# Step 1: Build
-echo "1️⃣  Compilando imagen Docker..."
-ssh -p $PORT root@$SERVER "cd $APP_PATH && podman build --no-cache -t elitepass-mundial ."
+RESULT=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+  -H "Authorization: Bearer ${CF_API_TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data '{"purge_everything": true}')
 
-if [ $? -ne 0 ]; then
-  echo "❌ Error en build"
-  exit 1
+if echo "$RESULT" | grep -q '"success":true'; then
+  echo "✓ Cloudflare cache purgado"
+else
+  echo "⚠ CF purge falló: $RESULT"
 fi
-echo "✅ Build completado"
-echo ""
 
-# Step 2: Stop containers
-echo "2️⃣  Deteniendo contenedores..."
-ssh -p $PORT root@$SERVER "podman stop app_1 app_2 2>/dev/null || true"
-echo "✅ Contenedores detenidos"
-echo ""
-
-# Step 3: Remove old containers
-echo "3️⃣  Eliminando contenedores antiguos..."
-ssh -p $PORT root@$SERVER "podman rm app_1 app_2 2>/dev/null || true"
-echo "✅ Contenedores removidos"
-echo ""
-
-# Step 4: Start new containers
-echo "4️⃣  Iniciando nuevos contenedores..."
-ssh -p $PORT root@$SERVER "podman run -d --name app_1 --network host \
-  -e NODE_ENV=production \
-  -v $APP_PATH/.env.local:/app/.env.local \
-  elitepass-mundial npm start"
-
-ssh -p $PORT root@$SERVER "podman run -d --name app_2 --network host \
-  -e NODE_ENV=production \
-  -v $APP_PATH/.env.local:/app/.env.local \
-  elitepass-mundial npm start"
-
-echo "✅ Contenedores iniciados"
-echo ""
-
-# Step 5: Verify
-echo "5️⃣  Verificando status..."
-ssh -p $PORT root@$SERVER "podman ps | grep elitepass"
-echo ""
-
-echo "=========================================="
-echo "✅ DEPLOY COMPLETADO - v0e2eedd"
-echo "🔗 URL: https://mundial.genial-it.net"
-echo "=========================================="
+echo "✓ Deploy completo"

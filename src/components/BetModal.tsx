@@ -36,7 +36,7 @@ export default function BetModal({ match, user, existingPred, adminUsers = [], o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
       <div className="glass-card border-t-2 border-t-yellow-500 border-x border-b border-neutral-800/80 rounded-xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
 
         <div className="flex justify-between items-center border-b border-neutral-800/40 pb-3">

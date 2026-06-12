@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
+import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,11 @@ async function ensurePaymentsTable() {
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  try {
+    await pool.query(`ALTER TABLE user_payments ADD COLUMN IF NOT EXISTS comprobante_url TEXT;`);
+  } catch (e) {
+    console.error('Error adding comprobante_url column:', e);
+  }
 }
 
 // GET: fetch participants and their payments
@@ -33,7 +39,7 @@ export async function GET(req: NextRequest) {
                FILTER (WHERE c.id IS NOT NULL), '[]'
              ) AS companies,
              COALESCE(
-               (SELECT json_agg(json_build_object('id', p.id, 'monto', p.monto, 'fecha', p.fecha) ORDER BY p.fecha DESC)
+               (SELECT json_agg(json_build_object('id', p.id, 'monto', p.monto, 'fecha', p.fecha, 'comprobante_url', p.comprobante_url) ORDER BY p.fecha DESC)
                 FROM user_payments p
                 WHERE p.user_id = u.id), '[]'
              ) AS payments
@@ -84,8 +90,24 @@ export async function POST(req: NextRequest) {
 
     await ensurePaymentsTable();
 
-    const body = await req.json();
-    const { action, userId, paymentId, monto, fecha } = body;
+    let action, userId, paymentId, monto, fecha, file;
+    const contentType = req.headers.get('content-type') || '';
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      action = formData.get('action') as string;
+      userId = formData.get('userId') ? parseInt(formData.get('userId') as string) : undefined;
+      paymentId = formData.get('paymentId') ? parseInt(formData.get('paymentId') as string) : undefined;
+      monto = formData.get('monto') as string;
+      fecha = formData.get('fecha') as string;
+      file = formData.get('file') as File | null;
+    } else {
+      const body = await req.json();
+      action = body.action;
+      userId = body.userId;
+      paymentId = body.paymentId;
+      monto = body.monto;
+      fecha = body.fecha;
+    }
 
     // Helper to check if admin is allowed to manage a user's payments
     const checkPermission = async (targetUserId: number) => {
@@ -99,6 +121,50 @@ export async function POST(req: NextRequest) {
       return check.rows.length > 0;
     };
 
+    // Helper to process and upload file to Azure Blob
+    const uploadReceipt = async (targetId: number, receiptFile: File) => {
+      const userRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [targetId]);
+      const targetUserName = userRes.rows[0]?.nombre || 'anonimo';
+      const cleanPerson = targetUserName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      const loadDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const uid = Math.random().toString(36).substring(2, 8) + Date.now().toString().slice(-4);
+
+      let uploadBuffer: Buffer;
+      let blobName: string;
+      let mimeType: string;
+
+      if (receiptFile.type.includes('image')) {
+        const inputBuffer = Buffer.from(await receiptFile.arrayBuffer());
+        uploadBuffer = await sharp(inputBuffer)
+          .rotate()
+          .webp({ quality: 80 })
+          .toBuffer();
+        blobName = `${cleanPerson}_${loadDate}_${uid}.webp`;
+        mimeType = 'image/webp';
+      } else {
+        uploadBuffer = Buffer.from(await receiptFile.arrayBuffer());
+        const originalExtension = receiptFile.name.split('.').pop() || 'pdf';
+        blobName = `${cleanPerson}_${loadDate}_${uid}.${originalExtension}`;
+        mimeType = receiptFile.type || 'application/pdf';
+      }
+
+      const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+      const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'jet00';
+      if (!connectionString) {
+        throw new Error('Azure Storage Connection String no configurado');
+      }
+
+      const { BlobServiceClient } = await import('@azure/storage-blob');
+      const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+      const containerClient = blobServiceClient.getContainerClient(containerName);
+      await containerClient.createIfNotExists({ access: 'blob' });
+      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+      await blockBlobClient.upload(uploadBuffer, uploadBuffer.length, {
+        blobHTTPHeaders: { blobContentType: mimeType }
+      });
+      return `https://stg00vm.blob.core.windows.net/${containerName}/${blobName}`;
+    };
+
     if (action === 'add') {
       if (!userId) return NextResponse.json({ error: 'ID de usuario requerido' }, { status: 400 });
       if (monto == null || isNaN(parseFloat(monto))) return NextResponse.json({ error: 'Monto inválido' }, { status: 400 });
@@ -106,10 +172,15 @@ export async function POST(req: NextRequest) {
       const allowed = await checkPermission(userId);
       if (!allowed) return NextResponse.json({ error: 'No autorizado para este usuario' }, { status: 403 });
 
+      let comprobanteUrl = null;
+      if (file && file.size > 0) {
+        comprobanteUrl = await uploadReceipt(userId, file);
+      }
+
       const payDate = fecha ? new Date(fecha) : new Date();
       const res = await pool.query(
-        `INSERT INTO user_payments (user_id, monto, fecha) VALUES ($1, $2, $3) RETURNING *`,
-        [userId, parseFloat(monto), payDate]
+        `INSERT INTO user_payments (user_id, monto, fecha, comprobante_url) VALUES ($1, $2, $3, $4) RETURNING *`,
+        [userId, parseFloat(monto), payDate, comprobanteUrl]
       );
       return NextResponse.json({ success: true, payment: res.rows[0] });
     }
@@ -118,7 +189,6 @@ export async function POST(req: NextRequest) {
       if (!paymentId) return NextResponse.json({ error: 'ID de pago requerido' }, { status: 400 });
       if (monto == null || isNaN(parseFloat(monto))) return NextResponse.json({ error: 'Monto inválido' }, { status: 400 });
 
-      // Find user of this payment
       const userRes = await pool.query(`SELECT user_id FROM user_payments WHERE id = $1`, [paymentId]);
       if (userRes.rows.length === 0) return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 });
       const targetUserId = userRes.rows[0].user_id;
@@ -126,18 +196,30 @@ export async function POST(req: NextRequest) {
       const allowed = await checkPermission(targetUserId);
       if (!allowed) return NextResponse.json({ error: 'No autorizado para este usuario' }, { status: 403 });
 
+      let comprobanteUrl = null;
+      if (file && file.size > 0) {
+        comprobanteUrl = await uploadReceipt(targetUserId, file);
+      }
+
       const payDate = fecha ? new Date(fecha) : new Date();
-      const res = await pool.query(
-        `UPDATE user_payments SET monto = $1, fecha = $2 WHERE id = $3 RETURNING *`,
-        [parseFloat(monto), payDate, paymentId]
-      );
+      
+      let updateQuery = `UPDATE user_payments SET monto = $1, fecha = $2`;
+      let queryParams: any[] = [parseFloat(monto), payDate];
+      if (comprobanteUrl) {
+        updateQuery += `, comprobante_url = $3 WHERE id = $4`;
+        queryParams.push(comprobanteUrl, paymentId);
+      } else {
+        updateQuery += ` WHERE id = $3`;
+        queryParams.push(paymentId);
+      }
+
+      const res = await pool.query(updateQuery + ' RETURNING *', queryParams);
       return NextResponse.json({ success: true, payment: res.rows[0] });
     }
 
     if (action === 'delete') {
       if (!paymentId) return NextResponse.json({ error: 'ID de pago requerido' }, { status: 400 });
 
-      // Find user of this payment
       const userRes = await pool.query(`SELECT user_id FROM user_payments WHERE id = $1`, [paymentId]);
       if (userRes.rows.length === 0) return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 });
       const targetUserId = userRes.rows[0].user_id;

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   ShieldAlert, Building2, RefreshCw, Users, Settings,
   MessageSquare, Bell, Check, X, Trash2, Pencil, Send,
-  KeyRound, BarChart3, DollarSign, Plus, Coins, Calendar as LucideCalendar,
+  KeyRound, BarChart3, DollarSign, Plus, Coins, Calendar as LucideCalendar, Search,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { getTeamFlag, PHASES_APUESTA, DEFAULT_MODOS_POR_FASE } from '@/lib/constants';
@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [paymentModalUser, setPaymentModalUser] = useState<any | null>(null);
   const [newPaymentMonto, setNewPaymentMonto] = useState('');
   const [newPaymentFecha, setNewPaymentFecha] = useState('');
+  const [newPaymentFile, setNewPaymentFile] = useState<File | null>(null);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [managePaymentsUser, setManagePaymentsUser] = useState<any | null>(null);
   const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
@@ -183,21 +184,23 @@ export default function AdminPage() {
     }
     setPaymentSubmitting(true);
     try {
+      const formData = new FormData();
+      formData.append('action', 'add');
+      formData.append('userId', String(paymentModalUser.id));
+      formData.append('monto', String(monto));
+      if (newPaymentFecha) formData.append('fecha', newPaymentFecha);
+      if (newPaymentFile) formData.append('file', newPaymentFile);
+
       const res = await fetch('/api/admin/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'add',
-          userId: paymentModalUser.id,
-          monto,
-          fecha: newPaymentFecha || undefined,
-        }),
+        body: formData,
       });
       if (res.ok) {
         showToast('💰 Pago registrado con éxito');
         setPaymentModalUser(null);
         setNewPaymentMonto('');
         setNewPaymentFecha('');
+        setNewPaymentFile(null);
         await fetchPaymentsUsers();
       } else {
         const data = await res.json();
@@ -2182,6 +2185,16 @@ export default function AdminPage() {
                 />
               </div>
 
+              <div className="space-y-1.5">
+                <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Comprobante (Imagen o PDF - Opcional)</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={e => setNewPaymentFile(e.target.files?.[0] || null)}
+                  className="w-full bg-neutral-950 border border-neutral-850 rounded-xl px-3 py-2 text-xs text-neutral-400 file:mr-3 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-neutral-800 file:text-neutral-200 hover:file:bg-neutral-700 cursor-pointer"
+                />
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setPaymentModalUser(null)} className="flex-1 btn-secondary-stitch py-2.5 text-xs font-black uppercase tracking-wider">Cancelar</button>
                 <button type="submit" disabled={paymentSubmitting} className="flex-1 btn-primary-stitch py-2.5 text-xs font-black uppercase tracking-wider disabled:opacity-50">
@@ -2246,9 +2259,22 @@ export default function AdminPage() {
                         </div>
                       ) : (
                         <>
-                          <div>
-                            <div className="font-bold text-neutral-200">Bs. {parseFloat(p.monto).toLocaleString('es-BO', { minimumFractionDigits: 2 })}</div>
-                            <div className="text-[10px] text-neutral-500">{new Date(p.fecha).toLocaleString('es-BO')}</div>
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className="font-bold text-neutral-200">Bs. {parseFloat(p.monto).toLocaleString('es-BO', { minimumFractionDigits: 2 })}</div>
+                              <div className="text-[10px] text-neutral-500">{new Date(p.fecha).toLocaleString('es-BO')}</div>
+                            </div>
+                            {p.comprobante_url && (
+                              <a
+                                href={p.comprobante_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-yellow-500 hover:text-yellow-400 p-1 transition"
+                                title="Ver comprobante"
+                              >
+                                <Search className="w-3.5 h-3.5" />
+                              </a>
+                            )}
                           </div>
                           <div className="flex gap-1.5">
                             <button

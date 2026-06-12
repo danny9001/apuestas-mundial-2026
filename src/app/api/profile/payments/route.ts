@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch payments
     const payRes = await pool.query(
-      'SELECT id, monto, fecha FROM user_payments WHERE user_id = $1 ORDER BY fecha DESC',
+      'SELECT id, monto, fecha, comprobante_url FROM user_payments WHERE user_id = $1 ORDER BY fecha DESC',
       [user.id]
     );
 

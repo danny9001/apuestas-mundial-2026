@@ -157,8 +157,11 @@ export default function PerfilPage() {
             {paymentInfo.payments.length > 0 && (
               <div className="pt-2 flex flex-wrap gap-1.5">
                 {paymentInfo.payments.map((p: any) => (
-                  <span key={p.id} className="inline-flex items-center text-[9px] font-mono font-bold bg-neutral-900 border border-neutral-800 rounded-md px-1.5 py-0.5 text-neutral-400">
-                    Bs. {parseFloat(p.monto).toLocaleString('es-BO')} ({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})
+                  <span key={p.id} className="inline-flex items-center gap-1 text-[9px] font-mono font-bold bg-neutral-900 border border-neutral-800 rounded-md px-1.5 py-0.5 text-neutral-400">
+                    <span>Bs. {parseFloat(p.monto).toLocaleString('es-BO')} ({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})</span>
+                    {p.comprobante_url && (
+                      <a href={p.comprobante_url} target="_blank" rel="noopener noreferrer" className="text-yellow-500 hover:text-yellow-400 ml-0.5" title="Ver comprobante">🔍</a>
+                    )}
                   </span>
                 ))}
               </div>

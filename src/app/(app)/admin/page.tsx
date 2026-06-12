@@ -304,6 +304,9 @@ export default function AdminPage() {
     fetchCompanies();
     fetchMatches();
     fetchAdminNotifications();
+    if (user.tipo !== 'superadmin') {
+      setNotifTargetType('company');
+    }
     if (user.tipo === 'superadmin') {
       fetchSyncStatus();
       fetchGroups();
@@ -1616,10 +1619,16 @@ export default function AdminPage() {
                 <div className="space-y-1.5">
                   <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Destinatario</label>
                   <select value={notifTargetType} onChange={e => { setNotifTargetType(e.target.value as any); setNotifTargetId(null); }} className="w-full bg-neutral-950 border border-neutral-850 text-neutral-300 rounded-xl px-3 py-2 text-xs">
-                    <option value="all">🌐 Todos</option>
-                    <option value="company">🏢 Empresa</option>
-                    <option value="group">👥 Grupo</option>
-                    <option value="user">👤 Usuario</option>
+                    {user.tipo === 'superadmin' ? (
+                      <>
+                        <option value="all">🌐 Todos</option>
+                        <option value="company">🏢 Empresa</option>
+                        <option value="group">👥 Grupo</option>
+                        <option value="user">👤 Usuario</option>
+                      </>
+                    ) : (
+                      <option value="company">🏢 Empresa</option>
+                    )}
                   </select>
                 </div>
                 {notifTargetType === 'company' && (

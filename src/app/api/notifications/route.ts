@@ -120,6 +120,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Título y contenido son requeridos' }, { status: 400 });
     }
 
+    let resolvedTargetType = target_type || 'all';
+    let resolvedTargetId = target_id || null;
+
+    if (user.tipo !== 'superadmin') {
+      // Query the database directly to get the admin's assigned companies
+      const userCompaniesRes = await pool.query(
+        'SELECT company_id FROM user_companies WHERE user_id = $1',
+        [user.id]
+      );
+      const userCompanyIds = userCompaniesRes.rows.map(r => r.company_id);
+
+      if (userCompanyIds.length === 0) {
+        return NextResponse.json({ error: 'No tienes ninguna empresa asignada para enviar mensajes.' }, { status: 403 });
+      }
+
+      if (resolvedTargetType !== 'company' || !resolvedTargetId || !userCompanyIds.includes(Number(resolvedTargetId))) {
+        // Automatically default to the admin's first company if they try to send to all, or send to an unauthorized target
+        resolvedTargetType = 'company';
+        resolvedTargetId = userCompanyIds[0];
+      }
+    }
+
     const res = await pool.query(
       `INSERT INTO notifications (titulo, contenido, tipo, target_type, target_id, created_by, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -128,8 +150,8 @@ export async function POST(req: NextRequest) {
         titulo.trim(),
         contenido.trim(),
         tipo || 'info',
-        target_type || 'all',
-        target_id || null,
+        resolvedTargetType,
+        resolvedTargetId,
         user.id,
         expires_at || null,
       ]

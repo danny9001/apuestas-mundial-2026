@@ -40,6 +40,48 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
   const [showAllNotifs, setShowAllNotifs] = useState(false);
   const [telegramSubmitting, setTelegramSubmitting] = useState(false);
+  const [pwaPromptMode, setPwaPromptMode] = useState<'install' | 'notify' | null>(null);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem('pwa-prompt-dismissed') === '1';
+    if (dismissed) return;
+
+    if (isInstalled) {
+      if (user && !pushSubscribed) {
+        setPwaPromptMode('notify');
+      } else {
+        setPwaPromptMode(null);
+      }
+    } else {
+      if (deferredPrompt) {
+        setPwaPromptMode('install');
+      } else {
+        setPwaPromptMode(null);
+      }
+    }
+  }, [isInstalled, deferredPrompt, pushSubscribed, user]);
+
+  const handleDismissPwaPrompt = () => {
+    localStorage.setItem('pwa-prompt-dismissed', '1');
+    setPwaPromptMode(null);
+  };
+
+  const handleInstallClick = async () => {
+    if (onInstallPWA) {
+      await onInstallPWA();
+      localStorage.setItem('pwa-prompt-dismissed', '1');
+      setPwaPromptMode(null);
+    }
+  };
+
+  const handleEnableNotifications = async () => {
+    if (handleTogglePush) {
+      await handleTogglePush();
+      localStorage.setItem('pwa-prompt-dismissed', '1');
+      setPwaPromptMode(null);
+    }
+  };
+
 
   const navLinks = [
     { href: '/dashboard', label: 'Inicio', icon: <Home className="w-4 h-4" /> },
@@ -264,6 +306,63 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
             <div className="glass-card text-neutral-100 px-4 py-3 rounded-lg border border-neutral-800/80 text-xs flex items-center gap-2 shadow-2xl justify-center">
               <Trophy className="w-4 h-4 text-yellow-500 animate-pulse" />
               <span>{toastMessage}</span>
+            </div>
+          </div>
+        )}
+
+        {/* PWA Onboarding Prompt */}
+        {pwaPromptMode && (
+          <div className="fixed bottom-24 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-96 z-40 animate-fade-in-up">
+            <div className="relative bg-neutral-900/95 backdrop-blur-md border border-neutral-800 rounded-xl p-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border-t-2 border-t-yellow-500 flex gap-3 items-start pr-8">
+              <button
+                onClick={handleDismissPwaPrompt}
+                className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-200 transition"
+                aria-label="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {pwaPromptMode === 'install' ? (
+                <>
+                  <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/10 text-yellow-500">
+                    <Download className="h-5 w-5 animate-bounce" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-neutral-200">
+                      Instalar Aplicación
+                    </p>
+                    <p className="text-[11px] text-neutral-400 leading-normal">
+                      Instala la app para un acceso rápido y directo a tus apuestas y resultados del mundial.
+                    </p>
+                    <button
+                      onClick={handleInstallClick}
+                      className="btn-primary-stitch w-full py-2 text-[10px] font-bold uppercase tracking-wider mt-2"
+                    >
+                      Instalar
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/10 text-yellow-500">
+                    <Bell className="h-5 w-5 animate-pulse" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-neutral-200">
+                      Activar Notificaciones
+                    </p>
+                    <p className="text-[11px] text-neutral-400 leading-normal">
+                      Entérate al instante de goles en vivo, alertas de partidos y notificaciones del sistema.
+                    </p>
+                    <button
+                      onClick={handleEnableNotifications}
+                      className="btn-primary-stitch w-full py-2 text-[10px] font-bold uppercase tracking-wider mt-2"
+                    >
+                      Activar notificaciones
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

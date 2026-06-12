@@ -1804,6 +1804,59 @@ export default function AdminPage() {
                     <option value="partial">🟡 Pago Parcial</option>
                     <option value="paid">🟢 Pagado Completo</option>
                   </select>
+
+                  {/* Export button */}
+                  <button
+                    onClick={() => {
+                      const headers = ['Participante', 'Email', 'Empresa(s)', 'Cuota (Bs)', 'Total Pagado (Bs)', 'Saldo (Bs)', 'Pagos Realizados (Detalle)'];
+                      const rows = filteredPaymentsUsers.map(u => {
+                        const cuota = u.companies.length > 0 ? u.companies.reduce((sum: number, c: any) => sum + parseFloat(c.monto_participacion || 150), 0) : 150;
+                        const totalPagado = u.payments.reduce((sum: number, p: any) => sum + parseFloat(p.monto), 0);
+                        const saldo = cuota - totalPagado;
+                        const companiesStr = u.companies.map((c: any) => c.nombre).join('; ');
+                        const paymentsStr = u.payments.map((p: any) => `${p.monto} (${new Date(p.fecha).toLocaleDateString('es-BO')})`).join('; ');
+                        return [
+                          u.nombre,
+                          u.email,
+                          companiesStr || 'Sin Empresa',
+                          cuota,
+                          totalPagado,
+                          saldo,
+                          paymentsStr || 'Ninguno'
+                        ];
+                      });
+
+                      // Calculate sums for the end of the sheet
+                      const totalCuotas = filteredPaymentsUsers.reduce((sum, u) => {
+                        const cuota = u.companies.length > 0 ? u.companies.reduce((s: number, c: any) => s + parseFloat(c.monto_participacion || 150), 0) : 150;
+                        return sum + cuota;
+                      }, 0);
+                      const totalPagadoTodos = filteredPaymentsUsers.reduce((sum, u) => {
+                        const total = u.payments.reduce((s: number, p: any) => s + parseFloat(p.monto), 0);
+                        return sum + total;
+                      }, 0);
+                      const totalSaldo = totalCuotas - totalPagadoTodos;
+
+                      rows.push([]);
+                      rows.push(['TOTAL GENERAL', '', '', totalCuotas, totalPagadoTodos, totalSaldo, '']);
+
+                      const csvContent = "\uFEFF" + [headers.map(h => `"${h.replace(/"/g, '""')}"`).join(','), ...rows.map(r => r.map(val => {
+                        if (typeof val === 'number') return val;
+                        return `"${String(val).replace(/"/g, '""')}"`;
+                      }).join(','))].join('\n');
+
+                      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                      const link = document.createElement('a');
+                      link.href = URL.createObjectURL(blob);
+                      link.setAttribute('download', `reporte_pagos_${new Date().toISOString().slice(0, 10)}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl px-3 py-2 text-xs transition flex items-center gap-1 cursor-pointer"
+                  >
+                    📥 Exportar Excel (CSV)
+                  </button>
                 </div>
               </div>
 

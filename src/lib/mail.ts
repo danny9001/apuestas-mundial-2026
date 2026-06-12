@@ -93,11 +93,50 @@ export async function sendMail(opts: MailOptions): Promise<boolean> {
   );
 
   if (!res.ok) {
-    console.error('Graph sendMail error:', res.status, await res.text());
+    const errorText = await res.text();
+    console.error('Graph sendMail error:', res.status, errorText);
+    try {
+      await pool.query(
+        `INSERT INTO mail_logs (destinatario, asunto, estado, error_mensaje) VALUES ($1, $2, $3, $4)`,
+        [toAddresses.join(', '), opts.subject, 'error', `HTTP ${res.status}: ${errorText}`]
+      );
+      // Prune logs older than 90 days
+      await pool.query(`DELETE FROM mail_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
+      await pool.query(`DELETE FROM system_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
+    } catch (dbErr) {
+      console.error('Failed to write error to mail_logs:', dbErr);
+    }
     return false;
   }
+
+  try {
+    await pool.query(
+      `INSERT INTO mail_logs (destinatario, asunto, estado) VALUES ($1, $2, $3)`,
+      [toAddresses.join(', '), opts.subject, 'success']
+    );
+    // Prune logs older than 90 days
+    await pool.query(`DELETE FROM mail_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
+    await pool.query(`DELETE FROM system_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
+  } catch (dbErr) {
+    console.error('Failed to write success to mail_logs:', dbErr);
+  }
+
   return true;
 }
+
+export async function logSystem(nivel: string, categoria: string, mensaje: string, detalles?: string): Promise<boolean> {
+  try {
+    await pool.query(
+      `INSERT INTO system_logs (nivel, categoria, mensaje, detalles) VALUES ($1, $2, $3, $4)`,
+      [nivel, categoria, mensaje, detalles || null]
+    );
+    return true;
+  } catch (err) {
+    console.error('Error writing system log:', err);
+    return false;
+  }
+}
+
 
 // Email templates
 

@@ -185,8 +185,9 @@ export async function POST(req: NextRequest) {
         [userId, parseFloat(monto), payDate, comprobanteUrl, notas]
       );
       
-      const { sendPaymentEmailNotification } = await import('@/lib/mail');
+      const { sendPaymentEmailNotification, logSystem } = await import('@/lib/mail');
       sendPaymentEmailNotification(userId, parseFloat(monto), payDate, comprobanteUrl, notas).catch(e => console.error(e));
+      logSystem('info', 'payment', `Pago registrado para usuario ID ${userId}`, `Monto: ${monto}, Notas: ${notas}`).catch(e => console.error(e));
 
       return NextResponse.json({ success: true, payment: res.rows[0] });
     }

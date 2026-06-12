@@ -53,6 +53,8 @@ export default function AdminPage() {
   const [editContactWhatsapp, setEditContactWhatsapp] = useState('');
   const [editContactEmail, setEditContactEmail] = useState('');
   const [settingsSubmitting, setSettingsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
 
   // Create user
   const [newUserNombre, setNewUserNombre] = useState('');
@@ -529,10 +531,13 @@ export default function AdminPage() {
 
   // ── Settings ──
 
-  const handleSaveSettings = async (e: React.FormEvent) => {
+  const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editAppName.trim()) { showToast('⚠️ El nombre es requerido'); return; }
     setSettingsSubmitting(true);
+    setUploadProgress(0);
+    setUploadStatus('Preparando archivos...');
+
     try {
       const fd = new FormData();
       fd.append('app_name', editAppName);
@@ -542,16 +547,61 @@ export default function AdminPage() {
       fd.append('app_subtitle', editSubtitle);
       fd.append('contact_whatsapp', editContactWhatsapp);
       fd.append('contact_email', editContactEmail);
-      const res = await fetch('/api/settings', { method: 'POST', body: fd });
-      if (res.ok) {
-        const d = await res.json();
-        showToast('✅ Configuración guardada');
-        if (d.settings?.app_name) setAppName(d.settings.app_name);
-        if (d.settings?.app_logo) setAppLogo(d.settings.app_logo);
-        setEditLogoFile(null);
-      } else { const d = await res.json(); showToast(d.error || 'Error'); }
-    } catch { showToast('Error de red'); }
-    finally { setSettingsSubmitting(false); }
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/settings', true);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(percentComplete);
+          if (percentComplete < 100) {
+            setUploadStatus(`Subiendo archivo... ${percentComplete}%`);
+          } else {
+            setUploadStatus('Procesando imágenes (conversión a WebP y optimización de PWA)...');
+          }
+        }
+      };
+
+      xhr.onload = () => {
+        setSettingsSubmitting(false);
+        setUploadProgress(null);
+        setUploadStatus('');
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const d = JSON.parse(xhr.responseText);
+            showToast('✅ Configuración guardada');
+            if (d.settings?.app_name) setAppName(d.settings.app_name);
+            if (d.settings?.app_logo) setAppLogo(d.settings.app_logo);
+            setEditLogoFile(null);
+          } catch {
+            showToast('Error al procesar respuesta del servidor');
+          }
+        } else {
+          try {
+            const d = JSON.parse(xhr.responseText);
+            showToast(d.error || 'Error en el servidor');
+          } catch {
+            showToast(`Error ${xhr.status}: No se pudo guardar`);
+          }
+        }
+      };
+
+      xhr.onerror = () => {
+        setSettingsSubmitting(false);
+        setUploadProgress(null);
+        setUploadStatus('');
+        showToast('❌ Error de red al subir archivo');
+      };
+
+      xhr.send(fd);
+    } catch (err) {
+      setSettingsSubmitting(false);
+      setUploadProgress(null);
+      setUploadStatus('');
+      showToast('❌ Error al subir');
+    }
   };
 
   // ── Company handlers ──
@@ -1146,8 +1196,22 @@ export default function AdminPage() {
                       <input type="email" value={editContactEmail} onChange={e => setEditContactEmail(e.target.value)} placeholder="info@empresa.com" className="w-full input-stitch px-3 py-2 text-xs" />
                     </div>
                   </div>
+                  {uploadProgress !== null && (
+                    <div className="space-y-1.5 w-full bg-neutral-950/40 border border-neutral-850 p-3.5 rounded-xl">
+                      <div className="flex justify-between text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+                        <span>{uploadStatus}</span>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-neutral-900 border border-neutral-800 rounded-full overflow-hidden mt-1.5">
+                        <div 
+                          className="h-full bg-yellow-500 rounded-full transition-all duration-300" 
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-end pt-2 border-t border-neutral-950">
-                    <button type="submit" disabled={settingsSubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-neutral-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow">
+                    <button type="submit" disabled={settingsSubmitting} className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-neutral-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow cursor-pointer">
                       <span>{settingsSubmitting ? 'Guardando...' : 'Guardar Cambios'}</span>
                     </button>
                   </div>

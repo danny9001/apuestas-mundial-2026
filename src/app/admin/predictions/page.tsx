@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, BarChart3, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Users, BarChart3, ChevronRight, Download, FileSpreadsheet, RefreshCw } from 'lucide-react';
 
 interface UserOption {
   id: number;
@@ -46,6 +46,7 @@ export default function AdminPredictionsPage() {
   const [loading, setLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [exportingAll, setExportingAll] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [error, setError] = useState('');
 
   // Editing predictions
@@ -156,6 +157,28 @@ export default function AdminPredictionsPage() {
   const totalPuntos = filteredPreds.reduce((s, p) => s + (p.puntos ?? 0), 0);
   const exactos = filteredPreds.filter(p => p.puntos === 3).length;
   const aciertos = filteredPreds.filter(p => p.puntos === 1).length;
+
+  const handleForceRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      const res = await fetch('/api/admin/recalculate', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert('🎉 ' + (data.message || 'Clasificación recalculada con éxito.'));
+        if (selectedUserId) {
+          const r = await fetch(`/api/admin/user-predictions?userId=${selectedUserId}`);
+          const d = await r.json();
+          if (Array.isArray(d)) setPreds(d);
+        }
+      } else {
+        alert('❌ Error: ' + (data.error || 'No se pudo recalcular.'));
+      }
+    } catch {
+      alert('❌ Error de red al recalcular.');
+    } finally {
+      setRecalculating(false);
+    }
+  };
 
   const handleSaveEditPrediction = async (matchId: number) => {
     if (editLocal === '' || editVisitante === '') {
@@ -322,13 +345,22 @@ export default function AdminPredictionsPage() {
             <h1 className="text-xl font-black uppercase tracking-widest text-neutral-100">
               Pronósticos por Usuario
             </h1>
-          </div>
-          <div className="flex flex-wrap gap-2 sm:ml-auto items-center">
+                <div className="flex flex-wrap gap-2 sm:ml-auto items-center">
+            {currentUser && (
+              <button
+                onClick={handleForceRecalculate}
+                disabled={recalculating}
+                className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-neutral-950 font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-lg"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${recalculating ? 'animate-spin' : ''}`} />
+                {recalculating ? 'Recalculando...' : 'Recalcular Tabla'}
+              </button>
+            )}
             {currentUser && (
               <button
                 onClick={exportAllCompanyToExcel}
                 disabled={exportingAll}
-                className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 hover:bg-neutral-850 hover:border-neutral-700 disabled:opacity-50 text-neutral-200 font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-lg"
+                className="flex items-center gap-2 bg-neutral-900 border border-neutral-850 hover:bg-neutral-850 hover:border-neutral-700 disabled:opacity-50 text-neutral-200 font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-lg"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-green-500" />
                 {exportingAll ? 'Exportando...' : currentUser?.tipo === 'superadmin' ? 'Exportar Todos los Pronósticos (Filtrados)' : 'Exportar Pronósticos de la Empresa (Filtrados)'}
@@ -337,7 +369,7 @@ export default function AdminPredictionsPage() {
             <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-yellow-500/30 text-yellow-500 bg-yellow-500/10">
               {currentUser?.tipo === 'superadmin' ? 'SuperAdmin' : 'Admin Empresa'}
             </span>
-          </div>
+          </div>       </div>
         </div>
 
         {/* Filtros y Selector de usuario */}

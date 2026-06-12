@@ -212,6 +212,7 @@ export async function POST(req: NextRequest) {
       if (user.tipo === 'superadmin') {
         await logSuperadminAction(user.id, targetUserId, parseInt(matchId), oldPred.pred_local, oldPred.pred_visitante, parseInt(predLocal), parseInt(predVisitante));
       }
+      await pool.query('SELECT recalculate_leaderboard()');
       return NextResponse.json({ success: true, prediction: upd.rows[0], corrected: true });
     }
 
@@ -231,6 +232,7 @@ export async function POST(req: NextRequest) {
     if (user.tipo === 'superadmin') {
       await logSuperadminAction(user.id, targetUserId, parseInt(matchId), null, null, parseInt(predLocal), parseInt(predVisitante));
     }
+    await pool.query('SELECT recalculate_leaderboard()');
 
     return NextResponse.json({ success: true, prediction: res.rows[0] });
   } catch (error: any) {

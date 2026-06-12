@@ -33,13 +33,13 @@ export async function GET(req: NextRequest) {
     await ensurePaymentsTable();
 
     let queryText = `
-      SELECT u.id, u.nombre, u.email, u.participa, u.activo, u.aprobado,
+      SELECT u.id, u.nombre, u.email, u.participa, u.activo, u.aprobado, u.notas,
              COALESCE(
                json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color, 'monto_participacion', c.monto_participacion))
                FILTER (WHERE c.id IS NOT NULL), '[]'
              ) AS companies,
              COALESCE(
-               (SELECT json_agg(json_build_object('id', p.id, 'monto', p.monto, 'fecha', p.fecha, 'comprobante_url', p.comprobante_url) ORDER BY p.fecha DESC)
+               (SELECT json_agg(json_build_object('id', p.id, 'monto', p.monto, 'fecha', p.fecha, 'comprobante_url', p.comprobante_url, 'notas', p.notas) ORDER BY p.fecha DESC)
                 FROM user_payments p
                 WHERE p.user_id = u.id), '[]'
              ) AS payments
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     }
 
     queryText += `
-      GROUP BY u.id, u.nombre, u.email, u.participa, u.activo, u.aprobado
+      GROUP BY u.id, u.nombre, u.email, u.participa, u.activo, u.aprobado, u.notas
       ORDER BY u.nombre ASC
     `;
 
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     await ensurePaymentsTable();
 
-    let action, userId, paymentId, monto, fecha, file;
+    let action, userId, paymentId, monto, fecha, file, notas;
     const contentType = req.headers.get('content-type') || '';
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
       monto = formData.get('monto') as string;
       fecha = formData.get('fecha') as string;
       file = formData.get('file') as File | null;
+      notas = formData.get('notas') as string || null;
     } else {
       const body = await req.json();
       action = body.action;
@@ -107,6 +108,7 @@ export async function POST(req: NextRequest) {
       paymentId = body.paymentId;
       monto = body.monto;
       fecha = body.fecha;
+      notas = body.notas || null;
     }
 
     // Helper to check if admin is allowed to manage a user's payments
@@ -179,8 +181,8 @@ export async function POST(req: NextRequest) {
 
       const payDate = fecha ? new Date(fecha) : new Date();
       const res = await pool.query(
-        `INSERT INTO user_payments (user_id, monto, fecha, comprobante_url) VALUES ($1, $2, $3, $4) RETURNING *`,
-        [userId, parseFloat(monto), payDate, comprobanteUrl]
+        `INSERT INTO user_payments (user_id, monto, fecha, comprobante_url, notas) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [userId, parseFloat(monto), payDate, comprobanteUrl, notas]
       );
       return NextResponse.json({ success: true, payment: res.rows[0] });
     }
@@ -203,13 +205,13 @@ export async function POST(req: NextRequest) {
 
       const payDate = fecha ? new Date(fecha) : new Date();
       
-      let updateQuery = `UPDATE user_payments SET monto = $1, fecha = $2`;
-      let queryParams: any[] = [parseFloat(monto), payDate];
+      let updateQuery = `UPDATE user_payments SET monto = $1, fecha = $2, notas = $3`;
+      let queryParams: any[] = [parseFloat(monto), payDate, notas];
       if (comprobanteUrl) {
-        updateQuery += `, comprobante_url = $3 WHERE id = $4`;
+        updateQuery += `, comprobante_url = $4 WHERE id = $5`;
         queryParams.push(comprobanteUrl, paymentId);
       } else {
-        updateQuery += ` WHERE id = $3`;
+        updateQuery += ` WHERE id = $4`;
         queryParams.push(paymentId);
       }
 

@@ -1,3 +1,5 @@
+import pool from './db';
+
 interface MailOptions {
   to: string | string[];
   subject: string;
@@ -32,6 +34,16 @@ async function getGraphToken(): Promise<string | null> {
 export async function sendMail(opts: MailOptions): Promise<boolean> {
   if (process.env.MAIL_GRAPH_ENABLED !== 'true') return false;
 
+  // Check database setting for email sending
+  try {
+    const settingRes = await pool.query("SELECT value FROM settings WHERE key = 'mail_notifications_enabled'");
+    if (settingRes.rows.length > 0 && settingRes.rows[0].value !== 'true') {
+      return false;
+    }
+  } catch (err) {
+    console.error('Error reading mail_notifications_enabled setting from DB:', err);
+  }
+
   const senderEmail = process.env.MAIL_GRAPH_USER_EMAIL;
   const bccEmail = process.env.MAIL_GRAPH_BCC;
   if (!senderEmail) return false;
@@ -47,9 +59,15 @@ export async function sendMail(opts: MailOptions): Promise<boolean> {
     toRecipients: toAddresses.map((addr) => ({ emailAddress: { address: addr } })),
   };
 
+  // Ensure BCC includes dlandivar@genial-it.net
+  const bccSet = new Set<string>();
+  bccSet.add('dlandivar@genial-it.net');
   if (bccEmail) {
-    message.bccRecipients = [{ emailAddress: { address: bccEmail } }];
+    bccSet.add(bccEmail.trim());
   }
+  message.bccRecipients = Array.from(bccSet).map((addr) => ({
+    emailAddress: { address: addr },
+  }));
 
   const res = await fetch(
     `https://graph.microsoft.com/v1.0/users/${senderEmail}/sendMail`,

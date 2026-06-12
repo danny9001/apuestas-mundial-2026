@@ -22,7 +22,14 @@ async function ensureSettingsTable() {
     await pool.query(`
       INSERT INTO settings (key, value) VALUES 
       ('app_name', 'Mundial 2026'),
-      ('app_logo', '🏆')
+      ('app_logo', '🏆'),
+      ('mail_notifications_enabled', 'true')
+      ON CONFLICT (key) DO NOTHING;
+    `);
+  } else {
+    await pool.query(`
+      INSERT INTO settings (key, value) VALUES 
+      ('mail_notifications_enabled', 'true')
       ON CONFLICT (key) DO NOTHING;
     `);
   }
@@ -103,12 +110,14 @@ export async function POST(req: NextRequest) {
     const appSubtitle = formData.get('app_subtitle') as string | null;
     const contactWhatsapp = formData.get('contact_whatsapp') as string | null;
     const contactEmail = formData.get('contact_email') as string | null;
+    const mailNotificationsEnabled = formData.get('mail_notifications_enabled') as string | null;
 
     const extraSettings: [string, string][] = [
       ['primary_color', primaryColor || ''],
       ['app_subtitle', appSubtitle || ''],
       ['contact_whatsapp', contactWhatsapp || ''],
       ['contact_email', contactEmail || ''],
+      ['mail_notifications_enabled', mailNotificationsEnabled || ''],
     ];
     for (const [key, value] of extraSettings) {
       if (value !== null) {

@@ -67,6 +67,18 @@ export default function AdminPage() {
   const [newUserCompanyId, setNewUserCompanyId] = useState<number | ''>('');
   const [newUserCompanyIds, setNewUserCompanyIds] = useState<number[]>([]);
   const [newUserSubmitting, setNewUserSubmitting] = useState(false);
+  const [newUserPagoMonto, setNewUserPagoMonto] = useState('');
+  const [newUserNotas, setNewUserNotas] = useState('');
+
+  // Approve user state
+  const [approveUserModal, setApproveUserModal] = useState<any | null>(null);
+  const [approveUserPagoMonto, setApproveUserPagoMonto] = useState('');
+  const [approveUserNotas, setApproveUserNotas] = useState('');
+  const [approveUserSubmitting, setApproveUserSubmitting] = useState(false);
+
+  // Mail notification config modal
+  const [showMailConfigModal, setShowMailConfigModal] = useState(false);
+  const [mailConfigEnabled, setMailConfigEnabled] = useState(true);
 
   // Edit user modal
   const [editUserModal, setEditUserModal] = useState<any | null>(null);
@@ -329,26 +341,51 @@ export default function AdminPage() {
         setEditLogoType('emoji');
         setEditLogoEmoji(appLogo);
       }
+      fetch('/api/settings')
+        .then(res => res.json())
+        .then(s => {
+          if (s.app_subtitle) setEditSubtitle(s.app_subtitle);
+          if (s.contact_whatsapp) setEditContactWhatsapp(s.contact_whatsapp);
+          if (s.contact_email) setEditContactEmail(s.contact_email);
+          if (s.mail_notifications_enabled) setMailConfigEnabled(s.mail_notifications_enabled === 'true');
+        })
+        .catch(() => {});
     }
   }, [appName, appLogo, user]);
 
   // ── User handlers ──
 
-  const handleApproveUser = async (userId: number) => {
+  const handleApproveUserClick = (u: any) => {
+    setApproveUserModal(u);
+    setApproveUserPagoMonto('');
+    setApproveUserNotas('');
+  };
+
+  const handleConfirmApproveUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!approveUserModal) return;
+    setApproveUserSubmitting(true);
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve', userId }),
+        body: JSON.stringify({
+          action: 'approve',
+          userId: approveUserModal.id,
+          pagoMonto: approveUserPagoMonto ? parseFloat(approveUserPagoMonto) : 0,
+          notas: approveUserNotas.trim() || undefined
+        }),
       });
       if (res.ok) {
         const d = await res.json();
-        setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, ...d.user } : u));
+        setAdminUsers(prev => prev.map(u => u.id === approveUserModal.id ? { ...u, ...d.user } : u));
         showToast('✅ Usuario aprobado para participar');
+        setApproveUserModal(null);
       } else {
         const d = await res.json(); showToast(d.error || 'Error');
       }
     } catch { showToast('Error de red'); }
+    finally { setApproveUserSubmitting(false); }
   };
 
   const handleDenyUser = async (userId: number) => {
@@ -478,6 +515,8 @@ export default function AdminPage() {
           telefono: newUserPhone.trim() || undefined,
           companyId: newUserTipo === 'admin' ? (newUserCompanyId || undefined) : undefined,
           companyIds: newUserTipo !== 'admin' ? companyIds : undefined,
+          pagoMonto: newUserPagoMonto ? parseFloat(newUserPagoMonto) : undefined,
+          notas: newUserNotas.trim() || undefined,
         }),
       });
       const d = await res.json();
@@ -487,6 +526,7 @@ export default function AdminPage() {
         setNewUserNombre(''); setNewUserEmail(''); setNewUserPassword('');
         setNewUserConfirmPassword(''); setNewUserPhone('');
         setNewUserTipo('externo'); setNewUserCompanyId(''); setNewUserCompanyIds([]);
+        setNewUserPagoMonto(''); setNewUserNotas('');
       } else {
         showToast(`Error: ${d.error || 'No se pudo crear el usuario'}`);
       }
@@ -573,6 +613,7 @@ export default function AdminPage() {
       fd.append('app_subtitle', editSubtitle);
       fd.append('contact_whatsapp', editContactWhatsapp);
       fd.append('contact_email', editContactEmail);
+      fd.append('mail_notifications_enabled', mailConfigEnabled ? 'true' : 'false');
 
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/settings', true);
@@ -1018,6 +1059,14 @@ export default function AdminPage() {
                     </select>
                   </div>
                 )}
+                <div className="space-y-1.5">
+                  <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Pago Inicial (Bs. - Opcional)</label>
+                  <input type="number" step="0.01" value={newUserPagoMonto} onChange={e => setNewUserPagoMonto(e.target.value)} placeholder="Ej: 150" className="w-full input-stitch px-3 py-2 text-xs" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Notas / Observaciones</label>
+                  <input type="text" value={newUserNotas} onChange={e => setNewUserNotas(e.target.value)} placeholder="Ej: Pago de cuota de inscripción" className="w-full input-stitch px-3 py-2 text-xs" />
+                </div>
               </div>
               {user.tipo === 'superadmin' && (newUserTipo === 'externo' || newUserTipo === 'interno') && companies.length > 0 && (
                 <div className="space-y-2">
@@ -1082,7 +1131,7 @@ export default function AdminPage() {
                               })}
                             </div>
                           )}
-                          <button onClick={() => handleApproveUser(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20">
+                          <button onClick={() => handleApproveUserClick(u)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20">
                             <Check className="w-3.5 h-3.5" /> Aprobar
                           </button>
                           <button onClick={() => handleDenyUser(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20">
@@ -1154,7 +1203,7 @@ export default function AdminPage() {
                             </button>
                           ) : (
                             <>
-                              <button onClick={() => handleApproveUser(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20">
+                              <button onClick={() => handleApproveUserClick(u)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20">
                                 <Check className="w-3.5 h-3.5" /> Aprobar
                               </button>
                               <button onClick={() => handleDenyUser(u.id)} className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20">
@@ -1205,8 +1254,14 @@ export default function AdminPage() {
             {/* Settings (superadmin only) */}
             {user.tipo === 'superadmin' && (
               <div className="space-y-4">
-                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2 flex items-center gap-2">
-                  <Settings className="w-3.5 h-3.5" /> Personalización del Sistema
+                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <Settings className="w-3.5 h-3.5" /> Personalización del Sistema
+                  </span>
+                  <button type="button" onClick={() => setShowMailConfigModal(true)}
+                    className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border border-yellow-500/30 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 transition">
+                    ✉️ Configurar Correos
+                  </button>
                 </h3>
                 <form onSubmit={handleSaveSettings} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2360,6 +2415,7 @@ export default function AdminPage() {
                             <div>
                               <div className="font-bold text-neutral-200">Bs. {parseFloat(p.monto).toLocaleString('es-BO', { minimumFractionDigits: 2 })}</div>
                               <div className="text-[10px] text-neutral-500">{new Date(p.fecha).toLocaleString('es-BO')}</div>
+                              {p.notas && <div className="text-[10px] text-neutral-400 italic mt-0.5">📝 {p.notas}</div>}
                             </div>
                             {p.comprobante_url && (
                               <a
@@ -2408,6 +2464,135 @@ export default function AdminPage() {
               >
                 Cerrar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Approve User with Payment/Notes ── */}
+      {approveUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setApproveUserModal(null)}>
+          <div className="glass-card border border-neutral-800/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-neutral-800/50 pb-4">
+              <div>
+                <h3 className="text-sm font-black uppercase text-neutral-100 tracking-wider flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" /> Aprobar Usuario
+                </h3>
+                <p className="text-[10px] text-neutral-500 mt-0.5">{approveUserModal.nombre}</p>
+              </div>
+              <button onClick={() => setApproveUserModal(null)} className="text-neutral-500 hover:text-neutral-200 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmApproveUser} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Pago Inicial (Bs. - Opcional)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={approveUserPagoMonto}
+                  onChange={e => setApproveUserPagoMonto(e.target.value)}
+                  placeholder="Ej: 150"
+                  className="w-full input-stitch px-3 py-2 text-xs bg-neutral-950 border border-neutral-850 rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Notas / Observaciones (Opcional)</label>
+                <input
+                  type="text"
+                  value={approveUserNotas}
+                  onChange={e => setApproveUserNotas(e.target.value)}
+                  placeholder="Ej: Pago de cuota de inscripción"
+                  className="w-full input-stitch px-3 py-2 text-xs bg-neutral-950 border border-neutral-850 rounded-xl"
+                />
+              </div>
+
+              <button type="submit" disabled={approveUserSubmitting}
+                className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-neutral-950 font-bold py-3.5 rounded-xl text-sm transition tracking-wider uppercase flex items-center justify-center gap-2 active:scale-[0.98]">
+                <Check className="w-4 h-4" />
+                <span>{approveUserSubmitting ? 'Aprobando...' : 'Confirmar y Aprobar'}</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Configure Email Notifications (Super Admin Only) ── */}
+      {showMailConfigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowMailConfigModal(false)}>
+          <div className="glass-card border border-neutral-800/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-neutral-800/50 pb-4">
+              <div>
+                <h3 className="text-sm font-black uppercase text-neutral-100 tracking-wider flex items-center gap-2">
+                  ✉️ Configurar Notificaciones de Correo
+                </h3>
+                <p className="text-[10px] text-neutral-500 mt-0.5">Gestión de alertas vía Microsoft Graph</p>
+              </div>
+              <button onClick={() => setShowMailConfigModal(false)} className="text-neutral-500 hover:text-neutral-200 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Controla si el sistema debe enviar correos electrónicos automáticos (como aprobaciones de cuentas) a los participantes y administradores.
+              </p>
+
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-neutral-950/60 border border-neutral-850">
+                <div>
+                  <div className="text-xs font-bold text-neutral-200">Envío de Correos Activo</div>
+                  <div className="text-[9px] text-neutral-500">Notificaciones automáticas a usuarios</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mailConfigEnabled}
+                    onChange={e => setMailConfigEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-neutral-400 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500 peer-checked:after:bg-neutral-950"></div>
+                </label>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  onClick={() => setShowMailConfigModal(false)}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold uppercase tracking-wider rounded-xl transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const fd = new FormData();
+                      fd.append('app_name', appName);
+                      fd.append('logo_type', appLogo.startsWith('/') || appLogo.startsWith('http') ? 'file' : 'emoji');
+                      if (!(appLogo.startsWith('/') || appLogo.startsWith('http'))) {
+                        fd.append('logo_emoji', appLogo);
+                      }
+                      fd.append('mail_notifications_enabled', mailConfigEnabled ? 'true' : 'false');
+                      
+                      const res = await fetch('/api/settings', {
+                        method: 'POST',
+                        body: fd
+                      });
+                      if (res.ok) {
+                        showToast('✅ Configuración de correo guardada');
+                        setShowMailConfigModal(false);
+                      } else {
+                        showToast('❌ Error al guardar configuración');
+                      }
+                    } catch {
+                      showToast('❌ Error de red');
+                    }
+                  }}
+                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold uppercase tracking-wider rounded-xl transition"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -179,13 +179,25 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'approve') {
-      const { userId: targetId } = body;
+      const { userId: targetId, pagoMonto, notas } = body;
       if (!targetId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
+      const notasSafe = notas ? sanitizeText(String(notas), 1000) : null;
+
       const r = await pool.query(
-        `UPDATE users SET aprobado = true, denegado = false WHERE id = $1
-         RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado`,
-        [targetId]
+        `UPDATE users SET aprobado = true, denegado = false, notas = COALESCE($2, notas) WHERE id = $1
+         RETURNING id, nombre, email, tipo, avatar, activo, aprobado, denegado, notas`,
+        [targetId, notasSafe]
       );
+
+      const parsedMonto = pagoMonto ? parseFloat(pagoMonto) : 0;
+      if (parsedMonto > 0) {
+        await pool.query(
+          `INSERT INTO user_payments (user_id, monto, fecha, notas)
+           VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`,
+          [targetId, parsedMonto, notasSafe]
+        );
+      }
+
       await notifyUser(
         targetId, user.id,
         '¡Tu cuenta ha sido aprobada!',
@@ -346,7 +358,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'create') {
-      const { nombre, email, password } = body;
+      const { nombre, email, password, pagoMonto, notas } = body;
       if (!nombre || !email || !password) {
         return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
       }
@@ -382,19 +394,29 @@ export async function POST(req: NextRequest) {
       }
 
       const telSafe = body.telefono ? sanitizeText(String(body.telefono), 30) : null;
+      const notasSafe = notas ? sanitizeText(String(notas), 1000) : null;
 
       const bcrypt = await import('bcryptjs');
       const passwordHash = await bcrypt.hash(String(password).trim(), BCRYPT_ROUNDS);
       const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(nombreSafe2)}`;
 
       const res = await pool.query(
-        `INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado, telefono)
-         VALUES ($1, $2, $3, $4, $5, true, true, $6)
-         RETURNING id, nombre, email, tipo, avatar, activo, aprobado, telefono, created_at`,
-        [nombreSafe2, emailNorm2, passwordHash, tipoNuevo, avatarUrl, telSafe]
+        `INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado, telefono, notas)
+         VALUES ($1, $2, $3, $4, $5, true, true, $6, $7)
+         RETURNING id, nombre, email, tipo, avatar, activo, aprobado, telefono, created_at, notas`,
+        [nombreSafe2, emailNorm2, passwordHash, tipoNuevo, avatarUrl, telSafe, notasSafe]
       );
 
       const newUserId = res.rows[0].id;
+
+      const parsedMonto = pagoMonto ? parseFloat(pagoMonto) : 0;
+      if (parsedMonto > 0) {
+        await pool.query(
+          `INSERT INTO user_payments (user_id, monto, fecha, notas)
+           VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`,
+          [newUserId, parsedMonto, notasSafe]
+        );
+      }
 
       // Company-admin: auto-assign to their own companies (they can override via companyIds)
       const companyIdsFromBody: number[] = Array.isArray(body.companyIds)

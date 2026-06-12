@@ -849,7 +849,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <section className="space-y-6">
+      <section className="space-y-6 max-w-screen-xl mx-auto">
 
         {/* ── Header ── */}
         <div className="flex justify-between items-center flex-wrap gap-3">

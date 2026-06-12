@@ -17,7 +17,6 @@ export default function FixturePage() {
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState<SubTab>('partidos');
-  const [compactView] = useState(true);
   const [betModalMatch, setBetModalMatch] = useState<any | null>(null);
   const [tincasoSelection, setTincasoSelection] = useState('');
   const [tincasoSubmitting, setTincasoSubmitting] = useState(false);
@@ -65,6 +64,8 @@ export default function FixturePage() {
     showToast('🏆 ¡Pronóstico guardado!');
   };
 
+  const [tincasoModalOpen, setTincasoModalOpen] = useState(false);
+
   const handleTincasoSubmit = async () => {
     if (!tincasoSelection || user?.tincaso) return;
     setTincasoSubmitting(true);
@@ -73,13 +74,17 @@ export default function FixturePage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ team: tincasoSelection }),
       });
-      if (res.ok) showToast('✅ Tincaso guardado!');
+      if (res.ok) {
+        showToast('✅ Tincaso guardado!');
+        setTincasoModalOpen(false);
+      }
       else { const d = await res.json(); showToast(d.error || 'Error'); }
     } catch {}
     setTincasoSubmitting(false);
   };
 
-  const gridClass = compactView ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
+  const compactView = false; // Disable compact view to allow normal/expanded cards on desktop
+  const gridClass = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
   const renderCards = (list: any[]) => list.map(m => (
     <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
       compact={compactView} onBet={() => setBetModalMatch(m)} />
@@ -88,29 +93,56 @@ export default function FixturePage() {
   const standings = getStandings(matches);
   const knockoutPhases = ['Ronda de 32','Octavos de Final','Cuartos de Final','Semifinal','Tercer Puesto','Final'];
 
-  return (
-    <section className="space-y-4">
-      {/* Tincaso */}
-      <div className="bg-neutral-900/50 border border-neutral-800 rounded-3xl p-8">
-        <h3 className="text-xl font-black text-yellow-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-          <Trophy className="w-6 h-6" /> Tincaso Mundial
-        </h3>
-        <p className="text-sm text-neutral-400 mb-6">Selecciona tu equipo ganador del torneo. Si aciertas al final del campeonato, ganarás 5 puntos extra.</p>
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <select className="bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-100 font-bold focus:border-yellow-500 w-full sm:w-auto flex-1 disabled:opacity-50"
-            value={tincasoSelection} onChange={e => setTincasoSelection(e.target.value)}
-            disabled={tincasoSubmitting || !!user?.tincaso}>
-            <option value="">Seleccionar Equipo...</option>
-            {Array.from(new Set(matches.flatMap(m => [m.local, m.visitante])))
-              .filter(t => t && !/\d/.test(t) && !/Ganador|Perdedor|definir/i.test(t)).sort()
-              .map(team => <option key={team} value={team}>{team}</option>)}
-          </select>
-          <button onClick={handleTincasoSubmit} disabled={tincasoSubmitting || !tincasoSelection || !!user?.tincaso}
-            className="btn-primary-stitch px-8 py-3 w-full sm:w-auto disabled:opacity-50">
-            {tincasoSubmitting ? 'Guardando...' : user?.tincaso ? 'Apuesta Realizada' : 'Apostar (5 pts)'}
-          </button>
-        </div>
+  const TinkasoContent = () => (
+    <>
+      <h3 className="text-xl font-black text-yellow-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+        <Trophy className="w-6 h-6" /> Tincaso Mundial
+      </h3>
+      <p className="text-sm text-neutral-400 mb-6">Selecciona tu equipo ganador del torneo. Si aciertas al final del campeonato, ganarás 5 puntos extra.</p>
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+        <select className="bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-100 font-bold focus:border-yellow-500 w-full sm:w-auto flex-1 disabled:opacity-50"
+          value={tincasoSelection} onChange={e => setTincasoSelection(e.target.value)}
+          disabled={tincasoSubmitting || !!user?.tincaso}>
+          <option value="">Seleccionar Equipo...</option>
+          {Array.from(new Set(matches.flatMap(m => [m.local, m.visitante])))
+            .filter(t => t && !/\d/.test(t) && !/Ganador|Perdedor|definir/i.test(t)).sort()
+            .map(team => <option key={team} value={team}>{team}</option>)}
+        </select>
+        <button onClick={handleTincasoSubmit} disabled={tincasoSubmitting || !tincasoSelection || !!user?.tincaso}
+          className="btn-primary-stitch px-8 py-3 w-full sm:w-auto disabled:opacity-50">
+          {tincasoSubmitting ? 'Guardando...' : user?.tincaso ? 'Apuesta Realizada' : 'Apostar (5 pts)'}
+        </button>
       </div>
+    </>
+  );
+
+  return (
+    <section className="space-y-4 max-w-screen-xl mx-auto">
+      {/* Tincaso: Deployed on Desktop, Button+Modal on Mobile */}
+      <div className="hidden md:block bg-neutral-900/50 border border-neutral-800 rounded-3xl p-8">
+        <TinkasoContent />
+      </div>
+
+      <div className="md:hidden flex justify-center py-2">
+        <button onClick={() => setTincasoModalOpen(true)} className="btn-primary-stitch w-full py-3.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2">
+          <Trophy className="w-4 h-4 text-yellow-500" />
+          {user?.tincaso ? `Tinkaso: ${user.tincaso}` : 'Registrar Tinkaso'}
+        </button>
+      </div>
+
+      {tincasoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setTincasoModalOpen(false)}>
+          <div className="bg-neutral-950 border border-neutral-850 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center pb-2 border-b border-neutral-850">
+              <span className="text-sm font-black uppercase text-neutral-100 flex items-center gap-1.5">
+                <Trophy className="w-4 h-4 text-yellow-500" /> Tincaso Mundial
+              </span>
+              <button onClick={() => setTincasoModalOpen(false)} className="text-neutral-500 hover:text-neutral-300 font-bold">✕</button>
+            </div>
+            <TinkasoContent />
+          </div>
+        </div>
+      )}
 
       {/* Sub-tabs */}
       <div className="flex bg-neutral-900/50 rounded-xl p-1 mb-4 border border-neutral-850">

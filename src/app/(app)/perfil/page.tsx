@@ -100,7 +100,7 @@ export default function PerfilPage() {
   const avatarSrc = profileAvatarPreview || ((user.avatar && user.avatar !== 'null' && user.avatar !== 'undefined') ? user.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp');
 
   return (
-    <section className="space-y-6 max-w-4xl mx-auto">
+    <section className="space-y-6 max-w-screen-xl mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <User className="w-5 h-5 text-yellow-500" />

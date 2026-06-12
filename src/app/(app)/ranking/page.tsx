@@ -120,7 +120,7 @@ export default function RankingPage() {
 
       {/* Company selector */}
       {availableCompanies.length > 0 && (
-        <div className="flex items-center justify-between gap-3 max-w-3xl mx-auto">
+        <div className="flex items-center justify-between gap-3 max-w-screen-xl mx-auto">
           <div className="flex items-center gap-2 min-w-0">
             <Building2 className="w-4 h-4 text-neutral-400 flex-shrink-0" />
             <span className="text-xs font-black uppercase tracking-wider text-neutral-400">Equipo:</span>
@@ -136,7 +136,7 @@ export default function RankingPage() {
       )}
 
       {/* Pozo & Tinkaso Button */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-screen-xl mx-auto">
         {participantesCount > 0 && (
           <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
             <div>
@@ -161,7 +161,7 @@ export default function RankingPage() {
       </div>
 
       {/* Podium */}
-      <div className="grid grid-cols-3 gap-4 pt-2 max-w-xl mx-auto">
+      <div className="grid grid-cols-3 gap-4 pt-2 max-w-2xl mx-auto">
         {filteredLeaderboard[1] && (
           <div className="glass-card rounded-xl p-4 text-center flex flex-col items-center justify-between order-1 shadow-md">
             <div className="text-3xl">🥈</div>
@@ -190,7 +190,7 @@ export default function RankingPage() {
       </div>
 
       {/* Full ranking table */}
-      <div className="glass-card border border-neutral-800/40 rounded-xl overflow-hidden mt-6 max-w-3xl mx-auto shadow-2xl">
+      <div className="glass-card border border-neutral-800/40 rounded-xl overflow-hidden mt-6 max-w-screen-xl mx-auto shadow-2xl">
         <div className="divide-y divide-neutral-900 text-sm">
           {filteredLeaderboard.map((row, index) => {
             const isMe = user?.id === row.user_id;

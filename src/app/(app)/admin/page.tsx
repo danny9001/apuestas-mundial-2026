@@ -1984,11 +1984,11 @@ export default function AdminPage() {
                         {/* Total Summary Row */}
                         {(() => {
                           const totalCuotas = filteredPaymentsUsers.reduce((sum, u) => {
-                            const cuota = u.companies.length > 0 ? u.companies.reduce((s: number, c: any) => s + parseFloat(c.monto_participacion || 150), 0) : 150;
+                            const cuota = u.companies.length > 0 ? u.companies.reduce((s: number, c: any) => s + parseFloat(c.monto_participacion || '150'), 0) : 150;
                             return sum + cuota;
                           }, 0);
                           const totalPagadoTodos = filteredPaymentsUsers.reduce((sum, u) => {
-                            const total = u.payments.reduce((s: number, p: any) => s + parseFloat(p.monto), 0);
+                            const total = u.payments.reduce((s: number, p: any) => s + parseFloat(p.monto || '0'), 0);
                             return sum + total;
                           }, 0);
                           const totalSaldo = totalCuotas - totalPagadoTodos;

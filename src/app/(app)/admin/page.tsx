@@ -428,6 +428,26 @@ export default function AdminPage() {
     } catch { showToast('Error de red'); }
   };
 
+  const handleDeleteUser = async (userId: number, nombre: string) => {
+    if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente al usuario "${nombre}"? Esta acción borrará todos sus pronósticos y no se puede deshacer.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/users?userId=${userId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setAdminUsers(prev => prev.filter(u => u.id !== userId));
+        showToast('🗑️ Usuario eliminado con éxito');
+      } else {
+        const d = await res.json();
+        showToast(d.error || 'Error al eliminar usuario');
+      }
+    } catch {
+      showToast('Error de red');
+    }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserNombre.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
@@ -898,7 +918,7 @@ export default function AdminPage() {
                 <Users className="w-3.5 h-3.5" />
                 {user.tipo === 'superadmin' ? 'Todos los Usuarios del Sistema' : 'Usuarios de Mi Empresa'}
               </h3>
-              {user.tipo === 'superadmin' && (
+              {(user.tipo === 'superadmin' || user.tipo === 'admin') && (
                 <a
                   href="/admin/predictions"
                   className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border border-yellow-500/30 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 transition"
@@ -1117,6 +1137,14 @@ export default function AdminPage() {
                           <button onClick={() => handleToggleParticipa(u.id, u.participa !== false)}
                             className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.participa !== false ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20' : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-400 border border-neutral-700'}`}>
                             {u.participa !== false ? '⚽ Participa' : '👁 Visor'}
+                          </button>
+                        )}
+                        {user.tipo === 'superadmin' && (
+                          <button onClick={() => handleDeleteUser(u.id, u.nombre)}
+                            className="font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] bg-red-600/10 hover:bg-red-600/20 text-red-500 border border-red-600/20"
+                            title="Eliminar usuario permanentemente"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Borrar
                           </button>
                         )}
                       </>

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser();
-    if (!user || user.tipo !== 'superadmin') {
+    if (!user || (user.tipo !== 'superadmin' && user.tipo !== 'admin')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -16,6 +16,18 @@ export async function GET(req: NextRequest) {
 
     if (!userId || isNaN(parseInt(userId))) {
       return NextResponse.json({ error: 'Falta parámetro userId válido' }, { status: 400 });
+    }
+
+    if (user.tipo === 'admin') {
+      const checkRes = await pool.query(
+        `SELECT 1 FROM user_companies uc1
+         JOIN user_companies uc2 ON uc1.company_id = uc2.company_id
+         WHERE uc1.user_id = $1 AND uc2.user_id = $2`,
+        [user.id, parseInt(userId)]
+      );
+      if (checkRes.rows.length === 0) {
+        return NextResponse.json({ error: 'No autorizado para ver este usuario' }, { status: 403 });
+      }
     }
 
     const res = await pool.query(
@@ -34,9 +46,8 @@ export async function GET(req: NextRequest) {
         m.grupo,
         m.goles_local,
         m.goles_visitante
-       FROM predictions p
-       JOIN matches m ON p.match_id = m.id
-       WHERE p.user_id = $1
+       FROM matches m
+       LEFT JOIN predictions p ON p.match_id = m.id AND p.user_id = $1
        ORDER BY m.fecha ASC`,
       [parseInt(userId)]
     );

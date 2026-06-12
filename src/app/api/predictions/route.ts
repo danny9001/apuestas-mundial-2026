@@ -131,14 +131,13 @@ export async function POST(req: NextRequest) {
     }
 
     let targetUserId = user.id;
-    let isSuperAdminBypass = false;
+    let isSuperAdminBypass = user.tipo === 'superadmin';
 
     if (userId !== undefined && parseInt(userId) !== user.id) {
       if (user.tipo !== 'superadmin') {
         return NextResponse.json({ error: 'No autorizado para editar predicciones de otros usuarios' }, { status: 403 });
       }
       targetUserId = parseInt(userId);
-      isSuperAdminBypass = true;
     }
 
     const now = new Date();
@@ -165,13 +164,41 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Helper to log Superadmin actions
+    const ensureAuditLogsTable = async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          action VARCHAR(255) NOT NULL,
+          details TEXT,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    };
+
+    const logSuperadminAction = async (superadminId: number, targetId: number, mId: number, oldL: number | null, oldV: number | null, newL: number, newV: number) => {
+      try {
+        await ensureAuditLogsTable();
+        const details = `Superadmin (id: ${superadminId}) modificó pronóstico para el usuario (id: ${targetId}) en el partido (id: ${mId}). Valores anteriores: ${oldL !== null ? `${oldL}-${oldV}` : 'Ninguno'}. Nuevos valores: ${newL}-${newV}`;
+        await pool.query(
+          `INSERT INTO audit_logs (user_id, action, details) VALUES ($1, $2, $3)`,
+          [superadminId, 'SUPERADMIN_PREDICTION_EDIT', details]
+        );
+        console.log('[AUDIT LOG]', details);
+      } catch (err) {
+        console.error('Error writing audit log:', err);
+      }
+    };
+
     // Check if prediction already exists for this user and match
     const existingPredRes = await pool.query(
-      'SELECT id, created_at FROM predictions WHERE user_id = $1 AND match_id = $2',
+      'SELECT id, pred_local, pred_visitante, created_at FROM predictions WHERE user_id = $1 AND match_id = $2',
       [targetUserId, matchId]
     );
 
     if (existingPredRes.rows.length > 0) {
+      const oldPred = existingPredRes.rows[0];
       if (!isSuperAdminBypass) {
         return NextResponse.json(
           { error: 'Ya has guardado un pronóstico para este partido. No se permite modificar.' },
@@ -182,6 +209,9 @@ export async function POST(req: NextRequest) {
         'UPDATE predictions SET pred_local = $1, pred_visitante = $2 WHERE user_id = $3 AND match_id = $4 RETURNING *',
         [parseInt(predLocal), parseInt(predVisitante), targetUserId, matchId]
       );
+      if (user.tipo === 'superadmin') {
+        await logSuperadminAction(user.id, targetUserId, parseInt(matchId), oldPred.pred_local, oldPred.pred_visitante, parseInt(predLocal), parseInt(predVisitante));
+      }
       return NextResponse.json({ success: true, prediction: upd.rows[0], corrected: true });
     }
 
@@ -197,6 +227,10 @@ export async function POST(req: NextRequest) {
       parseInt(predLocal),
       parseInt(predVisitante)
     ]);
+
+    if (user.tipo === 'superadmin') {
+      await logSuperadminAction(user.id, targetUserId, parseInt(matchId), null, null, parseInt(predLocal), parseInt(predVisitante));
+    }
 
     return NextResponse.json({ success: true, prediction: res.rows[0] });
   } catch (error: any) {

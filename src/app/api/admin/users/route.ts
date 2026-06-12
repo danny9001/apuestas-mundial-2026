@@ -473,3 +473,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
+
+// DELETE: delete user (only superadmin)
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getSessionUser();
+    if (!user || user.tipo !== 'superadmin') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId || isNaN(parseInt(userId))) {
+      return NextResponse.json({ error: 'ID de usuario no válido' }, { status: 400 });
+    }
+
+    if (parseInt(userId) === user.id) {
+      return NextResponse.json({ error: 'No puedes borrarte a ti mismo' }, { status: 400 });
+    }
+
+    const res = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id, nombre', [parseInt(userId)]);
+    if (res.rows.length === 0) {
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: `Usuario ${res.rows[0].nombre} eliminado con éxito` });
+  } catch (error: any) {
+    console.error('Error deleting user:', error);
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+  }
+}
+

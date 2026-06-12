@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { KeyRound, Building2, Loader2, AlertTriangle } from 'lucide-react';
 
@@ -12,7 +12,7 @@ interface Invitation {
   expires_at: string;
 }
 
-export default function InvitacionPage() {
+function InvitacionPageContent() {
   const params = useSearchParams();
   const token = params.get('t') ?? '';
   const [inv, setInv] = useState<Invitation | null>(null);
@@ -94,5 +94,19 @@ export default function InvitacionPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function InvitacionPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-2xl p-7 shadow-2xl flex flex-col items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-yellow-500" />
+        </div>
+      </div>
+    }>
+      <InvitacionPageContent />
+    </Suspense>
   );
 }

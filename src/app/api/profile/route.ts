@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update in database
+    console.log('[profile] Updating database for user ID:', user.id);
     if (password && password.trim().length > 0) {
       const pwCheck = validatePassword(password.trim());
       if (!pwCheck.ok) {
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
         [nombreSafe, avatarPath, telefonoSafe, user.id]
       );
     }
+    console.log('[profile] Database updated successfully');
 
     // Fetch companies to keep session in sync
     const compRes = await pool.query(
@@ -81,9 +83,11 @@ export async function POST(req: NextRequest) {
        WHERE uc.user_id = $1`,
       [user.id]
     );
+    console.log('[profile] Fetched companies:', compRes.rows.length);
 
     // Fetch aprobado/denegado to keep session complete
     const userRow = await pool.query('SELECT aprobado, denegado FROM users WHERE id = $1', [user.id]);
+    console.log('[profile] Fetched user approval status');
 
     // Refresh Session Cookie
     const updatedSession = {
@@ -97,7 +101,9 @@ export async function POST(req: NextRequest) {
       denegado: userRow.rows[0]?.denegado ?? user.denegado,
       companies: compRes.rows
     };
+    console.log('[profile] Setting session cookie');
     await setSession(updatedSession);
+    console.log('[profile] Session cookie set successfully');
 
     return NextResponse.json({
       success: true,
@@ -106,6 +112,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error updating profile:', error);
-    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+    return NextResponse.json({ error: `Error del servidor: ${error.message || error}` }, { status: 500 });
   }
 }

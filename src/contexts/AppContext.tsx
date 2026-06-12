@@ -115,7 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setPushSubscribed(false);
         showToast('Notificaciones push desactivadas');
       } else {
-        const sub = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer });
+        const sub = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) as any });
         await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(JSON.parse(JSON.stringify(sub))) });
         setPushSubscribed(true);
         showToast('✅ Notificaciones push activadas');

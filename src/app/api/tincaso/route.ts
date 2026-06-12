@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
     const body = await req.json();
-    const { tincaso } = body;
+    const tincaso = body.tincaso || body.team;
 
     if (!tincaso) {
       return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });

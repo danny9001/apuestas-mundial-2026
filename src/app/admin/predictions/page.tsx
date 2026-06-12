@@ -2,19 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, BarChart3, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Users, BarChart3, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
 
 interface UserOption {
   id: number;
   nombre: string;
   email: string;
   tipo: string;
+  participa?: boolean | null;
+  companies?: { id: number; nombre: string; color: string }[];
 }
 
 interface PredRow {
-  id: number;
-  pred_local: number;
-  pred_visitante: number;
+  id: number | null;
+  pred_local: number | null;
+  pred_visitante: number | null;
   puntos: number | null;
   local: string;
   visitante: string;
@@ -24,21 +26,57 @@ interface PredRow {
   grupo: string | null;
   goles_local: number | null;
   goles_visitante: number | null;
+  match_id: number;
 }
 
 export default function AdminPredictionsPage() {
   const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<{ id: number; tipo: string; nombre: string } | null>(null);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [companies, setCompanies] = useState<{ id: number; nombre: string }[]>([]);
+  
+  // Filter States
+  const [filterCompany, setFilterCompany] = useState<string>('all');
+  const [filterRole, setFilterRole] = useState<string>('all');
+  const [filterParticipa, setFilterParticipa] = useState<string>('all');
+  const [predDateFilter, setPredDateFilter] = useState<string>('');
+
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [preds, setPreds] = useState<PredRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [exportingAll, setExportingAll] = useState(false);
   const [error, setError] = useState('');
+
+  // Editing predictions
+  const [editingMatchId, setEditingMatchId] = useState<number | null>(null);
+  const [editLocal, setEditLocal] = useState<string>('');
+  const [editVisitante, setEditVisitante] = useState<string>('');
+
+  useEffect(() => {
+    fetch('/api/auth')
+      .then(r => r.json())
+      .then(data => {
+        if (data.authenticated) {
+          setCurrentUser(data.user);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/companies')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCompanies(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/api/admin/users')
       .then(r => {
-        if (r.status === 401) { router.replace('/'); return null; }
+        if (r.status === 401 || r.status === 403) { router.replace('/'); return null; }
         return r.json();
       })
       .then(data => {
@@ -86,9 +124,183 @@ export default function AdminPredictionsPage() {
     });
   }
 
-  const totalPuntos = preds.reduce((s, p) => s + (p.puntos ?? 0), 0);
-  const exactos = preds.filter(p => p.puntos === 3).length;
-  const aciertos = preds.filter(p => p.puntos === 1).length;
+  // User List Filters
+  const filteredUsersList = users.filter(u => {
+    if (filterCompany !== 'all') {
+      const belongs = (u.companies || []).some((c: any) => String(c.id) === filterCompany);
+      if (!belongs) return false;
+    }
+    if (filterRole !== 'all' && u.tipo !== filterRole) {
+      return false;
+    }
+    if (filterParticipa !== 'all') {
+      const isParticipante = u.participa !== false;
+      if (filterParticipa === 'participante' && !isParticipante) return false;
+      if (filterParticipa === 'visor' && isParticipante) return false;
+    }
+    return true;
+  });
+
+  // Predictions List Filters
+  const filteredPreds = preds.filter(p => {
+    if (!predDateFilter) return true;
+    const matchDateStr = new Date(p.fecha).toISOString().slice(0, 10);
+    return (
+      matchDateStr.includes(predDateFilter) ||
+      p.fase.toLowerCase().includes(predDateFilter.toLowerCase()) ||
+      p.local.toLowerCase().includes(predDateFilter.toLowerCase()) ||
+      p.visitante.toLowerCase().includes(predDateFilter.toLowerCase())
+    );
+  });
+
+  const totalPuntos = filteredPreds.reduce((s, p) => s + (p.puntos ?? 0), 0);
+  const exactos = filteredPreds.filter(p => p.puntos === 3).length;
+  const aciertos = filteredPreds.filter(p => p.puntos === 1).length;
+
+  const handleSaveEditPrediction = async (matchId: number) => {
+    if (editLocal === '' || editVisitante === '') {
+      alert('Ambos campos de goles local y visitante son requeridos.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchId,
+          predLocal: parseInt(editLocal),
+          predVisitante: parseInt(editVisitante),
+          userId: selectedUserId
+        })
+      });
+      if (res.ok) {
+        // Refresh list
+        fetch(`/api/admin/user-predictions?userId=${selectedUserId}`)
+          .then(r => r.json())
+          .then(data => {
+            if (Array.isArray(data)) setPreds(data);
+          });
+        setEditingMatchId(null);
+      } else {
+        const d = await res.json();
+        alert(d.error || 'Error al guardar pronóstico');
+      }
+    } catch {
+      alert('Error de red');
+    }
+  };
+
+  const exportSelectedUserToExcel = () => {
+    if (!selectedUser || filteredPreds.length === 0) return;
+    
+    const headers = ['Participante', 'Correo', 'Partido', 'Pronóstico Local', 'Pronóstico Visitante', 'Fase', 'Fecha Partido', 'Puntos', 'Goles Local', 'Goles Visitante', 'Estado'];
+    
+    const rows = filteredPreds.map(p => [
+      selectedUser.nombre,
+      selectedUser.email,
+      `${p.local} vs ${p.visitante}`,
+      p.pred_local !== null ? p.pred_local : '',
+      p.pred_visitante !== null ? p.pred_visitante : '',
+      p.fase + (p.grupo ? ` - Grupo ${p.grupo}` : ''),
+      formatFecha(p.fecha),
+      p.puntos !== null ? p.puntos : 'Pendiente',
+      p.goles_local !== null ? p.goles_local : '',
+      p.goles_visitante !== null ? p.goles_visitante : '',
+      p.estado === 'finished' ? 'Finalizado' : p.estado === 'live' ? 'En vivo' : 'Pendiente'
+    ]);
+    
+    const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(';'))].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `pronosticos_${selectedUser.nombre.toLowerCase().replace(/\s+/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportAllCompanyToExcel = async () => {
+    setExportingAll(true);
+    try {
+      const res = await fetch('/api/admin/company-predictions');
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        alert(data.error || 'Error al exportar');
+        setExportingAll(false);
+        return;
+      }
+
+      let filteredData = data;
+
+      // Apply Filters to Exported Data
+      if (filterCompany !== 'all') {
+        filteredData = filteredData.filter((p: any) => String(p.company_id) === filterCompany);
+      }
+      if (filterRole !== 'all') {
+        filteredData = filteredData.filter((p: any) => p.usuario_tipo === filterRole);
+      }
+      if (filterParticipa !== 'all') {
+        filteredData = filteredData.filter((p: any) => {
+          const isParticipante = p.usuario_participa !== false;
+          return filterParticipa === 'participante' ? isParticipante : !isParticipante;
+        });
+      }
+      if (predDateFilter) {
+        filteredData = filteredData.filter((p: any) => {
+          const matchDateStr = new Date(p.fecha).toISOString().slice(0, 10);
+          return (
+            matchDateStr.includes(predDateFilter) ||
+            p.fase.toLowerCase().includes(predDateFilter.toLowerCase()) ||
+            p.local.toLowerCase().includes(predDateFilter.toLowerCase()) ||
+            p.visitante.toLowerCase().includes(predDateFilter.toLowerCase())
+          );
+        });
+      }
+
+      if (filteredData.length === 0) {
+        alert('No hay pronósticos que coincidan con los filtros seleccionados para exportar.');
+        setExportingAll(false);
+        return;
+      }
+
+      const headers = ['Empresa', 'Participante', 'Correo', 'Rol', 'Tipo Participación', 'Partido', 'Pronóstico Local', 'Pronóstico Visitante', 'Fase', 'Fecha Partido', 'Puntos', 'Goles Local', 'Goles Visitante', 'Estado'];
+      
+      const rows = filteredData.map((p: any) => [
+        p.empresa_nombre,
+        p.usuario_nombre,
+        p.usuario_email,
+        p.usuario_tipo,
+        p.usuario_participa !== false ? 'Participante' : 'Visor',
+        `${p.local} vs ${p.visitante}`,
+        p.pred_local !== null ? p.pred_local : '',
+        p.pred_visitante !== null ? p.pred_visitante : '',
+        p.fase,
+        formatFecha(p.fecha),
+        p.puntos !== null ? p.puntos : 'Pendiente',
+        p.goles_local !== null ? p.goles_local : '',
+        p.goles_visitante !== null ? p.goles_visitante : '',
+        p.estado === 'finished' ? 'Finalizado' : p.estado === 'live' ? 'En vivo' : 'Pendiente'
+      ]);
+
+      const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(';'))].join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `pronosticos_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al exportar');
+    } finally {
+      setExportingAll(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-yellow-500/30">
@@ -104,44 +316,109 @@ export default function AdminPredictionsPage() {
           </button>
         </div>
 
-        <div className="flex items-center gap-3 border-b border-neutral-800 pb-4">
-          <BarChart3 className="w-6 h-6 text-yellow-500" />
-          <h1 className="text-xl font-black uppercase tracking-widest text-neutral-100">
-            Pronósticos por Usuario
-          </h1>
-          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-yellow-500/30 text-yellow-500 bg-yellow-500/10 ml-auto">
-            Solo SuperAdmin
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 border-b border-neutral-800 pb-4">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="w-6 h-6 text-yellow-500" />
+            <h1 className="text-xl font-black uppercase tracking-widest text-neutral-100">
+              Pronósticos por Usuario
+            </h1>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:ml-auto items-center">
+            {currentUser && (
+              <button
+                onClick={exportAllCompanyToExcel}
+                disabled={exportingAll}
+                className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 hover:bg-neutral-850 hover:border-neutral-700 disabled:opacity-50 text-neutral-200 font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-lg"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-green-500" />
+                {exportingAll ? 'Exportando...' : currentUser?.tipo === 'superadmin' ? 'Exportar Todos los Pronósticos (Filtrados)' : 'Exportar Pronósticos de la Empresa (Filtrados)'}
+              </button>
+            )}
+            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-yellow-500/30 text-yellow-500 bg-yellow-500/10">
+              {currentUser?.tipo === 'superadmin' ? 'SuperAdmin' : 'Admin Empresa'}
+            </span>
+          </div>
         </div>
 
-        {/* Selector de usuario */}
-        <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-5 space-y-3 max-w-lg">
-          <div className="flex items-center gap-2 text-xs font-bold text-neutral-400 uppercase tracking-widest">
-            <Users className="w-3.5 h-3.5" /> Seleccionar Usuario
+        {/* Filtros y Selector de usuario */}
+        <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-5 space-y-4">
+          <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest flex items-center gap-2">
+            <Users className="w-3.5 h-3.5" /> Filtrar y Seleccionar Usuario
+          </h3>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Filtro Empresa */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">Empresa</label>
+              <select
+                value={filterCompany}
+                onChange={e => { setFilterCompany(e.target.value); setSelectedUserId(''); }}
+                className="bg-neutral-950 border border-neutral-800 text-neutral-300 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-yellow-500/50"
+              >
+                <option value="all">🏢 Todas las empresas</option>
+                {companies.map(c => (
+                  <option key={c.id} value={String(c.id)}>{c.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro Rol */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">Rol / Tipo</label>
+              <select
+                value={filterRole}
+                onChange={e => { setFilterRole(e.target.value); setSelectedUserId(''); }}
+                className="bg-neutral-950 border border-neutral-800 text-neutral-300 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-yellow-500/50"
+              >
+                <option value="all">🔑 Todos los roles</option>
+                <option value="externo">Externo</option>
+                <option value="interno">Interno</option>
+                <option value="admin">Admin</option>
+                <option value="superadmin">SuperAdmin</option>
+              </select>
+            </div>
+
+            {/* Filtro Participación */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">Participación</label>
+              <select
+                value={filterParticipa}
+                onChange={e => { setFilterParticipa(e.target.value); setSelectedUserId(''); }}
+                className="bg-neutral-950 border border-neutral-800 text-neutral-300 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-yellow-500/50"
+              >
+                <option value="all">⚽ Todos (Visores y Participantes)</option>
+                <option value="participante">Participantes</option>
+                <option value="visor">Visores</option>
+              </select>
+            </div>
           </div>
-          {loadingUsers ? (
-            <div className="text-xs text-neutral-500 animate-pulse">Cargando usuarios...</div>
-          ) : (
-            <select
-              value={selectedUserId}
-              onChange={e => setSelectedUserId(e.target.value)}
-              className="w-full bg-neutral-950 border border-neutral-800 text-neutral-300 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-yellow-500/50"
-            >
-              <option value="">— Elegir usuario —</option>
-              {users.map(u => (
-                <option key={u.id} value={String(u.id)}>
-                  {u.nombre} ({u.email}) · {u.tipo}
-                </option>
-              ))}
-            </select>
-          )}
+
+          <div className="flex flex-col gap-1 pt-2 border-t border-neutral-800/50">
+            <label className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">Seleccionar Usuario ({filteredUsersList.length} encontrados)</label>
+            {loadingUsers ? (
+              <div className="text-xs text-neutral-500 animate-pulse">Cargando usuarios...</div>
+            ) : (
+              <select
+                value={selectedUserId}
+                onChange={e => setSelectedUserId(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 text-neutral-300 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-yellow-500/50"
+              >
+                <option value="">— Elegir usuario —</option>
+                {filteredUsersList.map(u => (
+                  <option key={u.id} value={String(u.id)}>
+                    {u.nombre} ({u.email}) · {u.tipo} {u.participa === false ? '· [Visor]' : '· [Participante]'}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
 
         {/* Resumen estadístico */}
-        {selectedUser && preds.length > 0 && (
+        {selectedUser && filteredPreds.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Pronósticos', value: preds.length, color: 'text-neutral-300' },
+              { label: 'Pronósticos', value: filteredPreds.filter(p => p.pred_local !== null).length, color: 'text-neutral-300' },
               { label: 'Exactos', value: exactos, color: 'text-green-400' },
               { label: 'Aciertos', value: aciertos, color: 'text-yellow-400' },
               { label: 'Puntos totales', value: totalPuntos, color: 'text-yellow-500' },
@@ -157,9 +434,28 @@ export default function AdminPredictionsPage() {
         {/* Tabla de pronósticos */}
         {selectedUser && (
           <div className="space-y-3">
-            <div className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2 flex items-center gap-2">
-              <ChevronRight className="w-3.5 h-3.5 text-yellow-500" />
-              {selectedUser.nombre} — {selectedUser.email}
+            <div className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2 flex flex-col sm:flex-row gap-3 items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ChevronRight className="w-3.5 h-3.5 text-yellow-500" />
+                {selectedUser.nombre} — {selectedUser.email}
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto items-center">
+                <input
+                  type="text"
+                  value={predDateFilter}
+                  onChange={e => setPredDateFilter(e.target.value)}
+                  placeholder="🔍 Buscar partido, fecha (YYYY-MM-DD) o fase..."
+                  className="w-full sm:w-64 bg-neutral-950 border border-neutral-800 text-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50"
+                />
+                {filteredPreds.length > 0 && !loading && (
+                  <button
+                    onClick={exportSelectedUserToExcel}
+                    className="flex items-center gap-1.5 text-neutral-400 hover:text-green-400 transition text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Exportar Excel
+                  </button>
+                )}
+              </div>
             </div>
 
             {loading && (
@@ -172,28 +468,29 @@ export default function AdminPredictionsPage() {
               <div className="py-6 text-center text-red-400 text-xs">{error}</div>
             )}
 
-            {!loading && !error && preds.length === 0 && (
+            {!loading && !error && filteredPreds.length === 0 && (
               <div className="py-12 text-center text-neutral-500 text-xs italic">
-                Este usuario no tiene pronósticos registrados.
+                No se encontraron partidos o pronósticos.
               </div>
             )}
 
-            {!loading && preds.length > 0 && (
+            {!loading && filteredPreds.length > 0 && (
               <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl overflow-hidden">
                 {/* Encabezado tabla */}
-                <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 text-[9px] font-black uppercase tracking-widest text-neutral-500 border-b border-neutral-800 bg-neutral-900/60">
+                <div className="hidden sm:grid grid-cols-[1fr_120px_100px_160px_80px_120px] gap-4 px-4 py-2.5 text-[9px] font-black uppercase tracking-widest text-neutral-500 border-b border-neutral-800 bg-neutral-900/60">
                   <span>Partido</span>
                   <span className="text-center">Pronóstico</span>
                   <span className="text-center">Fase</span>
                   <span className="text-center">Fecha</span>
                   <span className="text-center">Puntos</span>
+                  <span className="text-center">Acciones</span>
                 </div>
 
                 <div className="divide-y divide-neutral-800/60">
-                  {preds.map(p => (
+                  {filteredPreds.map(p => (
                     <div
-                      key={p.id}
-                      className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2 sm:gap-4 px-4 py-3 text-xs items-center hover:bg-neutral-800/20 transition"
+                      key={p.match_id}
+                      className="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_160px_80px_120px] gap-2 sm:gap-4 px-4 py-3 text-xs items-center hover:bg-neutral-800/20 transition"
                     >
                       {/* Partido */}
                       <div className="flex flex-col gap-0.5">
@@ -209,9 +506,29 @@ export default function AdminPredictionsPage() {
 
                       {/* Pronóstico */}
                       <div className="flex items-center justify-center">
-                        <span className="font-black text-yellow-400 text-base tabular-nums">
-                          {p.pred_local} – {p.pred_visitante}
-                        </span>
+                        {editingMatchId === p.match_id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={editLocal}
+                              onChange={e => setEditLocal(e.target.value)}
+                              className="w-10 bg-neutral-950 border border-neutral-800 text-yellow-400 font-black text-center text-sm p-1 rounded focus:outline-none"
+                              min="0"
+                            />
+                            <span className="text-neutral-550 font-black">-</span>
+                            <input
+                              type="number"
+                              value={editVisitante}
+                              onChange={e => setEditVisitante(e.target.value)}
+                              className="w-10 bg-neutral-950 border border-neutral-800 text-yellow-400 font-black text-center text-sm p-1 rounded focus:outline-none"
+                              min="0"
+                            />
+                          </div>
+                        ) : (
+                          <span className="font-black text-yellow-400 text-base tabular-nums">
+                            {p.pred_local !== null && p.pred_local !== undefined ? `${p.pred_local} – ${p.pred_visitante}` : '—'}
+                          </span>
+                        )}
                       </div>
 
                       {/* Fase */}
@@ -229,6 +546,39 @@ export default function AdminPredictionsPage() {
                       {/* Puntos */}
                       <div className="flex justify-center">
                         {puntosBadge(p.puntos, p.estado)}
+                      </div>
+
+                      {/* Acciones */}
+                      <div className="flex justify-center">
+                        {currentUser?.tipo === 'superadmin' && (
+                          editingMatchId === p.match_id ? (
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleSaveEditPrediction(p.match_id)}
+                                className="px-2 py-1 bg-green-600 hover:bg-green-550 text-white rounded text-[10px] font-bold uppercase transition"
+                              >
+                                OK
+                              </button>
+                              <button
+                                onClick={() => setEditingMatchId(null)}
+                                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-750 text-neutral-400 rounded text-[10px] font-bold uppercase transition"
+                              >
+                                X
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingMatchId(p.match_id);
+                                setEditLocal(p.pred_local !== null ? String(p.pred_local) : '');
+                                setEditVisitante(p.pred_visitante !== null ? String(p.pred_visitante) : '');
+                              }}
+                              className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-850 hover:border-neutral-700 text-neutral-350 hover:text-white rounded border border-neutral-800 text-[10px] font-bold uppercase tracking-wider transition"
+                            >
+                              {p.pred_local !== null && p.pred_local !== undefined ? 'Editar' : 'Agregar'}
+                            </button>
+                          )
+                        )}
                       </div>
                     </div>
                   ))}

@@ -30,6 +30,7 @@ export default function AdminPage() {
   const [paymentsSearch, setPaymentsSearch] = useState('');
   const [paymentsCompanyFilter, setPaymentsCompanyFilter] = useState<string>('all');
   const [paymentsStatusFilter, setPaymentsStatusFilter] = useState<'all' | 'pending' | 'partial' | 'paid'>('all');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   // Users list
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
@@ -386,6 +387,25 @@ export default function AdminPage() {
       }
     } catch { showToast('Error de red'); }
     finally { setApproveUserSubmitting(false); }
+  };
+
+  const handleSendPaymentsReport = async () => {
+    setReportSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/payments/report', {
+        method: 'POST',
+      });
+      if (res.ok) {
+        showToast('✉️ Reporte de pagos enviado por correo con éxito');
+      } else {
+        const d = await res.json();
+        showToast(`❌ Error: ${d.error || 'No se pudo enviar el reporte'}`);
+      }
+    } catch {
+      showToast('❌ Error de red');
+    } finally {
+      setReportSubmitting(false);
+    }
   };
 
   const handleDenyUser = async (userId: number) => {
@@ -1952,6 +1972,14 @@ export default function AdminPage() {
                     className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl px-3 py-2 text-xs transition flex items-center gap-1 cursor-pointer"
                   >
                     📥 Exportar Excel (CSV)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reportSubmitting}
+                    onClick={handleSendPaymentsReport}
+                    className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-neutral-950 font-bold rounded-xl px-3 py-2 text-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    ✉️ {reportSubmitting ? 'Enviando...' : 'Enviar Reporte por Correo'}
                   </button>
                 </div>
               </div>

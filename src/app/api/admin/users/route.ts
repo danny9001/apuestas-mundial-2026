@@ -3,7 +3,7 @@ import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { broadcastUpdate } from '@/lib/realtime';
 import { sendPushNotification } from '@/lib/push';
-import { sendMail, buildApprovalEmail, buildDenialEmail } from '@/lib/mail';
+import { sendMail, buildApprovalEmail, buildDenialEmail, sendPaymentEmailNotification } from '@/lib/mail';
 import { isValidEmail, sanitizeText, validatePassword, isValidRole, BCRYPT_ROUNDS } from '@/lib/validation';
 import { syncCompanyAssignment, unsyncCompanyAssignment, syncUserToIdentity, syncUserPassword } from '@/lib/identity-sync';
 
@@ -196,6 +196,7 @@ export async function POST(req: NextRequest) {
            VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`,
           [targetId, parsedMonto, notasSafe]
         );
+        sendPaymentEmailNotification(targetId, parsedMonto, new Date(), null, notasSafe).catch(e => console.error(e));
       }
 
       await notifyUser(
@@ -416,6 +417,7 @@ export async function POST(req: NextRequest) {
            VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`,
           [newUserId, parsedMonto, notasSafe]
         );
+        sendPaymentEmailNotification(newUserId, parsedMonto, new Date(), null, notasSafe).catch(e => console.error(e));
       }
 
       // Company-admin: auto-assign to their own companies (they can override via companyIds)

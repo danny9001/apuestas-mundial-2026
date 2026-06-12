@@ -184,6 +184,10 @@ export async function POST(req: NextRequest) {
         `INSERT INTO user_payments (user_id, monto, fecha, comprobante_url, notas) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
         [userId, parseFloat(monto), payDate, comprobanteUrl, notas]
       );
+      
+      const { sendPaymentEmailNotification } = await import('@/lib/mail');
+      sendPaymentEmailNotification(userId, parseFloat(monto), payDate, comprobanteUrl, notas).catch(e => console.error(e));
+
       return NextResponse.json({ success: true, payment: res.rows[0] });
     }
 

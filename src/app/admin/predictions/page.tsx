@@ -55,6 +55,11 @@ export default function AdminPredictionsPage() {
   const [editVisitante, setEditVisitante] = useState<string>('');
 
   useEffect(() => {
+    const saved = (typeof window !== 'undefined' ? localStorage.getItem('theme') : null) as 'light' | 'dark' | null;
+    if (saved) {
+      document.documentElement.classList.toggle('light', saved === 'light');
+    }
+
     fetch('/api/auth')
       .then(r => r.json())
       .then(data => {
@@ -326,7 +331,7 @@ export default function AdminPredictionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-yellow-500/30">
+    <div className="min-h-screen bg-neutral-950 text-neutral-200 font-sans selection:bg-yellow-500/30">
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
         {/* Header */}

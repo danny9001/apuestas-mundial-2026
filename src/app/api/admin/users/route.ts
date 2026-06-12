@@ -65,7 +65,7 @@ export async function GET() {
     let res;
     if (user.tipo === 'superadmin') {
       res = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -79,7 +79,7 @@ export async function GET() {
     } else {
       // Company admin: only users in shared companies OR users with no company assigned (pending approval)
       res = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -94,7 +94,7 @@ export async function GET() {
            )
          ) OR u.id = $1 OR NOT EXISTS (SELECT 1 FROM user_companies uc3 WHERE uc3.user_id = u.id))
          AND u.tipo != 'superadmin'
-         GROUP BY u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono
+         GROUP BY u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.tincaso
          ORDER BY u.id ASC`,
         [user.id]
       );
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === 'editUser') {
-      const { userId: targetId, nombre, email, tipo, password, telefono } = body;
+      const { userId: targetId, nombre, email, tipo, password, telefono, tincaso } = body;
       if (!targetId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
 
       const nombreSafe = sanitizeText(nombre ?? '', 100);
@@ -159,13 +159,13 @@ export async function POST(req: NextRequest) {
         if (!pwCheck.ok) return NextResponse.json({ error: pwCheck.error }, { status: 400 });
         const bcrypt = await import('bcryptjs');
         const hash = await bcrypt.hash(password.trim(), BCRYPT_ROUNDS);
-        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, password_hash=$4, telefono=$5 WHERE id=$6
-          RETURNING id, nombre, email, tipo, telefono, avatar, activo, aprobado, denegado`;
-        params = [nombreSafe, emailNorm, tipo, hash, tel, targetId];
+        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, password_hash=$4, telefono=$5, tincaso=$6 WHERE id=$7
+          RETURNING id, nombre, email, tipo, telefono, avatar, activo, aprobado, denegado, tincaso`;
+        params = [nombreSafe, emailNorm, tipo, hash, tel, tincaso || null, targetId];
       } else {
-        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, telefono=$4 WHERE id=$5
-          RETURNING id, nombre, email, tipo, telefono, avatar, activo, aprobado, denegado`;
-        params = [nombreSafe, emailNorm, tipo, tel, targetId];
+        updateQuery = `UPDATE users SET nombre=$1, email=$2, tipo=$3, telefono=$4, tincaso=$5 WHERE id=$6
+          RETURNING id, nombre, email, tipo, telefono, avatar, activo, aprobado, denegado, tincaso`;
+        params = [nombreSafe, emailNorm, tipo, tel, tincaso || null, targetId];
       }
 
       const r = await pool.query(updateQuery, params);

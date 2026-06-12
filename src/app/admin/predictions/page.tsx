@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, BarChart3, ChevronRight, Download, FileSpreadsheet, RefreshCw } from 'lucide-react';
+import { TEAM_CODES, getTeamFlag } from '@/lib/constants';
 
 interface UserOption {
   id: number;
@@ -11,6 +12,7 @@ interface UserOption {
   tipo: string;
   participa?: boolean | null;
   companies?: { id: number; nombre: string; color: string }[];
+  tincaso?: string | null;
 }
 
 interface PredRow {
@@ -465,6 +467,66 @@ export default function AdminPredictionsPage() {
                 <span className="text-[9px] text-neutral-500 uppercase tracking-widest text-center">{s.label}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Tinkaso Section */}
+        {selectedUser && (
+          <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-black">Tinkaso (Campeón del Mundo)</span>
+              <div className="text-sm font-bold text-neutral-100 mt-1 flex items-center gap-2">
+                {selectedUser.tincaso ? (
+                  <>
+                    <span>🏆 {selectedUser.tincaso}</span>
+                    {getTeamFlag(selectedUser.tincaso)}
+                  </>
+                ) : (
+                  <span className="text-neutral-500 italic">No registrado</span>
+                )}
+              </div>
+            </div>
+            {currentUser?.tipo === 'superadmin' && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-neutral-400 font-bold uppercase mr-1">Editar:</span>
+                <select
+                  value={selectedUser.tincaso || ''}
+                  onChange={async (e) => {
+                    const newTeam = e.target.value;
+                    if (!confirm(`¿Seguro que deseas cambiar el Tinkaso de ${selectedUser.nombre} a "${newTeam || 'Ninguno'}"?`)) return;
+                    try {
+                      const res = await fetch('/api/admin/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          action: 'editUser',
+                          userId: selectedUser.id,
+                          nombre: selectedUser.nombre,
+                          email: selectedUser.email,
+                          tipo: selectedUser.tipo,
+                          tincaso: newTeam || null,
+                        })
+                      });
+                      if (res.ok) {
+                        setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, tincaso: newTeam || null } : u));
+                        alert('🏆 Tinkaso actualizado con éxito');
+                      } else {
+                        const d = await res.json();
+                        alert(d.error || 'Error al actualizar Tinkaso');
+                      }
+                    } catch {
+                      alert('Error de red');
+                    }
+                  }}
+                  className="bg-neutral-950 border border-neutral-800 text-xs text-neutral-300 rounded-xl px-3 py-1.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer"
+                >
+                  <option value="">— Sin Tinkaso / Elegir equipo —</option>
+                  {Object.keys(TEAM_CODES).sort().map(team => (
+                    <option key={team} value={team}>{team}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         )}
 

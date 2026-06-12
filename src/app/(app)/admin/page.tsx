@@ -849,7 +849,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <section className="space-y-6 flex flex-col lg:flex-row gap-6 items-start">
+      <section className="space-y-6">
 
         {/* ── Header ── */}
         <div className="flex justify-between items-center flex-wrap gap-3">
@@ -877,8 +877,11 @@ export default function AdminPage() {
           )}
         </div>
 
+        {/* ── Main layout: flex-row with sidebar ── */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+
         {/* ── Sub-tabs Mobile ── */}
-        <div className="lg:hidden flex gap-1 border-b border-neutral-800 pb-0 overflow-x-auto">
+        <div className="lg:hidden flex gap-1 border-b border-neutral-800 pb-0 overflow-x-auto w-full">
           {([
             { key: 'usuarios', label: 'Usuarios', icon: <Users className="w-3.5 h-3.5" /> },
             { key: 'empresa', label: 'Empresa', icon: <Building2 className="w-3.5 h-3.5" /> },
@@ -2057,6 +2060,8 @@ export default function AdminPage() {
             </div>
           );
         })()}
+        </div>
+
         </div>
       </section>
 

@@ -134,8 +134,12 @@ console.log(`[scheduler] Iniciado. BASE_URL=${BASE_URL}`);
 runMatchReminders();
 setInterval(runMatchReminders, 15 * 60 * 1000); // cada 15 mins
 
-// Sincronizador en vivo cada 1 minuto
+// Sincronizador en vivo cada 1 minuto y procesamiento de cola de correos
 checkAndSyncMatches();
-setInterval(checkAndSyncMatches, 60 * 1000);
+callApi('queue');
+setInterval(() => {
+  checkAndSyncMatches();
+  callApi('queue');
+}, 60 * 1000);
 
 scheduleWeeklyRankings();

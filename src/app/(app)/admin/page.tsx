@@ -955,13 +955,21 @@ export default function AdminPage() {
             </div>
           </div>
           {user.tipo === 'superadmin' && (
-            <button
-              onClick={handleRecalculateLeaderboard}
-              className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Recalcular Clasificación</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowMailConfigModal(true)}
+                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-750 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
+              >
+                <span>✉️ Configurar Correo</span>
+              </button>
+              <button
+                onClick={handleRecalculateLeaderboard}
+                className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Recalcular Clasificación</span>
+              </button>
+            </div>
           )}
         </div>
 

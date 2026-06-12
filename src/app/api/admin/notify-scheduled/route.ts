@@ -209,6 +209,14 @@ export async function POST(req: NextRequest) {
       results.companies_notified = await notifyWeeklyRankings(force);
     }
 
+    if (tipo === 'all' || tipo === 'queue') {
+      const { processMailQueue } = await import('@/lib/mail');
+      const queueResult = await processMailQueue();
+      results.queued_processed = queueResult.processed;
+      results.queued_successes = queueResult.successes;
+      results.queued_failures = queueResult.failures;
+    }
+
     return NextResponse.json({ success: true, ...results });
   } catch (e: any) {
     console.error('Scheduled notify error:', e);

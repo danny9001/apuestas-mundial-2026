@@ -34,8 +34,6 @@ async function getGraphToken(): Promise<string | null> {
 }
 
 export async function sendMail(opts: MailOptions): Promise<boolean> {
-  if (process.env.MAIL_GRAPH_ENABLED !== 'true') return false;
-
   // Check database setting for email sending
   try {
     const settingRes = await pool.query("SELECT value FROM settings WHERE key = 'mail_notifications_enabled'");
@@ -46,12 +44,40 @@ export async function sendMail(opts: MailOptions): Promise<boolean> {
     console.error('Error reading mail_notifications_enabled setting from DB:', err);
   }
 
+  const toAddresses = Array.isArray(opts.to) ? opts.to : [opts.to];
+  const ccAddresses = opts.cc ? (Array.isArray(opts.cc) ? opts.cc : [opts.cc]) : [];
+  const bccAddresses = opts.bcc ? (Array.isArray(opts.bcc) ? opts.bcc : [opts.bcc]) : [];
+
+  try {
+    // Insert into mail_queue for async worker processing
+    await pool.query(
+      `INSERT INTO mail_queue (destinatarios, asunto, html, cc, bcc)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        toAddresses.join(', '),
+        opts.subject,
+        opts.html,
+        ccAddresses.length > 0 ? ccAddresses.join(', ') : null,
+        bccAddresses.length > 0 ? bccAddresses.join(', ') : null
+      ]
+    );
+    return true;
+  } catch (err) {
+    console.error('Failed to queue mail:', err);
+    return false;
+  }
+}
+
+// Internal sender used by the background queue worker
+async function sendMailDirect(opts: MailOptions): Promise<{ success: boolean; error?: string }> {
+  if (process.env.MAIL_GRAPH_ENABLED !== 'true') return { success: false, error: 'Mail Graph is globally disabled' };
+
   const senderEmail = process.env.MAIL_GRAPH_USER_EMAIL;
   const bccEmail = process.env.MAIL_GRAPH_BCC;
-  if (!senderEmail) return false;
+  if (!senderEmail) return { success: false, error: 'Sender email not configured' };
 
   const token = await getGraphToken();
-  if (!token) return false;
+  if (!token) return { success: false, error: 'Could not fetch MS Graph OAuth token' };
 
   const toAddresses = Array.isArray(opts.to) ? opts.to : [opts.to];
   const ccAddresses = opts.cc ? (Array.isArray(opts.cc) ? opts.cc : [opts.cc]) : [];
@@ -95,33 +121,98 @@ export async function sendMail(opts: MailOptions): Promise<boolean> {
   if (!res.ok) {
     const errorText = await res.text();
     console.error('Graph sendMail error:', res.status, errorText);
-    try {
-      await pool.query(
-        `INSERT INTO mail_logs (destinatario, asunto, estado, error_mensaje) VALUES ($1, $2, $3, $4)`,
-        [toAddresses.join(', '), opts.subject, 'error', `HTTP ${res.status}: ${errorText}`]
-      );
-      // Prune logs older than 90 days
-      await pool.query(`DELETE FROM mail_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
-      await pool.query(`DELETE FROM system_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
-    } catch (dbErr) {
-      console.error('Failed to write error to mail_logs:', dbErr);
-    }
-    return false;
+    return { success: false, error: `HTTP ${res.status}: ${errorText}` };
+  }
+
+  return { success: true };
+}
+
+// Process the mail queue in rounds of up to 5 emails at a time
+export async function processMailQueue(): Promise<{ processed: number; successes: number; failures: number }> {
+  let processed = 0;
+  let successes = 0;
+  let failures = 0;
+
+  try {
+    // Acquire advisory lock to avoid race conditions between concurrent runs
+    await pool.query("SELECT pg_advisory_xact_lock(1492026)");
+  } catch (lockErr) {
+    console.error('Failed to acquire mail queue lock:', lockErr);
+    return { processed, successes, failures };
   }
 
   try {
-    await pool.query(
-      `INSERT INTO mail_logs (destinatario, asunto, estado) VALUES ($1, $2, $3)`,
-      [toAddresses.join(', '), opts.subject, 'success']
-    );
-    // Prune logs older than 90 days
-    await pool.query(`DELETE FROM mail_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
-    await pool.query(`DELETE FROM system_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
-  } catch (dbErr) {
-    console.error('Failed to write success to mail_logs:', dbErr);
+    // Select up to 5 pending or retryable failed mails
+    const query = `
+      SELECT id, destinatarios, asunto, html, cc, bcc, intentos 
+      FROM mail_queue 
+      WHERE estado IN ('pending', 'failed') AND intentos < 3
+      ORDER BY id ASC 
+      LIMIT 5
+      FOR UPDATE
+    `;
+    const res = await pool.query(query);
+
+    for (const row of res.rows) {
+      processed++;
+      const { id, destinatarios, asunto, html, cc, bcc, intentos } = row;
+
+      // Update state to processing
+      await pool.query(
+        `UPDATE mail_queue SET estado = 'processing', intentos = $1 WHERE id = $2`,
+        [intentos + 1, id]
+      );
+
+      const toList = destinatarios.split(',').map((x: string) => x.trim()).filter(Boolean);
+      const ccList = cc ? cc.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
+      const bccList = bcc ? bcc.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
+
+      const result = await sendMailDirect({
+        to: toList,
+        subject: asunto,
+        html: html,
+        cc: ccList,
+        bcc: bccList,
+      });
+
+      if (result.success) {
+        successes++;
+        await pool.query(
+          `UPDATE mail_queue SET estado = 'sent', processed_at = NOW(), error_mensaje = NULL WHERE id = $1`,
+          [id]
+        );
+        // Log to mail_logs
+        await pool.query(
+          `INSERT INTO mail_logs (destinatario, asunto, estado) VALUES ($1, $2, $3)`,
+          [destinatarios, asunto, 'success']
+        );
+      } else {
+        failures++;
+        await pool.query(
+          `UPDATE mail_queue SET estado = 'failed', processed_at = NOW(), error_mensaje = $1 WHERE id = $2`,
+          [result.error || 'Unknown error', id]
+        );
+        // Log to mail_logs
+        await pool.query(
+          `INSERT INTO mail_logs (destinatario, asunto, estado, error_mensaje) VALUES ($1, $2, $3, $4)`,
+          [destinatarios, asunto, 'error', result.error || 'Unknown error']
+        );
+      }
+    }
+
+    // Prune logs older than 90 days if anything was processed
+    if (processed > 0) {
+      await pool.query(`DELETE FROM mail_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
+      await pool.query(`DELETE FROM system_logs WHERE created_at < NOW() - INTERVAL '90 days'`);
+      // Also delete successfully sent emails older than 30 days from queue to prevent table bloat
+      await pool.query(`DELETE FROM mail_queue WHERE estado = 'sent' AND processed_at < NOW() - INTERVAL '30 days'`);
+    }
+
+  } catch (err) {
+    console.error('Error processing mail queue:', err);
   }
 
-  return true;
+  return { processed, successes, failures };
 }
 
 export async function logSystem(nivel: string, categoria: string, mensaje: string, detalles?: string): Promise<boolean> {

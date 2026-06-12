@@ -153,6 +153,23 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* Tinkaso Missing Notice */}
+      {user && !user.tincaso && (
+        <div className="bg-gradient-to-r from-red-500/15 via-orange-500/5 to-transparent border border-red-500/30 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-lg animate-pulse">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-red-400">
+              <span>⚠️</span> ¡Falta registrar tu Tinkaso!
+            </div>
+            <p className="text-neutral-300 text-xs mt-1.5 leading-relaxed">
+              Aún no has pronosticado al campeón del torneo en el <strong>Tinkaso</strong>. ¡No te quedes sin esos puntos extra!
+            </p>
+          </div>
+          <Link href="/fixture" className="btn-primary-stitch px-5 py-2.5 text-xs font-black tracking-wider uppercase bg-red-600 hover:bg-red-500 border-red-500 text-white flex-shrink-0">
+            Registrar Tinkaso
+          </Link>
+        </div>
+      )}
+
       {/* Stats cards */}
       {user && (
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 xl:gap-4">

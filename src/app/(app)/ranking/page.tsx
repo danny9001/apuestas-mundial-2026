@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Trophy, Building2, RefreshCw, ArrowUp, ArrowDown, Circle } from 'lucide-react';
+import { Trophy, Building2, RefreshCw, ArrowUp, ArrowDown, Circle, X } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
+import { getTeamFlag } from '@/lib/constants';
 
 export default function RankingPage() {
   const { user, handleIdentityLogin } = useApp();
@@ -12,6 +13,25 @@ export default function RankingPage() {
   const [rankingFilter, setRankingFilter] = useState<'participantes' | 'visores'>('participantes');
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [companySelectModal, setCompanySelectModal] = useState(false);
+  const [tinkasoStatsModal, setTinkasoStatsModal] = useState(false);
+  const [tinkasoStats, setTinkasoStats] = useState<any[]>([]);
+  const [tinkasoLoading, setTinkasoLoading] = useState(false);
+
+  const fetchTinkasoStats = async () => {
+    setTinkasoLoading(true);
+    setTinkasoStatsModal(true);
+    try {
+      const res = await fetch(`/api/tincaso/stats?t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTinkasoStats(data.stats || []);
+      }
+    } catch (e) {
+      console.error('Error fetching tincaso stats:', e);
+    } finally {
+      setTinkasoLoading(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -115,19 +135,30 @@ export default function RankingPage() {
         </div>
       )}
 
-      {/* Pozo */}
-      {participantesCount > 0 && (
-        <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
-          <div>
-            <div className="text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Pozo Acumulado</div>
-            <div className="text-2xl font-black text-yellow-500 font-mono mt-0.5">
-              Bs. {(participantesCount * monto).toLocaleString('es-BO', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+      {/* Pozo & Tinkaso Button */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+        {participantesCount > 0 && (
+          <div className="bg-gradient-to-r from-yellow-500/10 to-amber-600/5 border border-yellow-500/25 rounded-2xl p-4 flex items-center justify-between shadow-[0_0_20px_rgba(255,209,101,0.05)]">
+            <div>
+              <div className="text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Pozo Acumulado</div>
+              <div className="text-2xl font-black text-yellow-500 font-mono mt-0.5">
+                Bs. {(participantesCount * monto).toLocaleString('es-BO', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-[10px] text-neutral-500 mt-0.5">{participantesCount} participantes × Bs. {monto.toLocaleString('es-BO')}</div>
             </div>
-            <div className="text-[10px] text-neutral-500 mt-0.5">{participantesCount} participantes × Bs. {monto.toLocaleString('es-BO')}</div>
+            <div className="text-4xl">🏆</div>
           </div>
-          <div className="text-4xl">🏆</div>
-        </div>
-      )}
+        )}
+        <button onClick={() => fetchTinkasoStats()}
+          className="bg-neutral-900/50 border border-neutral-800 hover:border-yellow-500/30 rounded-2xl p-4 flex items-center justify-between shadow-md transition group text-left">
+          <div>
+            <div className="text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Tinkaso Stats</div>
+            <div className="text-lg font-black text-neutral-100 mt-1 group-hover:text-yellow-500 transition">¿Quién ganará el Mundial?</div>
+            <div className="text-[10px] text-neutral-500 mt-0.5">Estadísticas y equipos más votados</div>
+          </div>
+          <div className="text-3xl group-hover:scale-110 transition duration-300">📊</div>
+        </button>
+      </div>
 
       {/* Podium */}
       <div className="grid grid-cols-3 gap-4 pt-2 max-w-xl mx-auto">
@@ -209,6 +240,56 @@ export default function RankingPage() {
                   {c.nombre}
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tinkaso Stats Modal */}
+      {tinkasoStatsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setTinkasoStatsModal(false)}>
+          <div className="bg-neutral-950 border border-neutral-850 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center pb-2 border-b border-neutral-850">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📊</span>
+                <h3 className="text-sm font-black uppercase tracking-wider text-neutral-100">Equipos más votados (Tinkaso)</h3>
+              </div>
+              <button onClick={() => setTinkasoStatsModal(false)} className="text-neutral-500 hover:text-neutral-300 p-1 transition">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {tinkasoLoading ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500"></div>
+              </div>
+            ) : (
+              <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
+                {tinkasoStats.length === 0 ? (
+                  <p className="text-center text-xs text-neutral-500 py-6">Aún no hay votos registrados para el Tinkaso.</p>
+                ) : (
+                  tinkasoStats.map((stat, idx) => (
+                    <div key={stat.team} className="space-y-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-neutral-500 w-5">#{idx + 1}</span>
+                          <span className="text-sm">{getTeamFlag(stat.team)}</span>
+                          <span className="font-bold text-neutral-200">{stat.team}</span>
+                        </div>
+                        <span className="font-mono font-bold text-yellow-500">{stat.percentage}%</span>
+                      </div>
+                      <div className="w-full bg-neutral-900 rounded-full h-2 overflow-hidden border border-neutral-850">
+                        <div className="bg-gradient-to-r from-yellow-500 to-amber-500 h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${stat.percentage}%` }} />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            
+            <div className="text-[10px] text-neutral-500 text-center pt-2">
+              Los porcentajes se calculan en base a todos los usuarios con Tinkaso registrado.
             </div>
           </div>
         </div>

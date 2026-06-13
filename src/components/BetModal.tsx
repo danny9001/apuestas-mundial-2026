@@ -37,8 +37,8 @@ export default function BetModal({ match, user, existingPred, adminUsers = [], o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-      <div className="glass-card border-t-2 border-t-yellow-500 border-x border-b border-neutral-800/80 rounded-xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="glass-card border-t-2 border-t-yellow-500 border-x border-b border-neutral-800/80 rounded-xl w-full max-w-md p-6 my-auto shadow-2xl animate-slide-in-up space-y-6">
 
         <div className="flex justify-between items-center border-b border-neutral-800/40 pb-3">
           <div>
@@ -103,11 +103,16 @@ export default function BetModal({ match, user, existingPred, adminUsers = [], o
           </div>
         )}
 
-        <button onClick={handleSave} disabled={submitting || isLocked}
-          className="w-full btn-primary-stitch py-3.5 text-sm uppercase flex items-center justify-center gap-2 disabled:opacity-50">
-          <Check className="w-4 h-4" />
-          <span>{submitting ? 'Confirmando...' : isLocked ? 'Apuesta Realizada (No editable)' : 'Confirmar Apuesta'}</span>
-        </button>
+        <div className="flex gap-3 pt-2">
+          <button onClick={onClose} className="w-1/2 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-neutral-300 py-3 rounded-lg text-xs font-bold uppercase transition active:scale-95">
+            Cerrar
+          </button>
+          <button onClick={handleSave} disabled={submitting || isLocked}
+            className="w-1/2 btn-primary-stitch py-3 text-xs uppercase flex items-center justify-center gap-2 disabled:opacity-50">
+            <Check className="w-4 h-4" />
+            <span>{submitting ? 'Guardando...' : isLocked ? 'Apuesta Realizada' : 'Confirmar'}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

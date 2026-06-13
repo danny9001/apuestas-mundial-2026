@@ -7,6 +7,7 @@ import { useApp } from '@/contexts/AppContext';
 import { getTeamFlag } from '@/lib/constants';
 import MatchCard from '@/components/MatchCard';
 import BetModal from '@/components/BetModal';
+import MatchInfoModal from '@/components/MatchInfoModal';
 
 export default function DashboardPage() {
   const { user, showToast, notifications, lastMatchUpdate } = useApp();
@@ -16,6 +17,7 @@ export default function DashboardPage() {
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [betModalMatch, setBetModalMatch] = useState<any | null>(null);
+  const [infoModalMatch, setInfoModalMatch] = useState<any | null>(null);
   const [summaryMatch, setSummaryMatch] = useState<any | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [kickoffTimeLeft, setKickoffTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -269,7 +271,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {liveMatches.map(m => (
               <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
-                compact={false} onBet={() => setBetModalMatch(m)} />
+                compact={false} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
             ))}
           </div>
         </div>
@@ -285,7 +287,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
             {upcomingMatches.map(m => (
               <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
-                onBet={() => setSummaryMatch(m)} />
+                onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
             ))}
           </div>
         </div>
@@ -429,6 +431,13 @@ export default function DashboardPage() {
           adminUsers={adminUsers}
           onSave={handleSavePrediction}
           onClose={() => setBetModalMatch(null)}
+        />
+      )}
+
+      {infoModalMatch && (
+        <MatchInfoModal
+          match={infoModalMatch}
+          onClose={() => setInfoModalMatch(null)}
         />
       )}
     </section>

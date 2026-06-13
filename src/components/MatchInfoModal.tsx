@@ -90,9 +90,9 @@ export default function MatchInfoModal({ match, onClose }: MatchInfoModalProps) 
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stadiumQuery)}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
       <div 
-        className="glass-card border border-neutral-800/80 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-6 animate-slide-in-up"
+        className="glass-card border border-neutral-800/80 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 my-auto shadow-2xl space-y-6 animate-slide-in-up"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

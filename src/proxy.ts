@@ -29,17 +29,17 @@ function maybeCleanup() {
 
 // --- Limits config (most specific patterns FIRST) ---
 const LIMITS: { pattern: RegExp; rps: number; windowMs: number }[] = [
-  { pattern: /^\/api\/auth\/register/,  rps: 5,  windowMs: 60_000 }, // 5 registros/min
-  { pattern: /^\/api\/auth\/webauthn/,  rps: 20, windowMs: 60_000 }, // 20 WebAuthn/min
-  { pattern: /^\/api\/auth/,            rps: 10, windowMs: 60_000 }, // 10 logins/min
-  { pattern: /^\/api\/profile/,         rps: 10, windowMs: 60_000 }, // 10 cambios perfil/min
-  { pattern: /^\/api\/admin/,           rps: 30, windowMs: 60_000 }, // 30 admin ops/min
-  { pattern: /^\/api\/sync/,            rps: 10, windowMs: 60_000 },
-  { pattern: /^\/api\//,                rps: 60, windowMs: 60_000 }, // general API
+  { pattern: /^\/api\/auth\/register/,  rps: 3,  windowMs: 60_000 }, // 3 registros/min
+  { pattern: /^\/api\/auth\/webauthn/,  rps: 10, windowMs: 60_000 }, // 10 WebAuthn/min
+  { pattern: /^\/api\/auth/,            rps: 5,  windowMs: 60_000 }, // 5 logins/min
+  { pattern: /^\/api\/profile/,         rps: 5,  windowMs: 60_000 }, // 5 cambios perfil/min
+  { pattern: /^\/api\/admin/,           rps: 15, windowMs: 60_000 }, // 15 admin ops/min
+  { pattern: /^\/api\/sync/,            rps: 3,  windowMs: 60_000 }, // 3 syncs/min
+  { pattern: /^\/api\//,                rps: 30, windowMs: 60_000 }, // general API 30/min
 ];
 
 function getLimit(pathname: string) {
-  return LIMITS.find((l) => l.pattern.test(pathname)) ?? { rps: 120, windowMs: 60_000 };
+  return LIMITS.find((l) => l.pattern.test(pathname)) ?? { rps: 60, windowMs: 60_000 };
 }
 
 // --- Security headers ---
@@ -48,9 +48,14 @@ function applySecurityHeaders(res: NextResponse, isProd: boolean) {
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+  const scriptSrc = isProd
+    ? "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com";
+
   res.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-ancestors 'none';"
+    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-ancestors 'none';`
   );
   if (isProd) {
     res.headers.set(

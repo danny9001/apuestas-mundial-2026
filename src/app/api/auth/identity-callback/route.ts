@@ -147,13 +147,15 @@ export async function GET(req: NextRequest) {
     const sessionToken = jwt.sign(
       { id: user.id, email: user.email, tipo: user.tipo },
       process.env.JWT_SECRET!,
-      { expiresIn: 60 * 60 * 12 }
+      { expiresIn: 7200 }
     );
     console.log('Generated sessionToken for:', user.email, 'length:', sessionToken.length);
 
-    const dest = redirectTo.startsWith('http')
-      ? redirectTo
-      : `${base}${redirectTo.startsWith('/') ? '' : '/'}${redirectTo}`;
+    let safeRedirect = '/';
+    if (redirectTo.startsWith('/') && !redirectTo.startsWith('//')) {
+      safeRedirect = redirectTo;
+    }
+    const dest = safeRedirect;
 
     // Usar JavaScript para hacer POST automático
     // Esto evita problemas de NextResponse.redirect() con cookies
@@ -169,8 +171,8 @@ export async function GET(req: NextRequest) {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    token: '${sessionToken}',
-                    redirect: '${dest}'
+                    token: ${JSON.stringify(sessionToken)},
+                    redirect: ${JSON.stringify(dest)}
                   }),
                   credentials: 'include'
                 });

@@ -1,15 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { syncMatches } from '@/lib/sync';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
+function safeCompare(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a, 'utf8');
+  const bBuf = Buffer.from(b, 'utf8');
+  if (aBuf.length !== bBuf.length) {
+    crypto.timingSafeEqual(aBuf, aBuf);
+    return false;
+  }
+  return crypto.timingSafeEqual(aBuf, bBuf);
+}
+
+function verifyAuth(req: NextRequest): boolean {
+  const authHeader = req.headers.get('authorization') || '';
+  let token = '';
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    token = authHeader.substring(7).trim();
+  }
+  const secret = process.env.SYNC_SECRET || 'sync2026';
+  return safeCompare(token, secret);
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const key = searchParams.get('key');
-    const secret = process.env.SYNC_SECRET || 'sync2026';
-
-    if (key !== secret) {
+    if (!verifyAuth(req)) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
@@ -23,11 +40,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const key = searchParams.get('key');
-    const secret = process.env.SYNC_SECRET || 'sync2026';
-
-    if (key !== secret) {
+    if (!verifyAuth(req)) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 

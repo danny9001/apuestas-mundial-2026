@@ -111,23 +111,36 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
         </div>
 
         {/* Match Matchup Row */}
-        <div className="bg-neutral-950/40 border border-neutral-900 rounded-xl p-5 flex items-center justify-between shadow-inner">
-          <div className="flex flex-col items-center gap-1.5 w-2/5">
-            <div className="w-14 h-14 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-3xl shadow-inner select-none flex-shrink-0">
+        <div className="bg-neutral-950/40 border border-neutral-900 rounded-xl p-4 sm:p-5 flex items-center justify-center gap-2 sm:gap-6 shadow-inner w-full">
+          {/* Local */}
+          <div className="flex flex-col items-center justify-center flex-1 min-w-0 text-center">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl sm:text-3xl shadow-inner select-none flex-shrink-0">
               {getTeamFlag(match.local)}
             </div>
-            <span className="text-[11px] font-black text-neutral-100 uppercase truncate w-full text-center tracking-wider">{match.local}</span>
+            <span className="text-[10px] sm:text-xs font-black text-neutral-100 uppercase mt-1.5 w-full block truncate tracking-wider leading-tight">
+              {match.local}
+            </span>
           </div>
 
-          <div className="flex flex-col items-center justify-center w-1/5">
-            <span className="bg-neutral-900 border border-neutral-800 px-3 py-1 rounded font-mono text-xs font-black text-neutral-300">
+          {/* VS / Score */}
+          <div className="flex flex-col items-center justify-center flex-shrink-0 px-2 min-w-[60px] sm:min-w-[80px]">
+            <span className="bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded font-mono text-xs sm:text-sm font-black text-neutral-300">
               {match.estado !== 'upcoming' ? `${match.goles_local} - ${match.goles_visitante}` : 'VS'}
             </span>
-            <span className="text-[8px] text-neutral-500 uppercase tracking-widest mt-2 font-mono">
+            <span className="text-[8px] sm:text-[9px] text-neutral-500 uppercase tracking-widest mt-2 font-mono whitespace-nowrap">
               {match.estado === 'live' ? 'En Vivo' : match.estado === 'finished' ? 'Finalizado' : 'Próximamente'}
             </span>
           </div>
 
+          {/* Visitante */}
+          <div className="flex flex-col items-center justify-center flex-1 min-w-0 text-center">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl sm:text-3xl shadow-inner select-none flex-shrink-0">
+              {getTeamFlag(match.visitante)}
+            </div>
+            <span className="text-[10px] sm:text-xs font-black text-neutral-100 uppercase mt-1.5 w-full block truncate tracking-wider leading-tight">
+              {match.visitante}
+            </span>
+          </div>
         </div>
 
         {/* Quick Bet / Prediction Info */}

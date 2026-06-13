@@ -20,7 +20,8 @@ export default function BetModal({ match, user, existingPred, adminUsers = [], o
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const isLocked = !!existingPred && targetUserId === user?.id;
+  const isMatchClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - 60 * 60 * 1000;
+  const isLocked = isMatchClosed && targetUserId === user?.id;
 
   const handleSave = async () => {
     setSubmitting(true);

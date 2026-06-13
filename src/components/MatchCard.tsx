@@ -57,9 +57,16 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
 
           <div className="flex items-center justify-end gap-2 text-right flex-shrink-0" onClick={e => e.stopPropagation()}>
             {myPred ? (
-              <div className="flex flex-col items-end flex-shrink-0">
-                <span className="text-[8px] text-neutral-500 font-semibold leading-none mb-0.5">Mi apuesta</span>
-                <span className="font-extrabold text-neutral-100 text-xs font-mono leading-none">{myPred.pred_local} - {myPred.pred_visitante}</span>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex flex-col items-end flex-shrink-0">
+                  <span className="text-[8px] text-neutral-500 font-semibold leading-none mb-0.5">Mi apuesta</span>
+                  <span className="font-extrabold text-neutral-100 text-xs font-mono leading-none">{myPred.pred_local} - {myPred.pred_visitante}</span>
+                </div>
+                {!isClosed && (
+                  <button onClick={() => onBet?.(m)} className="text-[9px] font-black text-yellow-500 hover:text-yellow-400 uppercase tracking-wider ml-1">
+                    Editar
+                  </button>
+                )}
               </div>
             ) : isClosed ? (
               <span className="text-[9px] text-neutral-500 font-medium italic">Sin apuesta</span>

@@ -109,15 +109,22 @@ export async function POST(req: NextRequest) {
           errors.push({ matchId, error: 'Apuestas cerradas (cierran 1 hora antes del partido)' }); continue;
         }
         if (existingSet.has(matchId)) {
-          errors.push({ matchId, error: 'Ya has guardado un pronóstico para este partido. No se permite modificar.' });
-          continue;
+          const res = await pool.query(
+            `UPDATE predictions SET pred_local = $1, pred_visitante = $2 WHERE user_id = $3 AND match_id = $4 RETURNING *`,
+            [parseInt(predLocal), parseInt(predVisitante), user.id, matchId]
+          );
+          results.push(res.rows[0]);
+        } else {
+          const res = await pool.query(
+            `INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante) VALUES ($1, $2, $3, $4) RETURNING *`,
+            [user.id, matchId, parseInt(predLocal), parseInt(predVisitante)]
+          );
+          results.push(res.rows[0]);
         }
+      }
 
-        const res = await pool.query(
-          `INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante) VALUES ($1, $2, $3, $4) RETURNING *`,
-          [user.id, matchId, parseInt(predLocal), parseInt(predVisitante)]
-        );
-        results.push(res.rows[0]);
+      if (results.length > 0) {
+        await pool.query('SELECT recalculate_leaderboard()');
       }
 
       return NextResponse.json({ success: true, results, errors });
@@ -199,12 +206,6 @@ export async function POST(req: NextRequest) {
 
     if (existingPredRes.rows.length > 0) {
       const oldPred = existingPredRes.rows[0];
-      if (!isSuperAdminBypass) {
-        return NextResponse.json(
-          { error: 'Ya has guardado un pronóstico para este partido. No se permite modificar.' },
-          { status: 400 }
-        );
-      }
       const upd = await pool.query(
         'UPDATE predictions SET pred_local = $1, pred_visitante = $2 WHERE user_id = $3 AND match_id = $4 RETURNING *',
         [parseInt(predLocal), parseInt(predVisitante), targetUserId, matchId]

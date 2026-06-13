@@ -128,13 +128,20 @@ export default function MatchInfoModal({ match, hasPrediction = false, onBet, on
             </span>
           </div>
 
-          <div className="flex flex-col items-center gap-1.5 w-2/5">
-            <div className="w-14 h-14 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-3xl shadow-inner select-none flex-shrink-0">
-              {getTeamFlag(match.visitante)}
-            </div>
-            <span className="text-[11px] font-black text-neutral-100 uppercase truncate w-full text-center tracking-wider">{match.visitante}</span>
-          </div>
         </div>
+
+        {/* Quick Bet Button */}
+        {!hasPrediction && (match.estado === 'upcoming' && new Date().getTime() < new Date(match.fecha).getTime() - 60 * 60 * 1000) && onBet && (
+          <button
+            onClick={() => {
+              onClose();
+              onBet();
+            }}
+            className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-black uppercase tracking-wider rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(234,179,8,0.2)] animate-pulse"
+          >
+            <span>⚽ Registrar Pronóstico Ahora</span>
+          </button>
+        )}
 
         {/* Match metadata & Stadium map */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -231,18 +238,7 @@ export default function MatchInfoModal({ match, hasPrediction = false, onBet, on
           </div>
         </div>
 
-        <div className="flex justify-end pt-2 border-t border-neutral-800/50 gap-3">
-          {!hasPrediction && (match.estado === 'upcoming' && new Date().getTime() < new Date(match.fecha).getTime() - 60 * 60 * 1000) && onBet && (
-            <button
-              onClick={() => {
-                onClose();
-                onBet();
-              }}
-              className="px-5 py-2 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold uppercase tracking-wider rounded-xl transition font-sans active:scale-95"
-            >
-              Apostar Ahora ⚽
-            </button>
-          )}
+        <div className="flex justify-end pt-2 border-t border-neutral-800/50">
           <button
             onClick={onClose}
             className="px-5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold uppercase tracking-wider rounded-xl transition font-sans"

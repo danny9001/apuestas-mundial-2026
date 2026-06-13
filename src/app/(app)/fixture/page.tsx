@@ -7,6 +7,7 @@ import { getStandings, getMatchesByDate } from '@/lib/match-utils';
 import { getTeamFlag } from '@/lib/constants';
 import MatchCard from '@/components/MatchCard';
 import BetModal from '@/components/BetModal';
+import MatchInfoModal from '@/components/MatchInfoModal';
 
 type SubTab = 'partidos' | 'posiciones' | 'eliminatoria';
 
@@ -18,6 +19,7 @@ export default function FixturePage() {
   const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState<SubTab>('partidos');
   const [betModalMatch, setBetModalMatch] = useState<any | null>(null);
+  const [infoModalMatch, setInfoModalMatch] = useState<any | null>(null);
   const [tincasoSelection, setTincasoSelection] = useState('');
   const [tincasoSubmitting, setTincasoSubmitting] = useState(false);
 
@@ -87,7 +89,7 @@ export default function FixturePage() {
   const gridClass = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
   const renderCards = (list: any[]) => list.map(m => (
     <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
-      compact={compactView} onBet={() => setBetModalMatch(m)} />
+      compact={compactView} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
   ));
 
   const standings = getStandings(matches);
@@ -237,6 +239,10 @@ export default function FixturePage() {
         <BetModal match={betModalMatch} user={user}
           existingPred={predictions.find(p => p.match_id === betModalMatch.id) ?? null}
           adminUsers={adminUsers} onSave={handleSavePrediction} onClose={() => setBetModalMatch(null)} />
+      )}
+
+      {infoModalMatch && (
+        <MatchInfoModal match={infoModalMatch} onClose={() => setInfoModalMatch(null)} />
       )}
     </section>
   );

@@ -5,6 +5,7 @@ import { useApp } from '@/contexts/AppContext';
 import { getMatchesByDate } from '@/lib/match-utils';
 import MatchCard from '@/components/MatchCard';
 import BetModal from '@/components/BetModal';
+import MatchInfoModal from '@/components/MatchInfoModal';
 
 export default function PartidosPage() {
   const { user, showToast, lastMatchUpdate } = useApp();
@@ -13,6 +14,7 @@ export default function PartidosPage() {
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [betModalMatch, setBetModalMatch] = useState<any | null>(null);
+  const [infoModalMatch, setInfoModalMatch] = useState<any | null>(null);
   const [compactView, setCompactView] = useState(false);
   const [filterFase, setFilterFase] = useState('ALL');
   const [filterGrupo, setFilterGrupo] = useState('ALL');
@@ -69,7 +71,7 @@ export default function PartidosPage() {
 
   const renderCards = (list: any[]) => list.map(m => (
     <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
-      compact={compactView} onBet={() => setBetModalMatch(m)} />
+      compact={compactView} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
   ));
 
   return (
@@ -165,6 +167,10 @@ export default function PartidosPage() {
         <BetModal match={betModalMatch} user={user}
           existingPred={predictions.find(p => p.match_id === betModalMatch.id) ?? null}
           adminUsers={adminUsers} onSave={handleSavePrediction} onClose={() => setBetModalMatch(null)} />
+      )}
+
+      {infoModalMatch && (
+        <MatchInfoModal match={infoModalMatch} onClose={() => setInfoModalMatch(null)} />
       )}
     </section>
   );

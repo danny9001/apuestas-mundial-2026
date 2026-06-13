@@ -7,7 +7,8 @@ module.exports = {
       exec_mode: 'cluster',
       instances: 4,
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        SYNC_SECRET: 'qPSaiExBS5AaGTU2WwLDvMZjEjGuabXMJhzTzde7MHM'
       }
     },
     {

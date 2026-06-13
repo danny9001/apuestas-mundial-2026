@@ -19,6 +19,9 @@ function verifyAuth(req: NextRequest): boolean {
   let token = '';
   if (authHeader.toLowerCase().startsWith('bearer ')) {
     token = authHeader.substring(7).trim();
+  } else {
+    const url = new URL(req.url);
+    token = url.searchParams.get('key') || '';
   }
   const secret = process.env.SYNC_SECRET || 'sync2026';
   return safeCompare(token, secret);

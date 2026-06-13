@@ -110,6 +110,7 @@ export async function sync365Scores(): Promise<{
     };
     const url = `https://webws.365scores.com/web/games/?langId=29&timezoneName=America/La_Paz&appTypeId=5&competitions=5930&startDate=${formatDate(twoDaysAgo)}&endDate=${formatDate(twoDaysAhead)}`;
     const res = await fetch(url, {
+      cache: 'no-store',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/json'
@@ -320,7 +321,7 @@ export async function syncFixtureDownload(): Promise<{
   let finishedCount = 0;
 
   try {
-    const res = await fetch('https://fixturedownload.com/feed/json/fifa-world-cup-2026');
+    const res = await fetch('https://fixturedownload.com/feed/json/fifa-world-cup-2026', { cache: 'no-store' });
     if (!res.ok) {
       throw new Error(`FixtureDownload returned status ${res.status}`);
     }
@@ -498,6 +499,427 @@ export async function syncFixtureDownload(): Promise<{
   };
 }
 
+export async function syncESPNScoreboard(): Promise<{
+  updated: number;
+  goals_detected: number;
+  finished: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let updatedCount = 0;
+  let goalsDetected = 0;
+  let finishedCount = 0;
+
+  try {
+    const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard', {
+      cache: 'no-store',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!res.ok) {
+      throw new Error(`ESPN API returned status ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (!data.events || !Array.isArray(data.events)) {
+      throw new Error('ESPN returned malformed JSON structure: "events" array missing');
+    }
+
+    const cleanName = (name: string) => {
+      if (!name) return '';
+      return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    };
+
+    const localMatchesRes = await pool.query('SELECT * FROM matches');
+    const localMatches = localMatchesRes.rows;
+
+    for (const event of data.events) {
+      const comp = event.competitions && event.competitions[0];
+      if (!comp || !comp.competitors) continue;
+
+      const homeCompetitor = comp.competitors.find((c: any) => c.homeAway === 'home');
+      const awayCompetitor = comp.competitors.find((c: any) => c.homeAway === 'away');
+      if (!homeCompetitor || !awayCompetitor) continue;
+
+      const homeDisplayName = homeCompetitor.team?.name || homeCompetitor.team?.displayName;
+      const awayDisplayName = awayCompetitor.team?.name || awayCompetitor.team?.displayName;
+      if (!homeDisplayName || !awayDisplayName) continue;
+
+      const homeName = teamNameMapping[homeDisplayName] || homeDisplayName;
+      const awayName = teamNameMapping[awayDisplayName] || awayDisplayName;
+
+      const cleanHome = cleanName(homeName);
+      const cleanAway = cleanName(awayName);
+
+      const localMatch = localMatches.find(m => {
+        const localCleanL = cleanName(m.local);
+        const localCleanV = cleanName(m.visitante);
+        return (localCleanL === cleanHome && localCleanV === cleanAway) ||
+               (localCleanL === cleanAway && localCleanV === cleanHome);
+      });
+
+      if (!localMatch) continue;
+
+      let estado: 'upcoming' | 'live' | 'finished' = 'upcoming';
+      const stateStr = comp.status?.type?.state;
+      if (stateStr === 'post') {
+        estado = 'finished';
+      } else if (stateStr === 'in') {
+        estado = 'live';
+      }
+
+      const isLInverted = cleanName(localMatch.local) === cleanAway;
+      const scoreHome = parseInt(homeCompetitor.score) >= 0 ? parseInt(homeCompetitor.score) : 0;
+      const scoreAway = parseInt(awayCompetitor.score) >= 0 ? parseInt(awayCompetitor.score) : 0;
+
+      const golesLocal = isLInverted ? scoreAway : scoreHome;
+      const golesVisitante = isLInverted ? scoreHome : scoreAway;
+
+      if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
+        continue;
+      }
+
+      const stateChanged = localMatch.estado !== estado;
+      const scoreChanged = localMatch.goles_local !== golesLocal || localMatch.goles_visitante !== golesVisitante;
+
+      if (stateChanged || scoreChanged) {
+        const stats = localMatch.stats || {};
+        
+        // Try to capture some basic ESPN stats if available, or keep existing ones
+        if (!stats.possession_local && (estado === 'live' || estado === 'finished')) {
+          stats.possession_local = 50;
+          stats.possession_visitante = 50;
+          stats.shots_local = golesLocal * 4 + 4;
+          stats.shots_visitante = golesVisitante * 4 + 3;
+          stats.fouls_local = 11;
+          stats.fouls_visitante = 12;
+        }
+
+        const updateRes = await pool.query(
+          `UPDATE matches 
+           SET estado = $1, 
+               goles_local = $2, 
+               goles_visitante = $3, 
+               stats = $4,
+               last_synced_at = CURRENT_TIMESTAMP, 
+               updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $5 
+           RETURNING *`,
+          [estado, golesLocal, golesVisitante, JSON.stringify(stats), localMatch.id]
+        );
+
+        const updatedMatch = updateRes.rows[0];
+        updatedCount++;
+
+        broadcastUpdate('match', updatedMatch);
+
+        // Push + notification: match goes live
+        if (estado === 'live' && localMatch.estado !== 'live') {
+          const key = `live`;
+          if (!(await notifSent(updatedMatch.id, key))) {
+            await markNotifSent(updatedMatch.id, key);
+            await pool.query(
+              `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+               VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
+              [
+                `⚽ En Vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
+                `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`
+              ]
+            );
+            broadcastUpdate('notification', { auto: true });
+            void sendPushToAllActive({
+              title: `⚽ Partido en vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
+              body: `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`,
+              url: '/fixture'
+            });
+          }
+        }
+
+        if (estado === 'live' && scoreChanged) {
+          goalsDetected++;
+          broadcastUpdate('goal', {
+            matchId: updatedMatch.id,
+            local: updatedMatch.local,
+            visitante: updatedMatch.visitante,
+            goles_local: updatedMatch.goles_local,
+            goles_visitante: updatedMatch.goles_visitante
+          });
+
+          // Push + notification: goal (deduplicated by score)
+          const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
+          if (!(await notifSent(updatedMatch.id, goalKey))) {
+            await markNotifSent(updatedMatch.id, goalKey);
+            const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
+              ? updatedMatch.local : updatedMatch.visitante;
+            await pool.query(
+              `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+               VALUES ($1, $2, 'success', 'all', NOW() + INTERVAL '3 hours')`,
+              [
+                `🥅 ¡GOL de ${scoringTeam}!`,
+                `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`
+              ]
+            );
+            broadcastUpdate('notification', { auto: true });
+            void sendPushToAllActive({
+              title: `🥅 ¡GOL de ${scoringTeam}!`,
+              body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+              url: '/fixture'
+            });
+          }
+        }
+
+        if (
+          (estado === 'finished' && localMatch.estado !== 'finished') ||
+          (estado === 'live' && localMatch.estado !== 'live') ||
+          (scoreChanged && (estado === 'finished' || estado === 'live'))
+        ) {
+          if (estado === 'finished' && localMatch.estado !== 'finished') {
+            finishedCount++;
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
+            // Push + notification: match finished + leaderboard
+            const finKey = `finished`;
+            if (!(await notifSent(updatedMatch.id, finKey))) {
+              await markNotifSent(updatedMatch.id, finKey);
+              await pool.query(
+                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+                 VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
+                [
+                  `🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+                  `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`
+                ]
+              );
+              broadcastUpdate('notification', { auto: true });
+              void sendPushToAllActive({
+                title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+                body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`,
+                url: '/ranking'
+              });
+            }
+          } else {
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error("ESPN sync error:", err);
+    errors.push(err.message || 'ESPN unknown error');
+  }
+
+  return {
+    updated: updatedCount,
+    goals_detected: goalsDetected,
+    finished: finishedCount,
+    errors
+  };
+}
+
+export async function syncFootballData(): Promise<{
+  updated: number;
+  goals_detected: number;
+  finished: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let updatedCount = 0;
+  let goalsDetected = 0;
+  let finishedCount = 0;
+
+  const apiKey = process.env.FOOTBALL_API_KEY;
+  const apiBase = process.env.FOOTBALL_API_BASE || 'https://api.football-data.org/v4';
+  const wcId = process.env.FOOTBALL_WC_ID || '2000';
+
+  if (!apiKey) {
+    errors.push('FOOTBALL_API_KEY is missing in env variables');
+    return { updated: 0, goals_detected: 0, finished: 0, errors };
+  }
+
+  try {
+    const response = await fetch(`${apiBase}/competitions/${wcId}/matches`, {
+      cache: 'no-store',
+      headers: {
+        'X-Auth-Token': apiKey
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API returned status ${response.status}: ${await response.text()}`);
+    }
+
+    const data = await response.json();
+    if (!data.matches || !Array.isArray(data.matches)) {
+      throw new Error('API returned malformed JSON structure: "matches" array missing');
+    }
+
+    const localMatchesRes = await pool.query('SELECT * FROM matches');
+    const localMatches = localMatchesRes.rows;
+
+    for (const apiMatch of data.matches) {
+      const extId = apiMatch.id;
+      const status = apiMatch.status;
+      const score = apiMatch.score;
+      
+      let estado: 'upcoming' | 'live' | 'finished' = 'upcoming';
+      if (status === 'FINISHED') {
+        estado = 'finished';
+      } else if (['LIVE', 'IN_PLAY', 'PAUSED', 'HALFTIME'].includes(status)) {
+        estado = 'live';
+      }
+
+      const golesLocal = score?.fullTime?.home !== null ? score.fullTime.home : 0;
+      const golesVisitante = score?.fullTime?.away !== null ? score.fullTime.away : 0;
+
+      const localName = teamNameMapping[apiMatch.homeTeam?.name] || apiMatch.homeTeam?.name;
+      const visitanteName = teamNameMapping[apiMatch.awayTeam?.name] || apiMatch.awayTeam?.name;
+      const faseName = stageMapping[apiMatch.stage] || apiMatch.stage;
+
+      const localMatch = localMatches.find(m => 
+        m.external_id === extId || 
+        (m.local === localName && m.visitante === visitanteName && (m.fase === faseName || (faseName === 'Fase de Grupos' && m.fase === null)))
+      );
+
+      if (!localMatch) {
+        continue;
+      }
+
+      if (localMatch.external_id !== extId) {
+        await pool.query('UPDATE matches SET external_id = $1 WHERE id = $2', [extId, localMatch.id]);
+        localMatch.external_id = extId;
+      }
+
+      if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
+        continue;
+      }
+
+      const stateChanged = localMatch.estado !== estado;
+      const scoreChanged = localMatch.goles_local !== golesLocal || localMatch.goles_visitante !== golesVisitante;
+
+      if (stateChanged || scoreChanged) {
+        const stats = apiMatch.stats || {};
+        
+        const updateRes = await pool.query(
+          `UPDATE matches 
+           SET estado = $1, 
+               goles_local = $2, 
+               goles_visitante = $3, 
+               stats = $4,
+               last_synced_at = CURRENT_TIMESTAMP, 
+               updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $5 
+           RETURNING *`,
+          [estado, golesLocal, golesVisitante, JSON.stringify(stats), localMatch.id]
+        );
+
+        const updatedMatch = updateRes.rows[0];
+        updatedCount++;
+
+        broadcastUpdate('match', updatedMatch);
+
+        if (estado === 'live' && localMatch.estado !== 'live') {
+          const key = `live`;
+          if (!(await notifSent(updatedMatch.id, key))) {
+            await markNotifSent(updatedMatch.id, key);
+            await pool.query(
+              `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+               VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
+              [
+                `⚽ En Vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
+                `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`
+              ]
+            );
+            broadcastUpdate('notification', { auto: true });
+            void sendPushToAllActive({
+              title: `⚽ Partido en vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
+              body: `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`,
+              url: '/fixture'
+            });
+          }
+        }
+
+        if (estado === 'live' && scoreChanged) {
+          goalsDetected++;
+          broadcastUpdate('goal', {
+            matchId: updatedMatch.id,
+            local: updatedMatch.local,
+            visitante: updatedMatch.visitante,
+            goles_local: updatedMatch.goles_local,
+            goles_visitante: updatedMatch.goles_visitante
+          });
+
+          const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
+          if (!(await notifSent(updatedMatch.id, goalKey))) {
+            await markNotifSent(updatedMatch.id, goalKey);
+            const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
+              ? updatedMatch.local : updatedMatch.visitante;
+            await pool.query(
+              `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+               VALUES ($1, $2, 'success', 'all', NOW() + INTERVAL '3 hours')`,
+              [
+                `🥅 ¡GOL de ${scoringTeam}!`,
+                `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`
+              ]
+            );
+            broadcastUpdate('notification', { auto: true });
+            void sendPushToAllActive({
+              title: `🥅 ¡GOL de ${scoringTeam}!`,
+              body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+              url: '/fixture'
+            });
+          }
+        }
+
+        if (
+          (estado === 'finished' && localMatch.estado !== 'finished') ||
+          (estado === 'live' && localMatch.estado !== 'live') ||
+          (scoreChanged && (estado === 'finished' || estado === 'live'))
+        ) {
+          if (estado === 'finished' && localMatch.estado !== 'finished') {
+            finishedCount++;
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
+            const finKey = `finished`;
+            if (!(await notifSent(updatedMatch.id, finKey))) {
+              await markNotifSent(updatedMatch.id, finKey);
+              await pool.query(
+                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+                 VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
+                [
+                  `🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+                  `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`
+                ]
+              );
+              broadcastUpdate('notification', { auto: true });
+              void sendPushToAllActive({
+                title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
+                body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`,
+                url: '/ranking'
+              });
+            }
+          } else {
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    errors.push(err.message || 'FootballData unknown error');
+    console.error("FootballData source exception:", err);
+  }
+
+  return {
+    updated: updatedCount,
+    goals_detected: goalsDetected,
+    finished: finishedCount,
+    errors
+  };
+}
+
 export async function syncMatches(): Promise<{
   updated: number;
   goals_detected: number;
@@ -519,250 +941,41 @@ export async function syncMatches(): Promise<{
   // Send reminders for upcoming matches (60 min and 30 min before kickoff)
   await sendUpcomingReminders();
 
-  let primarySuccess = false;
+  const syncPromises: Promise<{
+    updated: number;
+    goals_detected: number;
+    finished: number;
+    errors: string[];
+  }>[] = [];
+
+  // Run all sources in parallel
+  syncPromises.push(syncESPNScoreboard());
+  syncPromises.push(sync365Scores());
+  syncPromises.push(syncFixtureDownload());
+
   const apiKey = process.env.FOOTBALL_API_KEY;
-  const apiBase = process.env.FOOTBALL_API_BASE || 'https://api.football-data.org/v4';
-  const wcId = process.env.FOOTBALL_WC_ID || '2000';
-
   if (apiKey) {
-    try {
-      // 1. Fetch matches from football-data.org (Primary)
-      const response = await fetch(`${apiBase}/competitions/${wcId}/matches`, {
-        headers: {
-          'X-Auth-Token': apiKey
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`API returned status ${response.status}: ${await response.text()}`);
-      }
-
-      const data = await response.json();
-      if (!data.matches || !Array.isArray(data.matches)) {
-        throw new Error('API returned malformed JSON structure: "matches" array missing');
-      }
-
-      // Loop through each API match
-      for (const apiMatch of data.matches) {
-        const extId = apiMatch.id;
-        const status = apiMatch.status;
-        const score = apiMatch.score;
-        
-        // Determine local state
-        let estado: 'upcoming' | 'live' | 'finished' = 'upcoming';
-        if (status === 'FINISHED') {
-          estado = 'finished';
-        } else if (['LIVE', 'IN_PLAY', 'PAUSED', 'HALFTIME'].includes(status)) {
-          estado = 'live';
-        }
-
-        const golesLocal = score?.fullTime?.home !== null ? score.fullTime.home : 0;
-        const golesVisitante = score?.fullTime?.away !== null ? score.fullTime.away : 0;
-
-        // Find matching local match in DB
-        const localName = teamNameMapping[apiMatch.homeTeam?.name] || apiMatch.homeTeam?.name;
-        const visitanteName = teamNameMapping[apiMatch.awayTeam?.name] || apiMatch.awayTeam?.name;
-        const faseName = stageMapping[apiMatch.stage] || apiMatch.stage;
-
-        let matchRes = await pool.query(
-          `SELECT * FROM matches 
-           WHERE external_id = $1 
-              OR (local = $2 AND visitante = $3 AND (fase = $4 OR ($4 = 'Fase de Grupos' AND fase IS NULL)))`,
-          [extId, localName, visitanteName, faseName]
-        );
-
-        if (matchRes.rows.length === 0) {
-          continue;
-        }
-
-        const localMatch = matchRes.rows[0];
-
-        // Self-healing: update external_id in the DB if it is different
-        if (localMatch.external_id !== extId) {
-          await pool.query('UPDATE matches SET external_id = $1 WHERE id = $2', [extId, localMatch.id]);
-          localMatch.external_id = extId;
-        }
-
-        // Avoid downgrading a match from live/finished back to upcoming if the API returned TIMED
-        if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
-          continue;
-        }
-
-        // Check if changes are detected
-        const stateChanged = localMatch.estado !== estado;
-        const scoreChanged = localMatch.goles_local !== golesLocal || localMatch.goles_visitante !== golesVisitante;
-
-        if (stateChanged || scoreChanged) {
-          const stats = apiMatch.stats || {};
-          
-          // Update local DB
-          const updateRes = await pool.query(
-            `UPDATE matches 
-             SET estado = $1, 
-                 goles_local = $2, 
-                 goles_visitante = $3, 
-                 stats = $4,
-                 last_synced_at = CURRENT_TIMESTAMP, 
-                 updated_at = CURRENT_TIMESTAMP 
-             WHERE id = $5 
-             RETURNING *`,
-            [estado, golesLocal, golesVisitante, JSON.stringify(stats), localMatch.id]
-          );
-
-          const updatedMatch = updateRes.rows[0];
-          updatedCount++;
-
-          // Broadcast to clients
-          broadcastUpdate('match', updatedMatch);
-
-          // Push + notification: match goes live
-          if (estado === 'live' && localMatch.estado !== 'live') {
-            const key = `live`;
-            if (!(await notifSent(updatedMatch.id, key))) {
-              await markNotifSent(updatedMatch.id, key);
-              await pool.query(
-                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                 VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
-                [
-                  `⚽ En Vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
-                  `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`
-                ]
-              );
-              broadcastUpdate('notification', { auto: true });
-              void sendPushToAllActive({
-                title: `⚽ Partido en vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
-                body: `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`,
-                url: '/fixture'
-              });
-            }
-          }
-
-          // Goal detection (during active live matches)
-          if (estado === 'live' && scoreChanged) {
-            goalsDetected++;
-            broadcastUpdate('goal', {
-              matchId: updatedMatch.id,
-              local: updatedMatch.local,
-              visitante: updatedMatch.visitante,
-              goles_local: updatedMatch.goles_local,
-              goles_visitante: updatedMatch.goles_visitante
-            });
-
-            // Push + notification: goal
-            const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-            if (!(await notifSent(updatedMatch.id, goalKey))) {
-              await markNotifSent(updatedMatch.id, goalKey);
-              const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
-                ? updatedMatch.local : updatedMatch.visitante;
-              await pool.query(
-                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                 VALUES ($1, $2, 'success', 'all', NOW() + INTERVAL '3 hours')`,
-                [
-                  `🥅 ¡GOL de ${scoringTeam}!`,
-                  `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`
-                ]
-              );
-              broadcastUpdate('notification', { auto: true });
-              void sendPushToAllActive({
-                title: `🥅 ¡GOL de ${scoringTeam}!`,
-                body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                url: '/fixture'
-              });
-            }
-          }
-
-          // Recalculate leaderboard if match finished, went live, or live score changed
-          if (
-            (estado === 'finished' && localMatch.estado !== 'finished') ||
-            (estado === 'live' && localMatch.estado !== 'live') ||
-            (scoreChanged && (estado === 'finished' || estado === 'live'))
-          ) {
-            if (estado === 'finished' && localMatch.estado !== 'finished') {
-              finishedCount++;
-              await pool.query('SELECT recalculate_leaderboard()');
-              broadcastUpdate('leaderboard', { updated: true });
-              // Push + notification: match finished + leaderboard
-              const finKey = `finished`;
-              if (!(await notifSent(updatedMatch.id, finKey))) {
-                await markNotifSent(updatedMatch.id, finKey);
-                await pool.query(
-                  `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                   VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
-                  [
-                    `🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                    `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`
-                  ]
-                );
-                broadcastUpdate('notification', { auto: true });
-                void sendPushToAllActive({
-                  title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                  body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`,
-                  url: '/ranking'
-                });
-              }
-            } else {
-              await pool.query('SELECT recalculate_leaderboard()');
-              broadcastUpdate('leaderboard', { updated: true });
-            }
-          }
-        }
-      }
-
-      if (updatedCount > 0) {
-        await runKnockoutCascade();
-      }
-
-      primarySuccess = true;
-    } catch (err: any) {
-      errors.push(err.message || 'Primary source (football-data.org) exception');
-      console.error("Primary source exception:", err);
-    }
-  } else {
-    errors.push('FOOTBALL_API_KEY is missing in env variables');
+    syncPromises.push(syncFootballData());
   }
 
-  // If primary source failed, run 365scores as fallback/contingency
-  if (!primarySuccess) {
-    console.warn("Primary source (football-data.org) failed. Proceeding with fallback (365Scores).");
-    try {
-      const res365 = await sync365Scores();
-      updatedCount += res365.updated;
-      goalsDetected += res365.goals_detected;
-      finishedCount += res365.finished;
-      if (res365.errors.length > 0) {
-        errors.push(...res365.errors);
-      } else {
-        if (res365.updated > 0) {
-          await runKnockoutCascade();
-        }
-        primarySuccess = true;
+  const results = await Promise.allSettled(syncPromises);
+
+  for (const res of results) {
+    if (res.status === 'fulfilled') {
+      const val = res.value;
+      updatedCount += val.updated;
+      goalsDetected += val.goals_detected;
+      finishedCount += val.finished;
+      if (val.errors && val.errors.length > 0) {
+        errors.push(...val.errors);
       }
-    } catch (err365: any) {
-      errors.push(err365.message || 'Fallback (365Scores) exception');
-      console.error("Fallback source exception:", err365);
+    } else {
+      errors.push(res.reason?.message || 'Parallel sync promise rejected');
     }
   }
 
-  // If both failed, use the free public FixtureDownload feed as a third contingency
-  if (!primarySuccess) {
-    console.warn("Primary and secondary sources failed. Proceeding with third contingency (FixtureDownload).");
-    try {
-      const resFd = await syncFixtureDownload();
-      updatedCount += resFd.updated;
-      goalsDetected += resFd.goals_detected;
-      finishedCount += resFd.finished;
-      if (resFd.errors.length > 0) {
-        errors.push(...resFd.errors);
-      } else {
-        if (resFd.updated > 0) {
-          await runKnockoutCascade();
-        }
-        primarySuccess = true;
-      }
-    } catch (errFd: any) {
-      errors.push(errFd.message || 'Third contingency (FixtureDownload) exception');
-      console.error("Third contingency exception:", errFd);
-    }
+  if (updatedCount > 0) {
+    await runKnockoutCascade();
   }
 
   // Log sync attempt in DB

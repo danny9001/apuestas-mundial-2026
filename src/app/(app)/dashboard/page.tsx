@@ -193,63 +193,37 @@ export default function DashboardPage() {
       )}
 
       {/* Countdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-6">
-        <div className="countdown-scoreboard lg:col-span-5 flex flex-col justify-between border border-yellow-500/25 rounded-3xl p-5 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/3 via-transparent to-transparent pointer-events-none" />
-          <div className="countdown-header text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-            {countdownMatch ? (
-              <span className="flex items-center gap-1.5 min-w-0">
-                <span>PRÓXIMO PARTIDO:</span>
-                <span className="flex items-center gap-1 min-w-0 truncate">
-                  {getTeamFlag(countdownMatch.local)} <span className="truncate">{countdownMatch.local}</span> vs {getTeamFlag(countdownMatch.visitante)} <span className="truncate">{countdownMatch.visitante}</span>
-                </span>
+      <div className="countdown-scoreboard flex flex-col justify-between border border-yellow-500/25 rounded-3xl p-6 relative overflow-hidden group shadow-lg">
+        <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/3 via-transparent to-transparent pointer-events-none" />
+        <div className="countdown-header text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+          {countdownMatch ? (
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span>PRÓXIMO PARTIDO:</span>
+              <span className="flex items-center gap-1 min-w-0 truncate">
+                {getTeamFlag(countdownMatch.local)} <span className="truncate">{countdownMatch.local}</span> vs {getTeamFlag(countdownMatch.visitante)} <span className="truncate">{countdownMatch.visitante}</span>
               </span>
-            ) : 'INICIO DEL MUNDIAL 2026'}
-          </div>
-          <div className="flex items-center justify-between gap-3 py-2 relative z-10">
-            {[
-              { label: 'DÍAS', value: kickoffTimeLeft.days },
-              { label: 'HORAS', value: kickoffTimeLeft.hours },
-              { label: 'MINS', value: kickoffTimeLeft.minutes },
-              { label: 'SEGS', value: kickoffTimeLeft.seconds },
-            ].map((item, idx) => (
-              <div key={item.label} className="flex items-center gap-1 flex-1">
-                <div className="flex flex-col items-center flex-1">
-                  <div className="countdown-digit-block w-full h-16 rounded-xl flex items-center justify-center font-mono font-black text-2xl select-none relative overflow-hidden group-hover:scale-105 transition-all duration-300">
-                    <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-black/80 z-10" />
-                    <span className="countdown-digit-value font-extrabold">{String(item.value).padStart(2, '0')}</span>
-                  </div>
-                  <span className="countdown-label text-[8.5px] font-black uppercase tracking-widest mt-1.5">{item.label}</span>
-                </div>
-                {idx < 3 && <span className="countdown-separator font-mono font-black text-xl select-none animate-pulse -translate-y-2">:</span>}
-              </div>
-            ))}
-          </div>
+            </span>
+          ) : 'INICIO DEL MUNDIAL 2026'}
         </div>
-
-        <div className="lg:col-span-7 flex flex-col justify-between bg-neutral-900/40 border border-neutral-850 rounded-3xl p-5">
-          <div className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-3.5 flex items-center justify-between">
-            <span>¿Dónde Ver? · Canales y Transmisiones</span>
-            <span className="text-yellow-500 font-mono">100% Legal</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { pais: 'BOLIVIA', badge: 'Televisión', desc: 'Unitel transmitirá 30 partidos en señal abierta para todo el país, incluyendo inauguración, semis y final.' },
-              { pais: 'STREAMING', badge: 'Online', desc: 'FIFA+ transmite gratis todos los partidos por streaming en todo el mundo. Disponible en web y app.' },
-              { pais: 'LATAM', badge: 'Cable', desc: 'TyC Sports, Televisa, Univision y ESPN transmiten en toda la región con cobertura completa del torneo.' },
-            ].map(ch => (
-              <div key={ch.pais} className="bg-neutral-950/40 border border-neutral-850 hover:border-yellow-500/25 rounded-2xl p-3.5 flex flex-col justify-between transition group">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black text-neutral-100 uppercase tracking-wider">{ch.pais}</span>
-                    <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 text-[7px] font-black tracking-widest uppercase">{ch.badge}</span>
-                  </div>
-                  <p className="text-[9px] text-neutral-400 leading-relaxed">{ch.desc}</p>
+        <div className="flex items-center justify-between gap-3 py-2 relative z-10">
+          {[
+            { label: 'DÍAS', value: kickoffTimeLeft.days },
+            { label: 'HORAS', value: kickoffTimeLeft.hours },
+            { label: 'MINS', value: kickoffTimeLeft.minutes },
+            { label: 'SEGS', value: kickoffTimeLeft.seconds },
+          ].map((item, idx) => (
+            <div key={item.label} className="flex items-center gap-1 flex-1">
+              <div className="flex flex-col items-center flex-1">
+                <div className="countdown-digit-block w-full h-16 rounded-xl flex items-center justify-center font-mono font-black text-2xl select-none relative overflow-hidden group-hover:scale-105 transition-all duration-300">
+                  <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-black/80 z-10" />
+                  <span className="countdown-digit-value font-extrabold">{String(item.value).padStart(2, '0')}</span>
                 </div>
+                <span className="countdown-label text-[8.5px] font-black uppercase tracking-widest mt-1.5">{item.label}</span>
               </div>
-            ))}
-          </div>
+              {idx < 3 && <span className="countdown-separator font-mono font-black text-xl select-none animate-pulse -translate-y-2">:</span>}
+            </div>
+          ))}
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import sharp from 'sharp';
+import { validateUploadedFile } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,6 +126,11 @@ export async function POST(req: NextRequest) {
 
     // Helper to process and upload file to Azure Blob
     const uploadReceipt = async (targetId: number, receiptFile: File) => {
+      const fileCheck = validateUploadedFile(receiptFile, ['image/*', 'application/pdf'], 10 * 1024 * 1024);
+      if (!fileCheck.ok) {
+        throw new Error(fileCheck.error);
+      }
+
       const userRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [targetId]);
       const targetUserName = userRes.rows[0]?.nombre || 'anonimo';
       const cleanPerson = targetUserName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
@@ -241,6 +247,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   } catch (error: any) {
     console.error('Error managing payment:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    const isValidationErr = error.message.includes('tipo de archivo') || 
+                            error.message.includes('supera') || 
+                            error.message.includes('extensión');
+    return NextResponse.json(
+      { error: isValidationErr ? error.message : 'Error del servidor: ' + error.message },
+      { status: isValidationErr ? 400 : 500 }
+    );
   }
 }

@@ -5,7 +5,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import sharp from 'sharp';
-import { sanitizeText, validatePassword, BCRYPT_ROUNDS, MAX_AVATAR_BYTES } from '@/lib/validation';
+import { sanitizeText, validatePassword, BCRYPT_ROUNDS, MAX_AVATAR_BYTES, validateUploadedFile } from '@/lib/validation';
 import { syncUserPassword } from '@/lib/identity-sync';
 
 export const dynamic = 'force-dynamic';
@@ -34,8 +34,9 @@ export async function POST(req: NextRequest) {
 
     // Handle avatar upload — enforce 5 MB limit, convert to WebP 200×200
     if (file && file.size > 0) {
-      if (file.size > MAX_AVATAR_BYTES) {
-        return NextResponse.json({ error: 'El archivo no puede superar 5 MB' }, { status: 400 });
+      const fileCheck = validateUploadedFile(file, ['image/*'], MAX_AVATAR_BYTES);
+      if (!fileCheck.ok) {
+        return NextResponse.json({ error: fileCheck.error }, { status: 400 });
       }
 
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'avatars');

@@ -102,3 +102,47 @@ function deviceFromUA(ua: string): string {
 
   return browser ? `${device} • ${browser}` : device;
 }
+
+const BLOCKED_EXTENSIONS = new Set([
+  'exe', 'bat', 'cmd', 'sh', 'bash', 'js', 'jsx', 'ts', 'tsx', 'py', 'pl', 'php',
+  'asp', 'aspx', 'jsp', 'cgi', 'html', 'htm', 'shtml', 'xhtml', 'swf', 'jar',
+  'msi', 'scr', 'vbs', 'wsf', 'com', 'dll', 'so', 'lnk'
+]);
+
+export function isBlockedExtension(filename: string): boolean {
+  if (!filename) return true;
+  const ext = filename.split('.').pop()?.toLowerCase();
+  return !ext || BLOCKED_EXTENSIONS.has(ext);
+}
+
+export function validateUploadedFile(
+  file: File,
+  allowedMimeTypes: string[],
+  maxBytes: number
+): { ok: boolean; error?: string } {
+  if (!file) return { ok: false, error: 'No se ha subido ningún archivo' };
+
+  if (file.size > maxBytes) {
+    const maxMb = (maxBytes / (1024 * 1024)).toFixed(0);
+    return { ok: false, error: `El archivo supera el tamaño máximo permitido de ${maxMb} MB` };
+  }
+
+  if (isBlockedExtension(file.name)) {
+    return { ok: false, error: 'La extensión del archivo no está permitida por seguridad' };
+  }
+
+  const mimeType = file.type?.toLowerCase();
+  const isMimeAllowed = allowedMimeTypes.some(pattern => {
+    if (pattern.endsWith('/*')) {
+      const category = pattern.split('/')[0];
+      return mimeType.startsWith(category + '/');
+    }
+    return mimeType === pattern;
+  });
+
+  if (!isMimeAllowed) {
+    return { ok: false, error: 'El tipo de archivo no está permitido' };
+  }
+
+  return { ok: true };
+}

@@ -5,6 +5,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 
+import { validateUploadedFile } from '@/lib/validation';
+
 export const dynamic = 'force-dynamic';
 
 // Helper to ensure the settings table exists and default values are populated
@@ -68,6 +70,11 @@ export async function POST(req: NextRequest) {
     let appLogo = logoEmoji || '🏆';
 
     if (logoType === 'file' && logoFile && logoFile.size > 0) {
+      const fileCheck = validateUploadedFile(logoFile, ['image/*'], 5 * 1024 * 1024);
+      if (!fileCheck.ok) {
+        return NextResponse.json({ error: fileCheck.error }, { status: 400 });
+      }
+
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'logos');
       await fs.mkdir(uploadDir, { recursive: true });
 

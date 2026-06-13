@@ -242,7 +242,12 @@ export default function FixturePage() {
       )}
 
       {infoModalMatch && (
-        <MatchInfoModal match={infoModalMatch} onClose={() => setInfoModalMatch(null)} />
+        <MatchInfoModal
+          match={infoModalMatch}
+          hasPrediction={!!predictions.find(p => p.match_id === infoModalMatch.id)}
+          onBet={() => setBetModalMatch(infoModalMatch)}
+          onClose={() => setInfoModalMatch(null)}
+        />
       )}
     </section>
   );

@@ -6,6 +6,8 @@ import { getTeamFlag } from '@/lib/constants';
 
 interface MatchInfoModalProps {
   match: any;
+  hasPrediction?: boolean;
+  onBet?: () => void;
   onClose: () => void;
 }
 
@@ -76,7 +78,7 @@ const TEAM_TRIVIA: Record<string, { trivia: string; news: string }> = {
   }
 };
 
-export default function MatchInfoModal({ match, onClose }: MatchInfoModalProps) {
+export default function MatchInfoModal({ match, hasPrediction = false, onBet, onClose }: MatchInfoModalProps) {
   const localTrivia = TEAM_TRIVIA[match.local] || {
     trivia: `${match.local} busca hacer historia en esta edición de la Copa del Mundo y consolidarse como una potencia de su confederación.`,
     news: `La delegación de ${match.local} se muestra concentrada y enfocada en los entrenamientos diarios.`
@@ -229,7 +231,18 @@ export default function MatchInfoModal({ match, onClose }: MatchInfoModalProps) 
           </div>
         </div>
 
-        <div className="flex justify-end pt-2 border-t border-neutral-800/50">
+        <div className="flex justify-end pt-2 border-t border-neutral-800/50 gap-3">
+          {!hasPrediction && (match.estado === 'upcoming' && new Date().getTime() < new Date(match.fecha).getTime() - 60 * 60 * 1000) && onBet && (
+            <button
+              onClick={() => {
+                onClose();
+                onBet();
+              }}
+              className="px-5 py-2 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold uppercase tracking-wider rounded-xl transition font-sans active:scale-95"
+            >
+              Apostar Ahora ⚽
+            </button>
+          )}
           <button
             onClick={onClose}
             className="px-5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold uppercase tracking-wider rounded-xl transition font-sans"

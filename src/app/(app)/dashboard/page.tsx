@@ -437,6 +437,8 @@ export default function DashboardPage() {
       {infoModalMatch && (
         <MatchInfoModal
           match={infoModalMatch}
+          hasPrediction={!!predictions.find(p => p.match_id === infoModalMatch.id)}
+          onBet={() => setBetModalMatch(infoModalMatch)}
           onClose={() => setInfoModalMatch(null)}
         />
       )}

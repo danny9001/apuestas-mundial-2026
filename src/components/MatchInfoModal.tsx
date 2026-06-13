@@ -148,10 +148,10 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
           const isClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - 60 * 60 * 1000;
           if (prediction) {
             return (
-              <div className="w-full bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
+              <div className="w-full bg-neutral-950 border border-neutral-850 rounded-xl p-5 flex flex-col items-center justify-center text-center gap-3 shadow-inner">
                 <div>
-                  <span className="text-[9px] font-black uppercase text-emerald-450 block tracking-wider">Tu Pronóstico Registrado</span>
-                  <span className="text-lg font-black text-neutral-100 font-mono mt-0.5 inline-block">
+                  <span className="text-[9px] font-black uppercase text-yellow-500 block tracking-widest">Tu Pronóstico Registrado</span>
+                  <span className="text-2xl font-black text-neutral-100 font-mono mt-1.5 inline-block">
                     {prediction.pred_local} – {prediction.pred_visitante}
                   </span>
                 </div>
@@ -161,7 +161,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                       onClose();
                       onBet();
                     }}
-                    className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold px-4 py-2 rounded-lg transition active:scale-95 uppercase tracking-wider font-sans"
+                    className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold px-5 py-2.5 rounded-xl transition active:scale-95 uppercase tracking-wider font-sans shadow-[0_0_12px_rgba(234,179,8,0.2)]"
                   >
                     Editar Pronóstico ✏️
                   </button>

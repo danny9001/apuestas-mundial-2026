@@ -172,7 +172,7 @@ export default function PartidosPage() {
       {infoModalMatch && (
         <MatchInfoModal
           match={infoModalMatch}
-          hasPrediction={!!predictions.find(p => p.match_id === infoModalMatch.id)}
+          prediction={predictions.find(p => p.match_id === infoModalMatch.id) ?? null}
           onBet={() => setBetModalMatch(infoModalMatch)}
           onClose={() => setInfoModalMatch(null)}
         />

@@ -6,7 +6,7 @@ import { getTeamFlag } from '@/lib/constants';
 
 interface MatchInfoModalProps {
   match: any;
-  hasPrediction?: boolean;
+  prediction?: { pred_local: number; pred_visitante: number } | null;
   onBet?: () => void;
   onClose: () => void;
 }
@@ -78,7 +78,7 @@ const TEAM_TRIVIA: Record<string, { trivia: string; news: string }> = {
   }
 };
 
-export default function MatchInfoModal({ match, hasPrediction = false, onBet, onClose }: MatchInfoModalProps) {
+export default function MatchInfoModal({ match, prediction, onBet, onClose }: MatchInfoModalProps) {
   const localTrivia = TEAM_TRIVIA[match.local] || {
     trivia: `${match.local} busca hacer historia en esta edición de la Copa del Mundo y consolidarse como una potencia de su confederación.`,
     news: `La delegación de ${match.local} se muestra concentrada y enfocada en los entrenamientos diarios.`
@@ -130,18 +130,46 @@ export default function MatchInfoModal({ match, hasPrediction = false, onBet, on
 
         </div>
 
-        {/* Quick Bet Button */}
-        {!hasPrediction && (match.estado === 'upcoming' && new Date().getTime() < new Date(match.fecha).getTime() - 60 * 60 * 1000) && onBet && (
-          <button
-            onClick={() => {
-              onClose();
-              onBet();
-            }}
-            className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-black uppercase tracking-wider rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(234,179,8,0.2)] animate-pulse"
-          >
-            <span>⚽ Registrar Pronóstico Ahora</span>
-          </button>
-        )}
+        {/* Quick Bet / Prediction Info */}
+        {(() => {
+          const isClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - 60 * 60 * 1000;
+          if (prediction) {
+            return (
+              <div className="w-full bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
+                <div>
+                  <span className="text-[9px] font-black uppercase text-emerald-450 block tracking-wider">Tu Pronóstico Registrado</span>
+                  <span className="text-lg font-black text-neutral-100 font-mono mt-0.5 inline-block">
+                    {prediction.pred_local} – {prediction.pred_visitante}
+                  </span>
+                </div>
+                {!isClosed && onBet && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onBet();
+                    }}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold px-4 py-2 rounded-lg transition active:scale-95 uppercase tracking-wider font-sans"
+                  >
+                    Editar Pronóstico ✏️
+                  </button>
+                )}
+              </div>
+            );
+          } else if (!isClosed && onBet) {
+            return (
+              <button
+                onClick={() => {
+                  onClose();
+                  onBet();
+                }}
+                className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-black uppercase tracking-wider rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(234,179,8,0.2)] animate-pulse"
+              >
+                <span>⚽ Registrar Pronóstico Ahora</span>
+              </button>
+            );
+          }
+          return null;
+        })()}
 
         {/* Match metadata & Stadium map */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

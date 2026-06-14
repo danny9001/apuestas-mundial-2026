@@ -10,11 +10,12 @@ async function notifSent(matchId: number, event: string): Promise<boolean> {
   return res.rows.length > 0;
 }
 
-async function markNotifSent(matchId: number, event: string): Promise<void> {
-  await pool.query(
-    'INSERT INTO match_notif_log (match_id, event) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+async function markNotifSent(matchId: number, event: string): Promise<boolean> {
+  const res = await pool.query(
+    'INSERT INTO match_notif_log (match_id, event) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING 1',
     [matchId, event]
   );
+  return res.rows.length > 0;
 }
 
 const teamNameMapping: Record<string, string> = {
@@ -209,8 +210,7 @@ export async function sync365Scores(): Promise<{
         // Push + notification: match goes live
         if (estado === 'live' && localMatch.estado !== 'live') {
           const key = `live`;
-          if (!(await notifSent(updatedMatch.id, key))) {
-            await markNotifSent(updatedMatch.id, key);
+          if (await markNotifSent(updatedMatch.id, key)) {
             await pool.query(
               `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
                VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
@@ -240,8 +240,7 @@ export async function sync365Scores(): Promise<{
 
           // Push + notification: goal (deduplicated by score)
           const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-          if (!(await notifSent(updatedMatch.id, goalKey))) {
-            await markNotifSent(updatedMatch.id, goalKey);
+          if (await markNotifSent(updatedMatch.id, goalKey)) {
             const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
               ? updatedMatch.local : updatedMatch.visitante;
             await pool.query(
@@ -272,8 +271,7 @@ export async function sync365Scores(): Promise<{
             broadcastUpdate('leaderboard', { updated: true });
             // Push + notification: match finished + leaderboard
             const finKey = `finished`;
-            if (!(await notifSent(updatedMatch.id, finKey))) {
-              await markNotifSent(updatedMatch.id, finKey);
+            if (await markNotifSent(updatedMatch.id, finKey)) {
               await pool.query(
                 `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
                  VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
@@ -399,8 +397,7 @@ export async function syncFixtureDownload(): Promise<{
         // Push + notification: match goes live
         if (estado === 'live' && localMatch.estado !== 'live') {
           const key = `live`;
-          if (!(await notifSent(updatedMatch.id, key))) {
-            await markNotifSent(updatedMatch.id, key);
+          if (await markNotifSent(updatedMatch.id, key)) {
             await pool.query(
               `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
                VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
@@ -430,8 +427,7 @@ export async function syncFixtureDownload(): Promise<{
           });
 
           const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-          if (!(await notifSent(updatedMatch.id, goalKey))) {
-            await markNotifSent(updatedMatch.id, goalKey);
+          if (await markNotifSent(updatedMatch.id, goalKey)) {
             const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
               ? updatedMatch.local : updatedMatch.visitante;
             await pool.query(
@@ -462,8 +458,7 @@ export async function syncFixtureDownload(): Promise<{
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
             const finKey = `finished`;
-            if (!(await notifSent(updatedMatch.id, finKey))) {
-              await markNotifSent(updatedMatch.id, finKey);
+            if (await markNotifSent(updatedMatch.id, finKey)) {
               await pool.query(
                 `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
                  VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
@@ -619,8 +614,7 @@ export async function syncESPNScoreboard(): Promise<{
         // Push + notification: match goes live
         if (estado === 'live' && localMatch.estado !== 'live') {
           const key = `live`;
-          if (!(await notifSent(updatedMatch.id, key))) {
-            await markNotifSent(updatedMatch.id, key);
+          if (await markNotifSent(updatedMatch.id, key)) {
             await pool.query(
               `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
                VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
@@ -650,8 +644,7 @@ export async function syncESPNScoreboard(): Promise<{
 
           // Push + notification: goal (deduplicated by score)
           const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-          if (!(await notifSent(updatedMatch.id, goalKey))) {
-            await markNotifSent(updatedMatch.id, goalKey);
+          if (await markNotifSent(updatedMatch.id, goalKey)) {
             const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
               ? updatedMatch.local : updatedMatch.visitante;
             await pool.query(
@@ -682,8 +675,7 @@ export async function syncESPNScoreboard(): Promise<{
             broadcastUpdate('leaderboard', { updated: true });
             // Push + notification: match finished + leaderboard
             const finKey = `finished`;
-            if (!(await notifSent(updatedMatch.id, finKey))) {
-              await markNotifSent(updatedMatch.id, finKey);
+            if (await markNotifSent(updatedMatch.id, finKey)) {
               await pool.query(
                 `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
                  VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
@@ -822,8 +814,7 @@ export async function syncFootballData(): Promise<{
 
         if (estado === 'live' && localMatch.estado !== 'live') {
           const key = `live`;
-          if (!(await notifSent(updatedMatch.id, key))) {
-            await markNotifSent(updatedMatch.id, key);
+          if (await markNotifSent(updatedMatch.id, key)) {
             await pool.query(
               `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
                VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
@@ -852,8 +843,7 @@ export async function syncFootballData(): Promise<{
           });
 
           const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-          if (!(await notifSent(updatedMatch.id, goalKey))) {
-            await markNotifSent(updatedMatch.id, goalKey);
+          if (await markNotifSent(updatedMatch.id, goalKey)) {
             const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
               ? updatedMatch.local : updatedMatch.visitante;
             await pool.query(
@@ -883,8 +873,7 @@ export async function syncFootballData(): Promise<{
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
             const finKey = `finished`;
-            if (!(await notifSent(updatedMatch.id, finKey))) {
-              await markNotifSent(updatedMatch.id, finKey);
+            if (await markNotifSent(updatedMatch.id, finKey)) {
               await pool.query(
                 `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
                  VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
@@ -941,36 +930,29 @@ export async function syncMatches(): Promise<{
   // Send reminders for upcoming matches (60 min and 30 min before kickoff)
   await sendUpcomingReminders();
 
-  const syncPromises: Promise<{
-    updated: number;
-    goals_detected: number;
-    finished: number;
-    errors: string[];
-  }>[] = [];
-
-  // Run all sources in parallel
-  syncPromises.push(syncESPNScoreboard());
-  syncPromises.push(sync365Scores());
-  syncPromises.push(syncFixtureDownload());
+  // Run all sources sequentially to avoid race conditions and database contentions
+  const sources = [
+    { name: 'ESPN', fn: syncESPNScoreboard },
+    { name: '365Scores', fn: sync365Scores },
+    { name: 'FixtureDownload', fn: syncFixtureDownload }
+  ];
 
   const apiKey = process.env.FOOTBALL_API_KEY;
   if (apiKey) {
-    syncPromises.push(syncFootballData());
+    sources.push({ name: 'FootballData', fn: syncFootballData });
   }
 
-  const results = await Promise.allSettled(syncPromises);
-
-  for (const res of results) {
-    if (res.status === 'fulfilled') {
-      const val = res.value;
+  for (const source of sources) {
+    try {
+      const val = await source.fn();
       updatedCount += val.updated;
       goalsDetected += val.goals_detected;
       finishedCount += val.finished;
       if (val.errors && val.errors.length > 0) {
-        errors.push(...val.errors);
+        errors.push(...val.errors.map(err => `[${source.name}] ${err}`));
       }
-    } else {
-      errors.push(res.reason?.message || 'Parallel sync promise rejected');
+    } catch (err: any) {
+      errors.push(`[${source.name}] Sync failed: ${err?.message || err}`);
     }
   }
 
@@ -1011,8 +993,7 @@ async function sendUpcomingReminders() {
       if (minutesUntil >= 55 && minutesUntil <= 65) {
         // 60-minute reminder
         const key60 = `reminder_60`;
-        if (!(await notifSent(match.id, key60))) {
-          await markNotifSent(match.id, key60);
+        if (await markNotifSent(match.id, key60)) {
           // Insert notification record for in-app notification tab
           await pool.query(
             `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
@@ -1031,8 +1012,7 @@ async function sendUpcomingReminders() {
       } else if (minutesUntil >= 25 && minutesUntil <= 35) {
         // 30-minute reminder
         const key30 = `reminder_30`;
-        if (!(await notifSent(match.id, key30))) {
-          await markNotifSent(match.id, key30);
+        if (await markNotifSent(match.id, key30)) {
           // Insert notification record for in-app notification tab
           await pool.query(
             `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)

@@ -166,12 +166,16 @@ export async function sync365Scores(): Promise<{
       const golesLocal = isLInverted ? scoreAway : scoreHome;
       const golesVisitante = isLInverted ? scoreHome : scoreAway;
 
+      const isDowngrade = golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0);
+      const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
+      const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+
       if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
         continue;
       }
 
       const stateChanged = localMatch.estado !== estado;
-      const scoreChanged = localMatch.goles_local !== golesLocal || localMatch.goles_visitante !== golesVisitante;
+      const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
 
       if (stateChanged || scoreChanged) {
         const stats = localMatch.stats || {};
@@ -183,8 +187,8 @@ export async function sync365Scores(): Promise<{
         if (!stats.possession_local && (estado === 'live' || estado === 'finished')) {
           stats.possession_local = 50;
           stats.possession_visitante = 50;
-          stats.shots_local = golesLocal * 4 + 4;
-          stats.shots_visitante = golesVisitante * 4 + 3;
+          stats.shots_local = finalGolesLocal * 4 + 4;
+          stats.shots_visitante = finalGolesVisitante * 4 + 3;
           stats.fouls_local = 11;
           stats.fouls_visitante = 12;
         }
@@ -199,7 +203,7 @@ export async function sync365Scores(): Promise<{
                updated_at = CURRENT_TIMESTAMP 
            WHERE id = $5 
            RETURNING *`,
-          [estado, golesLocal, golesVisitante, JSON.stringify(stats), localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];
@@ -366,13 +370,17 @@ export async function syncFixtureDownload(): Promise<{
         estado = 'live';
       }
 
+      const isDowngrade = golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0);
+      const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
+      const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+
       // Avoid downgrading finished/live to upcoming
       if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
         continue;
       }
 
       const stateChanged = localMatch.estado !== estado;
-      const scoreChanged = localMatch.goles_local !== golesLocal || localMatch.goles_visitante !== golesVisitante;
+      const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
 
       if (stateChanged || scoreChanged) {
         const stats = localMatch.stats || {};
@@ -386,7 +394,7 @@ export async function syncFixtureDownload(): Promise<{
                updated_at = CURRENT_TIMESTAMP 
            WHERE id = $5 
            RETURNING *`,
-          [estado, golesLocal, golesVisitante, JSON.stringify(stats), localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];
@@ -573,12 +581,16 @@ export async function syncESPNScoreboard(): Promise<{
       const golesLocal = isLInverted ? scoreAway : scoreHome;
       const golesVisitante = isLInverted ? scoreHome : scoreAway;
 
+      const isDowngrade = golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0);
+      const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
+      const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+
       if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
         continue;
       }
 
       const stateChanged = localMatch.estado !== estado;
-      const scoreChanged = localMatch.goles_local !== golesLocal || localMatch.goles_visitante !== golesVisitante;
+      const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
 
       if (stateChanged || scoreChanged) {
         const stats = localMatch.stats || {};
@@ -587,8 +599,8 @@ export async function syncESPNScoreboard(): Promise<{
         if (!stats.possession_local && (estado === 'live' || estado === 'finished')) {
           stats.possession_local = 50;
           stats.possession_visitante = 50;
-          stats.shots_local = golesLocal * 4 + 4;
-          stats.shots_visitante = golesVisitante * 4 + 3;
+          stats.shots_local = finalGolesLocal * 4 + 4;
+          stats.shots_visitante = finalGolesVisitante * 4 + 3;
           stats.fouls_local = 11;
           stats.fouls_visitante = 12;
         }
@@ -603,7 +615,7 @@ export async function syncESPNScoreboard(): Promise<{
                updated_at = CURRENT_TIMESTAMP 
            WHERE id = $5 
            RETURNING *`,
-          [estado, golesLocal, golesVisitante, JSON.stringify(stats), localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];
@@ -784,12 +796,16 @@ export async function syncFootballData(): Promise<{
         localMatch.external_id = extId;
       }
 
+      const isDowngrade = golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0);
+      const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
+      const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+
       if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
         continue;
       }
 
       const stateChanged = localMatch.estado !== estado;
-      const scoreChanged = localMatch.goles_local !== golesLocal || localMatch.goles_visitante !== golesVisitante;
+      const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
 
       if (stateChanged || scoreChanged) {
         const stats = apiMatch.stats || {};
@@ -804,7 +820,7 @@ export async function syncFootballData(): Promise<{
                updated_at = CURRENT_TIMESTAMP 
            WHERE id = $5 
            RETURNING *`,
-          [estado, golesLocal, golesVisitante, JSON.stringify(stats), localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];

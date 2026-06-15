@@ -118,6 +118,12 @@ export default function CompaniesTab({
   const [adminStatsArbitro, setAdminStatsArbitro] = useState('');
   const [adminStatsTemperatura, setAdminStatsTemperatura] = useState('');
   const [adminStatsEvents, setAdminStatsEvents] = useState<any[]>([]);
+  const [adminStatsShotsOnTargetLocal, setAdminStatsShotsOnTargetLocal] = useState(0);
+  const [adminStatsShotsOnTargetVisitante, setAdminStatsShotsOnTargetVisitante] = useState(0);
+  const [adminStatsAssistsLocal, setAdminStatsAssistsLocal] = useState(0);
+  const [adminStatsAssistsVisitante, setAdminStatsAssistsVisitante] = useState(0);
+  const [adminStatsShotAssistsLocal, setAdminStatsShotAssistsLocal] = useState(0);
+  const [adminStatsShotAssistsVisitante, setAdminStatsShotAssistsVisitante] = useState(0);
 
   // Sync settings form with app values
   useEffect(() => {
@@ -387,7 +393,13 @@ export default function CompaniesTab({
             corners_visitante: adminStatsCornersVisitante,
             arbitro: adminStatsArbitro,
             temperatura: adminStatsTemperatura,
-            events: adminStatsEvents
+            events: adminStatsEvents,
+            shots_on_target_local: adminStatsShotsOnTargetLocal,
+            shots_on_target_visitante: adminStatsShotsOnTargetVisitante,
+            assists_local: adminStatsAssistsLocal,
+            assists_visitante: adminStatsAssistsVisitante,
+            shot_assists_local: adminStatsShotAssistsLocal,
+            shot_assists_visitante: adminStatsShotAssistsVisitante
           }
         }),
       });
@@ -834,6 +846,12 @@ export default function CompaniesTab({
                   setAdminStatsArbitro(stats.arbitro || '');
                   setAdminStatsTemperatura(stats.temperatura || '');
                   setAdminStatsEvents(stats.events || []);
+                  setAdminStatsShotsOnTargetLocal(stats.shots_on_target_local || 0);
+                  setAdminStatsShotsOnTargetVisitante(stats.shots_on_target_visitante || 0);
+                  setAdminStatsAssistsLocal(stats.assists_local || 0);
+                  setAdminStatsAssistsVisitante(stats.assists_visitante || 0);
+                  setAdminStatsShotAssistsLocal(stats.shot_assists_local || 0);
+                  setAdminStatsShotAssistsVisitante(stats.shot_assists_visitante || 0);
                 }}
                   className="bg-neutral-950 hover:bg-neutral-800 text-neutral-300 font-bold px-4 py-2 border border-neutral-800 hover:border-yellow-500/25 rounded-xl transition">
                   Editar
@@ -980,6 +998,30 @@ export default function CompaniesTab({
                   <div className="flex gap-1">
                     <input type="number" min="0" value={adminStatsCornersLocal} onChange={e => setAdminStatsCornersLocal(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
                     <input type="number" min="0" value={adminStatsCornersVisitante} onChange={e => setAdminStatsCornersVisitante(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-neutral-400 text-[9px] font-bold uppercase tracking-wider mb-1 text-center">Al Arco (L / V)</label>
+                  <div className="flex gap-1">
+                    <input type="number" min="0" value={adminStatsShotsOnTargetLocal} onChange={e => setAdminStatsShotsOnTargetLocal(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                    <input type="number" min="0" value={adminStatsShotsOnTargetVisitante} onChange={e => setAdminStatsShotsOnTargetVisitante(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-neutral-400 text-[9px] font-bold uppercase tracking-wider mb-1 text-center">Asistencias (L / V)</label>
+                  <div className="flex gap-1">
+                    <input type="number" min="0" value={adminStatsAssistsLocal} onChange={e => setAdminStatsAssistsLocal(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                    <input type="number" min="0" value={adminStatsAssistsVisitante} onChange={e => setAdminStatsAssistsVisitante(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-neutral-400 text-[9px] font-bold uppercase tracking-wider mb-1 text-center">Ocasiones (L / V)</label>
+                  <div className="flex gap-1">
+                    <input type="number" min="0" value={adminStatsShotAssistsLocal} onChange={e => setAdminStatsShotAssistsLocal(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                    <input type="number" min="0" value={adminStatsShotAssistsVisitante} onChange={e => setAdminStatsShotAssistsVisitante(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
                   </div>
                 </div>
               </div>

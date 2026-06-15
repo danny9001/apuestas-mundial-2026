@@ -311,7 +311,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                 </div>
 
                 {/* Tarjetas Rojas */}
-                <div className="flex flex-col gap-1.5 col-span-2 md:col-span-1">
+                <div className="flex flex-col gap-1.5">
                   <div className="flex justify-between text-[10px] text-neutral-500 uppercase font-black">
                     <span className="flex items-center gap-1">
                       <span className="w-2.5 h-3.5 bg-red-650 rounded-sm border border-red-500 bg-red-600"></span>
@@ -326,6 +326,45 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                   <div className="w-full h-1 bg-neutral-950 rounded-full overflow-hidden flex">
                     <div className="h-full bg-yellow-500" style={{ width: `${((parseInt(stats.red_cards_local) || 0) / ((parseInt(stats.red_cards_local) || 0) + (parseInt(stats.red_cards_visitante) || 0) || 1)) * 100}%` }}></div>
                     <div className="h-full bg-neutral-700" style={{ width: `${((parseInt(stats.red_cards_visitante) || 0) / ((parseInt(stats.red_cards_local) || 0) + (parseInt(stats.red_cards_visitante) || 0) || 1)) * 100}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Tiros al Arco */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-[10px] text-neutral-500 uppercase font-black">
+                    <span>{stats.shots_on_target_local ?? 0}</span>
+                    <span>Tiros al Arco</span>
+                    <span>{stats.shots_on_target_visitante ?? 0}</span>
+                  </div>
+                  <div className="w-full h-1 bg-neutral-950 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-yellow-500" style={{ width: `${((parseInt(stats.shots_on_target_local) || 0) / ((parseInt(stats.shots_on_target_local) || 0) + (parseInt(stats.shots_on_target_visitante) || 0) || 1)) * 100}%` }}></div>
+                    <div className="h-full bg-neutral-700" style={{ width: `${((parseInt(stats.shots_on_target_visitante) || 0) / ((parseInt(stats.shots_on_target_local) || 0) + (parseInt(stats.shots_on_target_visitante) || 0) || 1)) * 100}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Asistencias */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-[10px] text-neutral-500 uppercase font-black">
+                    <span>{stats.assists_local ?? 0}</span>
+                    <span>Asistencias</span>
+                    <span>{stats.assists_visitante ?? 0}</span>
+                  </div>
+                  <div className="w-full h-1 bg-neutral-950 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-yellow-500" style={{ width: `${((parseInt(stats.assists_local) || 0) / ((parseInt(stats.assists_local) || 0) + (parseInt(stats.assists_visitante) || 0) || 1)) * 100}%` }}></div>
+                    <div className="h-full bg-neutral-700" style={{ width: `${((parseInt(stats.assists_visitante) || 0) / ((parseInt(stats.assists_local) || 0) + (parseInt(stats.assists_visitante) || 0) || 1)) * 100}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Ocasiones Creadas */}
+                <div className="flex flex-col gap-1.5 col-span-2 md:col-span-1">
+                  <div className="flex justify-between text-[10px] text-neutral-500 uppercase font-black">
+                    <span>{stats.shot_assists_local ?? 0}</span>
+                    <span>Ocasiones Creadas</span>
+                    <span>{stats.shot_assists_visitante ?? 0}</span>
+                  </div>
+                  <div className="w-full h-1 bg-neutral-950 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-yellow-500" style={{ width: `${((parseInt(stats.shot_assists_local) || 0) / ((parseInt(stats.shot_assists_local) || 0) + (parseInt(stats.shot_assists_visitante) || 0) || 1)) * 100}%` }}></div>
+                    <div className="h-full bg-neutral-700" style={{ width: `${((parseInt(stats.shot_assists_visitante) || 0) / ((parseInt(stats.shot_assists_local) || 0) + (parseInt(stats.shot_assists_visitante) || 0) || 1)) * 100}%` }}></div>
                   </div>
                 </div>
               </div>

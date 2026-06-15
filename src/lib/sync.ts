@@ -600,7 +600,8 @@ export async function syncESPNScoreboard(): Promise<{
       const stateChanged = localMatch.estado !== estado;
       const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
       const liveTime = comp.status?.type?.detail || comp.status?.displayClock || '';
-      const timeChanged = estado === 'live' && localMatch.stats?.time !== liveTime;
+      const detailsCountChanged = (comp.details?.length || 0) !== (localMatch.stats?.events?.length || 0);
+      const timeChanged = estado === 'live' && (localMatch.stats?.time !== liveTime || detailsCountChanged);
 
       if (stateChanged || scoreChanged || timeChanged) {
         const stats = localMatch.stats || {};
@@ -609,6 +610,51 @@ export async function syncESPNScoreboard(): Promise<{
           stats.time = liveTime;
         } else if (estado === 'finished') {
           stats.time = 'Final';
+        }
+
+        // Extract detailed events (cards, goals) from ESPN scoreboard if available
+        if (comp.details && Array.isArray(comp.details)) {
+          const events: any[] = [];
+          let yellowL = 0;
+          let yellowV = 0;
+          let redL = 0;
+          let redV = 0;
+
+          for (const d of comp.details) {
+            const teamId = d.team?.id;
+            const isHome = teamId === homeCompetitor.team?.id;
+            const teamKey = isLInverted ? (isHome ? 'visitante' : 'local') : (isHome ? 'local' : 'visitante');
+            
+            const player = d.athletesInvolved?.[0]?.displayName || '';
+            const clock = d.clock?.displayValue || '';
+            
+            let type = '';
+            if (d.yellowCard) {
+              type = 'yellow_cards';
+              if (teamKey === 'local') yellowL++;
+              else yellowV++;
+            } else if (d.redCard) {
+              type = 'red_cards';
+              if (teamKey === 'local') redL++;
+              else redV++;
+            } else if (d.type?.text?.toLowerCase().includes('goal') || d.scoringPlay) {
+              type = 'goals';
+            }
+            
+            if (type) {
+              events.push({
+                type,
+                team: teamKey,
+                player,
+                clock
+              });
+            }
+          }
+          stats.events = events;
+          stats.yellow_cards_local = yellowL;
+          stats.yellow_cards_visitante = yellowV;
+          stats.red_cards_local = redL;
+          stats.red_cards_visitante = redV;
         }
         
         // Try to capture some basic ESPN stats if available, or keep existing ones

@@ -341,6 +341,47 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
           );
         })()}
 
+        {/* Live Match Events Timeline */}
+        {match.stats?.events && match.stats.events.length > 0 && (() => {
+          // Sort events by clock/minute
+          const sortedEvents = [...match.stats.events].sort((a, b) => {
+            const minA = parseInt(a.clock) || 0;
+            const minB = parseInt(b.clock) || 0;
+            return minA - minB;
+          });
+
+          return (
+            <div className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-5 space-y-4">
+              <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-neutral-850 pb-2">
+                <span>⚡ Incidencias del Partido</span>
+              </div>
+              <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
+                {sortedEvents.map((ev: any, idx: number) => {
+                  const isLocal = ev.team === 'local';
+                  const icon = ev.type === 'goals' ? '⚽' : ev.type === 'yellow_cards' ? '🟨' : '🟥';
+                  return (
+                    <div key={idx} className={`flex items-center gap-3 text-xs ${isLocal ? 'justify-start' : 'justify-end text-right'}`}>
+                      {isLocal ? (
+                        <>
+                          <span className="font-mono text-neutral-500 font-bold bg-neutral-950 px-1.5 py-0.5 rounded border border-neutral-850 text-[10px]">{ev.clock}</span>
+                          <span className="text-[14px] leading-none select-none">{icon}</span>
+                          <span className="text-neutral-250 font-black tracking-wide">{ev.player}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-neutral-250 font-black tracking-wide">{ev.player}</span>
+                          <span className="text-[14px] leading-none select-none">{icon}</span>
+                          <span className="font-mono text-neutral-500 font-bold bg-neutral-950 px-1.5 py-0.5 rounded border border-neutral-850 text-[10px]">{ev.clock}</span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Match metadata & Stadium map */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4 space-y-3">

@@ -117,6 +117,7 @@ export default function CompaniesTab({
   const [adminStatsCornersVisitante, setAdminStatsCornersVisitante] = useState(0);
   const [adminStatsArbitro, setAdminStatsArbitro] = useState('');
   const [adminStatsTemperatura, setAdminStatsTemperatura] = useState('');
+  const [adminStatsEvents, setAdminStatsEvents] = useState<any[]>([]);
 
   // Sync settings form with app values
   useEffect(() => {
@@ -385,7 +386,8 @@ export default function CompaniesTab({
             corners_local: adminStatsCornersLocal,
             corners_visitante: adminStatsCornersVisitante,
             arbitro: adminStatsArbitro,
-            temperatura: adminStatsTemperatura
+            temperatura: adminStatsTemperatura,
+            events: adminStatsEvents
           }
         }),
       });
@@ -831,6 +833,7 @@ export default function CompaniesTab({
                   setAdminStatsCornersVisitante(stats.corners_visitante || 0);
                   setAdminStatsArbitro(stats.arbitro || '');
                   setAdminStatsTemperatura(stats.temperatura || '');
+                  setAdminStatsEvents(stats.events || []);
                 }}
                   className="bg-neutral-950 hover:bg-neutral-800 text-neutral-300 font-bold px-4 py-2 border border-neutral-800 hover:border-yellow-500/25 rounded-xl transition">
                   Editar
@@ -1008,6 +1011,91 @@ export default function CompaniesTab({
                   <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1">Clima / Temp</label>
                   <input type="text" value={adminStatsTemperatura} onChange={e => setAdminStatsTemperatura(e.target.value)} placeholder="ej: 18°C, Lluvia"
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-300 outline-none transition" />
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN DE EVENTOS/INCIDENCIAS */}
+            <div className="border-t border-neutral-800 pt-4 space-y-3">
+              <h4 className="text-[10px] font-black uppercase text-yellow-500 tracking-wider">Incidencias / Eventos del Partido</h4>
+              
+              <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
+                {adminStatsEvents.length === 0 ? (
+                  <p className="text-[10px] text-neutral-600 italic text-center py-2">Sin incidencias registradas</p>
+                ) : (
+                  adminStatsEvents.map((ev, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-neutral-950 p-2 rounded-lg border border-neutral-850 text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-neutral-500">[{ev.clock}]</span>
+                        <span>{ev.type === 'goals' ? '⚽' : ev.type === 'yellow_cards' ? '🟨' : '🟥'}</span>
+                        <span className="font-bold text-neutral-350">{ev.player}</span>
+                        <span className="text-[9px] text-neutral-500 uppercase">({ev.team === 'local' ? 'L' : 'V'})</span>
+                      </div>
+                      <button type="button" onClick={() => {
+                        const newEvs = adminStatsEvents.filter((_, i) => i !== idx);
+                        setAdminStatsEvents(newEvs);
+                        
+                        // Auto-decrement cards counter
+                        if (ev.type === 'yellow_cards') {
+                          if (ev.team === 'local') setAdminStatsYellowLocal(prev => Math.max(0, prev - 1));
+                          else setAdminStatsYellowVisitante(prev => Math.max(0, prev - 1));
+                        } else if (ev.type === 'red_cards') {
+                          if (ev.team === 'local') setAdminStatsRedLocal(prev => Math.max(0, prev - 1));
+                          else setAdminStatsRedVisitante(prev => Math.max(0, prev - 1));
+                        }
+                      }} className="text-red-400 hover:text-red-300 font-bold px-1 py-0.5 rounded text-[10px]">
+                        Eliminar
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <input type="text" id="newEventPlayer" placeholder="Nombre jugador" className="bg-neutral-900 border border-neutral-800 rounded px-2.5 py-1.5 text-neutral-300 placeholder-neutral-600 outline-none" />
+                  <input type="text" id="newEventClock" placeholder="Minuto (ej: 16')" className="bg-neutral-900 border border-neutral-800 rounded px-2.5 py-1.5 text-neutral-300 placeholder-neutral-600 outline-none" />
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-[10px]">
+                  <select id="newEventType" className="bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300 outline-none">
+                    <option value="yellow_cards">🟨 Tarjeta Amarilla</option>
+                    <option value="red_cards">🟥 Tarjeta Roja</option>
+                    <option value="goals">⚽ Gol</option>
+                  </select>
+                  <select id="newEventTeam" className="bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300 outline-none">
+                    <option value="local">Local</option>
+                    <option value="visitante">Visitante</option>
+                  </select>
+                  <button type="button" onClick={() => {
+                    const pInput = document.getElementById('newEventPlayer') as HTMLInputElement;
+                    const cInput = document.getElementById('newEventClock') as HTMLInputElement;
+                    const tSelect = document.getElementById('newEventType') as HTMLSelectElement;
+                    const teamSelect = document.getElementById('newEventTeam') as HTMLSelectElement;
+                    if (!pInput.value || !cInput.value) return;
+                    
+                    const newEv = {
+                      player: pInput.value,
+                      clock: cInput.value,
+                      type: tSelect.value,
+                      team: teamSelect.value
+                    };
+                    
+                    setAdminStatsEvents(prev => [...prev, newEv]);
+                    
+                    // Auto-increment cards counter
+                    if (newEv.type === 'yellow_cards') {
+                      if (newEv.team === 'local') setAdminStatsYellowLocal(prev => prev + 1);
+                      else setAdminStatsYellowVisitante(prev => prev + 1);
+                    } else if (newEv.type === 'red_cards') {
+                      if (newEv.team === 'local') setAdminStatsRedLocal(prev => prev + 1);
+                      else setAdminStatsRedVisitante(prev => prev + 1);
+                    }
+                    
+                    pInput.value = '';
+                    cInput.value = '';
+                  }} className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 font-bold rounded px-2.5 py-1 uppercase tracking-wide">
+                    Agregar
+                  </button>
                 </div>
               </div>
             </div>

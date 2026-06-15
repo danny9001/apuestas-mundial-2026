@@ -176,12 +176,20 @@ export async function sync365Scores(): Promise<{
 
       const stateChanged = localMatch.estado !== estado;
       const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
+      const liveTime = game.gameTimeDisplay || (game.gameTime ? `${game.gameTime}'` : '') || game.statusText || '';
+      const timeChanged = estado === 'live' && localMatch.stats?.time !== liveTime;
 
-      if (stateChanged || scoreChanged) {
+      if (stateChanged || scoreChanged || timeChanged) {
         const stats = localMatch.stats || {};
         if (game.homeCompetitor.redCards !== undefined) {
           stats.red_cards_local = isLInverted ? game.awayCompetitor.redCards : game.homeCompetitor.redCards;
           stats.red_cards_visitante = isLInverted ? game.homeCompetitor.redCards : game.awayCompetitor.redCards;
+        }
+
+        if (estado === 'live') {
+          stats.time = liveTime;
+        } else if (estado === 'finished') {
+          stats.time = 'Final';
         }
 
         if (!stats.possession_local && (estado === 'live' || estado === 'finished')) {
@@ -591,9 +599,17 @@ export async function syncESPNScoreboard(): Promise<{
 
       const stateChanged = localMatch.estado !== estado;
       const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
+      const liveTime = comp.status?.type?.detail || comp.status?.displayClock || '';
+      const timeChanged = estado === 'live' && localMatch.stats?.time !== liveTime;
 
-      if (stateChanged || scoreChanged) {
+      if (stateChanged || scoreChanged || timeChanged) {
         const stats = localMatch.stats || {};
+        
+        if (estado === 'live') {
+          stats.time = liveTime;
+        } else if (estado === 'finished') {
+          stats.time = 'Final';
+        }
         
         // Try to capture some basic ESPN stats if available, or keep existing ones
         if (!stats.possession_local && (estado === 'live' || estado === 'finished')) {

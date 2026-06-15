@@ -78,6 +78,35 @@ const TEAM_TRIVIA: Record<string, { trivia: string; news: string }> = {
   }
 };
 
+const STADIUM_MAPPING: Record<string, string> = {
+  'Estadio Azteca, CDMX': 'Estadio Azteca, CDMX',
+  'CDMX': 'Estadio Azteca, CDMX',
+  'Guadalajara': 'Estadio Akron, Guadalajara',
+  'Monterrey': 'Estadio BBVA, Monterrey',
+  'Atlanta': 'Mercedes-Benz Stadium, Atlanta',
+  'Toronto': 'BMO Field, Toronto',
+  'San Francisco': "Levi's Stadium, Santa Clara",
+  'Los Ángeles': 'SoFi Stadium, Inglewood',
+  'Vancouver': 'BC Place, Vancouver',
+  'Seattle': 'Lumen Field, Seattle',
+  'Nueva York/NJ': 'MetLife Stadium, East Rutherford',
+  'Boston': 'Gillette Stadium, Foxborough',
+  'Houston': 'NRG Stadium, Houston',
+  'Kansas City': 'Arrowhead Stadium, Kansas City',
+  'Filadelfia': 'Lincoln Financial Field, Philadelphia',
+  'Miami': 'Hard Rock Stadium, Miami',
+  'Dallas': 'AT&T Stadium, Arlington',
+  'La Paz': 'Estadio Hernando Siles, La Paz',
+  'Potosí': 'Estadio Víctor Agustín Ugarte, Potosí',
+  'Santa Cruz': 'Estadio Ramón Tahuichi Aguilera, Santa Cruz',
+  'Sucre': 'Estadio Patria, Sucre',
+  'Oruro': 'Estadio Jesús Bermúdez, Oruro',
+  'Cochabamba': 'Estadio Félix Capriles, Cochabamba',
+  'Beni': 'Estadio Gran Mamoré, Trinidad',
+  'Pando': 'Estadio Roberto Jordán Cuéllar, Cobija',
+  'Tarija': 'Estadio IV Centenario, Tarija'
+};
+
 export default function MatchInfoModal({ match, prediction, onBet, onClose }: MatchInfoModalProps) {
   const localTrivia = TEAM_TRIVIA[match.local] || {
     trivia: `${match.local} busca hacer historia en esta edición de la Copa del Mundo y consolidarse como una potencia de su confederación.`,
@@ -88,7 +117,8 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
     news: `Los seleccionados de ${match.visitante} destacan la importancia del orden táctico y el compañerismo.`
   };
 
-  const stadiumQuery = match.estadio || 'Estadio de Futbol';
+  const stadiumName = STADIUM_MAPPING[match.estadio] || match.estadio || 'Estadio de Futbol';
+  const stadiumQuery = stadiumName;
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stadiumQuery)}`;
 
   return (
@@ -184,6 +214,133 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
           return null;
         })()}
 
+        {/* Live Match Statistics */}
+        {(match.estado === 'live' || match.estado === 'finished' || (match.stats && Object.keys(match.stats).length > 0)) && (() => {
+          const stats = match.stats || {};
+          const hasStats = stats.possession_local !== undefined || stats.shots_local !== undefined || stats.fouls_local !== undefined || stats.yellow_cards_local !== undefined || stats.red_cards_local !== undefined || stats.corners_local !== undefined;
+          
+          if (!hasStats && !stats.time) return null;
+
+          const possL = parseInt(stats.possession_local) || 50;
+          const possV = parseInt(stats.possession_visitante) || 50;
+
+          return (
+            <div className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-5 space-y-4">
+              <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center justify-between border-b border-neutral-850 pb-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                  <span>Estadísticas del Partido {match.estado === 'live' && 'En Vivo'}</span>
+                </span>
+                {stats.time && (
+                  <span className="bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded font-mono text-[10px] font-black uppercase tracking-wider animate-pulse">
+                    ⏱️ {stats.time} {stats.extra_time ? `(${stats.extra_time})` : ''}
+                  </span>
+                )}
+              </div>
+
+              {/* Posesión bar */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs font-bold text-neutral-300">
+                  <span>{possL}% Posesión</span>
+                  <span>{possV}% Posesión</span>
+                </div>
+                <div className="w-full h-2.5 bg-neutral-950 rounded-full overflow-hidden flex border border-neutral-850">
+                  <div className="h-full bg-yellow-500 transition-all duration-500" style={{ width: `${possL}%` }}></div>
+                  <div className="h-full bg-neutral-700 transition-all duration-500" style={{ width: `${possV}%` }}></div>
+                </div>
+              </div>
+
+              {/* Detailed metrics */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 pt-2 text-xs">
+                {/* Tiros */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-[10px] text-neutral-500 uppercase font-black">
+                    <span>{stats.shots_local ?? 0}</span>
+                    <span>Tiros Totales</span>
+                    <span>{stats.shots_visitante ?? 0}</span>
+                  </div>
+                  <div className="w-full h-1 bg-neutral-950 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-yellow-500" style={{ width: `${((parseInt(stats.shots_local) || 0) / ((parseInt(stats.shots_local) || 0) + (parseInt(stats.shots_visitante) || 0) || 1)) * 100}%` }}></div>
+                    <div className="h-full bg-neutral-700" style={{ width: `${((parseInt(stats.shots_visitante) || 0) / ((parseInt(stats.shots_local) || 0) + (parseInt(stats.shots_visitante) || 0) || 1)) * 100}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Tiros de esquina */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-[10px] text-neutral-500 uppercase font-black">
+                    <span>{stats.corners_local ?? 0}</span>
+                    <span>Tiros de Esquina</span>
+                    <span>{stats.corners_visitante ?? 0}</span>
+                  </div>
+                  <div className="w-full h-1 bg-neutral-950 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-yellow-500" style={{ width: `${((parseInt(stats.corners_local) || 0) / ((parseInt(stats.corners_local) || 0) + (parseInt(stats.corners_visitante) || 0) || 1)) * 100}%` }}></div>
+                    <div className="h-full bg-neutral-700" style={{ width: `${((parseInt(stats.corners_visitante) || 0) / ((parseInt(stats.corners_local) || 0) + (parseInt(stats.corners_visitante) || 0) || 1)) * 100}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Faltas */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-[10px] text-neutral-500 uppercase font-black">
+                    <span>{stats.fouls_local ?? 0}</span>
+                    <span>Faltas</span>
+                    <span>{stats.fouls_visitante ?? 0}</span>
+                  </div>
+                  <div className="w-full h-1 bg-neutral-950 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-yellow-500" style={{ width: `${((parseInt(stats.fouls_local) || 0) / ((parseInt(stats.fouls_local) || 0) + (parseInt(stats.fouls_visitante) || 0) || 1)) * 100}%` }}></div>
+                    <div className="h-full bg-neutral-700" style={{ width: `${((parseInt(stats.fouls_visitante) || 0) / ((parseInt(stats.fouls_local) || 0) + (parseInt(stats.fouls_visitante) || 0) || 1)) * 100}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Tarjetas Amarillas */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-[10px] text-neutral-500 uppercase font-black">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2.5 h-3.5 bg-yellow-450 rounded-sm border border-yellow-400 bg-yellow-500"></span>
+                      <span>{stats.yellow_cards_local ?? 0}</span>
+                    </span>
+                    <span>Tarjetas Amarillas</span>
+                    <span className="flex items-center gap-1">
+                      <span>{stats.yellow_cards_visitante ?? 0}</span>
+                      <span className="w-2.5 h-3.5 bg-yellow-450 rounded-sm border border-yellow-400 bg-yellow-500"></span>
+                    </span>
+                  </div>
+                  <div className="w-full h-1 bg-neutral-950 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-yellow-500" style={{ width: `${((parseInt(stats.yellow_cards_local) || 0) / ((parseInt(stats.yellow_cards_local) || 0) + (parseInt(stats.yellow_cards_visitante) || 0) || 1)) * 100}%` }}></div>
+                    <div className="h-full bg-neutral-700" style={{ width: `${((parseInt(stats.yellow_cards_visitante) || 0) / ((parseInt(stats.yellow_cards_local) || 0) + (parseInt(stats.yellow_cards_visitante) || 0) || 1)) * 100}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Tarjetas Rojas */}
+                <div className="flex flex-col gap-1.5 col-span-2 md:col-span-1">
+                  <div className="flex justify-between text-[10px] text-neutral-500 uppercase font-black">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2.5 h-3.5 bg-red-650 rounded-sm border border-red-500 bg-red-600"></span>
+                      <span>{stats.red_cards_local ?? 0}</span>
+                    </span>
+                    <span>Tarjetas Rojas</span>
+                    <span className="flex items-center gap-1">
+                      <span>{stats.red_cards_visitante ?? 0}</span>
+                      <span className="w-2.5 h-3.5 bg-red-650 rounded-sm border border-red-500 bg-red-600"></span>
+                    </span>
+                  </div>
+                  <div className="w-full h-1 bg-neutral-950 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-yellow-500" style={{ width: `${((parseInt(stats.red_cards_local) || 0) / ((parseInt(stats.red_cards_local) || 0) + (parseInt(stats.red_cards_visitante) || 0) || 1)) * 100}%` }}></div>
+                    <div className="h-full bg-neutral-700" style={{ width: `${((parseInt(stats.red_cards_visitante) || 0) / ((parseInt(stats.red_cards_local) || 0) + (parseInt(stats.red_cards_visitante) || 0) || 1)) * 100}%` }}></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Referee / Temperature info */}
+              {(stats.arbitro || stats.temperatura) && (
+                <div className="flex gap-4 border-t border-neutral-850 pt-3 text-[10px] text-neutral-500 uppercase font-mono justify-between">
+                  {stats.arbitro && <span>👤 Árbitro: <strong className="text-neutral-300 font-sans">{stats.arbitro}</strong></span>}
+                  {stats.temperatura && <span>🌡️ Clima/Temp: <strong className="text-neutral-300 font-sans">{stats.temperatura}</strong></span>}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Match metadata & Stadium map */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-4 space-y-3">
@@ -222,13 +379,29 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
               <MapPin className="w-3.5 h-3.5 text-yellow-500" />
               <span>Mapa y Ubicación</span>
             </div>
-            <div className="flex-1 flex flex-col items-center justify-center p-3 text-center bg-neutral-950 rounded-lg border border-neutral-850">
-              <p className="text-[10px] text-neutral-400 font-semibold mb-2">{match.estadio || 'Estadio del Encuentro'}</p>
+            <div className="flex-1 flex flex-col items-center justify-center p-2 text-center bg-neutral-950 rounded-lg border border-neutral-850 overflow-hidden min-h-[180px]">
+              <p className="text-[10px] text-neutral-400 font-semibold mb-2">{stadiumName}</p>
+              {match.estadio ? (
+                <div className="w-full flex-1 rounded overflow-hidden mb-2 border border-neutral-800">
+                  <iframe
+                    title="Mapa del Estadio"
+                    width="100%"
+                    height="120"
+                    style={{ border: 0, filter: 'invert(90%) hue-rotate(180deg)' }}
+                    loading="lazy"
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(stadiumQuery)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                  ></iframe>
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-neutral-600 text-[10px] italic py-6">
+                  Ubicación no disponible
+                </div>
+              )}
               <a 
                 href={googleMapsUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-lg transition active:scale-95 inline-flex items-center gap-1 font-sans"
+                className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-lg transition active:scale-95 inline-flex items-center gap-1 font-sans mt-auto"
               >
                 <MapPin className="w-3 h-3" />
                 <span>Ver en Google Maps</span>

@@ -67,7 +67,8 @@ export async function POST(req: NextRequest) {
       goles_visitante,
       fase,
       grupo,
-      transmision_enlaces
+      transmision_enlaces,
+      stats
     } = body;
 
     let matchResult;
@@ -94,8 +95,9 @@ export async function POST(req: NextRequest) {
             fase = COALESCE($9, fase),
             grupo = COALESCE($10, grupo),
             transmision_enlaces = COALESCE($11, transmision_enlaces),
+            stats = COALESCE($12, stats),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $12
+        WHERE id = $13
         RETURNING *
       `;
       
@@ -103,7 +105,9 @@ export async function POST(req: NextRequest) {
         fecha, local, visitante, logo_local, logo_visitante, estado,
         goles_local !== undefined ? parseInt(goles_local) : null,
         goles_visitante !== undefined ? parseInt(goles_visitante) : null,
-        fase, grupo, transmision_enlaces, id
+        fase, grupo, transmision_enlaces,
+        stats ? (typeof stats === 'string' ? stats : JSON.stringify(stats)) : null,
+        id
       ]);
 
       const updatedMatch = matchResult.rows[0];
@@ -137,13 +141,14 @@ export async function POST(req: NextRequest) {
     } else {
       // CREATE MATCH
       const insertQuery = `
-        INSERT INTO matches (fecha, local, visitante, logo_local, logo_visitante, estado, goles_local, goles_visitante, fase, grupo, transmision_enlaces)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        INSERT INTO matches (fecha, local, visitante, logo_local, logo_visitante, estado, goles_local, goles_visitante, fase, grupo, transmision_enlaces, stats)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
       `;
       matchResult = await pool.query(insertQuery, [
         fecha, local, visitante, logo_local || null, logo_visitante || null,
-        estado || 'upcoming', goles_local || 0, goles_visitante || 0, fase || 'Fase de Grupos', grupo || null, transmision_enlaces || ''
+        estado || 'upcoming', goles_local || 0, goles_visitante || 0, fase || 'Fase de Grupos', grupo || null, transmision_enlaces || '',
+        stats ? (typeof stats === 'string' ? stats : JSON.stringify(stats)) : '{}'
       ]);
 
       const createdMatch = matchResult.rows[0];

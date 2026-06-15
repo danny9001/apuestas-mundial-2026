@@ -15,7 +15,7 @@ export interface UserSession {
   notif_prefs?: any;
 }
 
-const SESSION_TTL_SECONDS = 7200; // 2h
+const SESSION_TTL_SECONDS = 604800; // 7 days
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;

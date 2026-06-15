@@ -100,6 +100,24 @@ export default function CompaniesTab({
   const [adminTransmisionEnlaces, setAdminTransmisionEnlaces] = useState('');
   const [adminSubmitting, setAdminSubmitting] = useState(false);
 
+  // Live stats states
+  const [adminStatsTime, setAdminStatsTime] = useState('');
+  const [adminStatsExtraTime, setAdminStatsExtraTime] = useState('');
+  const [adminStatsPossessionLocal, setAdminStatsPossessionLocal] = useState(50);
+  const [adminStatsPossessionVisitante, setAdminStatsPossessionVisitante] = useState(50);
+  const [adminStatsShotsLocal, setAdminStatsShotsLocal] = useState(0);
+  const [adminStatsShotsVisitante, setAdminStatsShotsVisitante] = useState(0);
+  const [adminStatsFoulsLocal, setAdminStatsFoulsLocal] = useState(0);
+  const [adminStatsFoulsVisitante, setAdminStatsFoulsVisitante] = useState(0);
+  const [adminStatsYellowLocal, setAdminStatsYellowLocal] = useState(0);
+  const [adminStatsYellowVisitante, setAdminStatsYellowVisitante] = useState(0);
+  const [adminStatsRedLocal, setAdminStatsRedLocal] = useState(0);
+  const [adminStatsRedVisitante, setAdminStatsRedVisitante] = useState(0);
+  const [adminStatsCornersLocal, setAdminStatsCornersLocal] = useState(0);
+  const [adminStatsCornersVisitante, setAdminStatsCornersVisitante] = useState(0);
+  const [adminStatsArbitro, setAdminStatsArbitro] = useState('');
+  const [adminStatsTemperatura, setAdminStatsTemperatura] = useState('');
+
   // Sync settings form with app values
   useEffect(() => {
     if (user?.tipo === 'superadmin') {
@@ -351,6 +369,24 @@ export default function CompaniesTab({
           goles_visitante: adminGolesVisitante,
           estado: adminEstado,
           transmision_enlaces: adminTransmisionEnlaces,
+          stats: {
+            time: adminStatsTime,
+            extra_time: adminStatsExtraTime,
+            possession_local: adminStatsPossessionLocal,
+            possession_visitante: adminStatsPossessionVisitante,
+            shots_local: adminStatsShotsLocal,
+            shots_visitante: adminStatsShotsVisitante,
+            fouls_local: adminStatsFoulsLocal,
+            fouls_visitante: adminStatsFoulsVisitante,
+            yellow_cards_local: adminStatsYellowLocal,
+            yellow_cards_visitante: adminStatsYellowVisitante,
+            red_cards_local: adminStatsRedLocal,
+            red_cards_visitante: adminStatsRedVisitante,
+            corners_local: adminStatsCornersLocal,
+            corners_visitante: adminStatsCornersVisitante,
+            arbitro: adminStatsArbitro,
+            temperatura: adminStatsTemperatura
+          }
         }),
       });
       if (res.ok) { setAdminMatchModal(null); showToast('⚽ Marcador actualizado'); await fetchMatches(); }
@@ -771,7 +807,31 @@ export default function CompaniesTab({
                     {m.estado === 'live' ? '🔴 En juego' : m.estado === 'finished' ? '⚫ Finalizado' : '⚪ Programado'}
                   </span>
                 </div>
-                <button onClick={() => { setAdminMatchModal(m); setAdminGolesLocal(m.goles_local); setAdminGolesVisitante(m.goles_visitante); setAdminEstado(m.estado); setAdminTransmisionEnlaces(m.transmision_enlaces || ''); }}
+                <button onClick={() => {
+                  setAdminMatchModal(m);
+                  setAdminGolesLocal(m.goles_local);
+                  setAdminGolesVisitante(m.goles_visitante);
+                  setAdminEstado(m.estado);
+                  setAdminTransmisionEnlaces(m.transmision_enlaces || '');
+                  
+                  const stats = m.stats || {};
+                  setAdminStatsTime(stats.time || '');
+                  setAdminStatsExtraTime(stats.extra_time || '');
+                  setAdminStatsPossessionLocal(stats.possession_local !== undefined ? stats.possession_local : 50);
+                  setAdminStatsPossessionVisitante(stats.possession_visitante !== undefined ? stats.possession_visitante : 50);
+                  setAdminStatsShotsLocal(stats.shots_local || 0);
+                  setAdminStatsShotsVisitante(stats.shots_visitante || 0);
+                  setAdminStatsFoulsLocal(stats.fouls_local || 0);
+                  setAdminStatsFoulsVisitante(stats.fouls_visitante || 0);
+                  setAdminStatsYellowLocal(stats.yellow_cards_local || 0);
+                  setAdminStatsYellowVisitante(stats.yellow_cards_visitante || 0);
+                  setAdminStatsRedLocal(stats.red_cards_local || 0);
+                  setAdminStatsRedVisitante(stats.red_cards_visitante || 0);
+                  setAdminStatsCornersLocal(stats.corners_local || 0);
+                  setAdminStatsCornersVisitante(stats.corners_visitante || 0);
+                  setAdminStatsArbitro(stats.arbitro || '');
+                  setAdminStatsTemperatura(stats.temperatura || '');
+                }}
                   className="bg-neutral-950 hover:bg-neutral-800 text-neutral-300 font-bold px-4 py-2 border border-neutral-800 hover:border-yellow-500/25 rounded-xl transition">
                   Editar
                 </button>
@@ -823,11 +883,11 @@ export default function CompaniesTab({
 
       {/* ── MODAL: Admin Match Editor ── */}
       {adminMatchModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-slide-in-up space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl animate-slide-in-up space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-neutral-800 pb-3">
               <div>
-                <h3 className="text-sm font-black uppercase text-neutral-100">Actualizar Marcador</h3>
+                <h3 className="text-sm font-black uppercase text-neutral-100">Actualizar Partido y Estadísticas</h3>
                 <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono">Modo Administrador</span>
               </div>
               <button onClick={() => setAdminMatchModal(null)} className="bg-neutral-950 hover:bg-neutral-800 text-neutral-400 p-2 rounded-full border border-neutral-800 transition">
@@ -849,24 +909,120 @@ export default function CompaniesTab({
                   className="w-16 bg-neutral-900 border border-neutral-800 text-center py-2 text-yellow-500 font-mono font-black text-lg rounded-lg outline-none mt-2" />
               </div>
             </div>
-            <div>
-              <label className="block text-neutral-400 text-xs font-bold uppercase tracking-wide mb-2">Estado del Partido</label>
-              <select value={adminEstado} onChange={e => setAdminEstado(e.target.value as any)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-neutral-300 outline-none transition">
-                <option value="upcoming">Programado (upcoming)</option>
-                <option value="live">En Juego (live)</option>
-                <option value="finished">Finalizado (finished)</option>
-              </select>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-neutral-400 text-xs font-bold uppercase tracking-wide mb-1.5">Estado del Partido</label>
+                <select value={adminEstado} onChange={e => setAdminEstado(e.target.value as any)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-xs text-neutral-300 outline-none transition">
+                  <option value="upcoming">Programado (upcoming)</option>
+                  <option value="live">En Juego (live)</option>
+                  <option value="finished">Finalizado (finished)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-neutral-400 text-xs font-bold uppercase tracking-wide mb-1.5">Tiempo de Juego (Minuto)</label>
+                <input type="text" value={adminStatsTime} onChange={e => setAdminStatsTime(e.target.value)} placeholder="ej: 45', HT, 82'"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-300 outline-none transition font-mono" />
+              </div>
             </div>
+
+            {/* SECCIÓN DE ESTADÍSTICAS EN VIVO */}
+            <div className="border-t border-neutral-800 pt-4 space-y-4">
+              <h4 className="text-[10px] font-black uppercase text-yellow-500 tracking-wider">Estadísticas del Partido</h4>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1">Tiempo Extra (minutos)</label>
+                  <input type="text" value={adminStatsExtraTime} onChange={e => setAdminStatsExtraTime(e.target.value)} placeholder="ej: +3, +5"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-300 outline-none transition font-mono" />
+                </div>
+                <div>
+                  <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1">Posesión (Local % / Vis %)</label>
+                  <div className="flex gap-2">
+                    <input type="number" min="0" max="100" value={adminStatsPossessionLocal} 
+                      onChange={e => {
+                        const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                        setAdminStatsPossessionLocal(val);
+                        setAdminStatsPossessionVisitante(100 - val);
+                      }} 
+                      className="w-1/2 bg-neutral-950 border border-neutral-800 text-center py-2 text-xs text-neutral-300 rounded-lg outline-none font-mono" />
+                    <input type="number" min="0" max="100" value={adminStatsPossessionVisitante} 
+                      onChange={e => {
+                        const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                        setAdminStatsPossessionVisitante(val);
+                        setAdminStatsPossessionLocal(100 - val);
+                      }} 
+                      className="w-1/2 bg-neutral-950 border border-neutral-800 text-center py-2 text-xs text-neutral-300 rounded-lg outline-none font-mono" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-neutral-400 text-[9px] font-bold uppercase tracking-wider mb-1 text-center">Tiros (L / V)</label>
+                  <div className="flex gap-1">
+                    <input type="number" min="0" value={adminStatsShotsLocal} onChange={e => setAdminStatsShotsLocal(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                    <input type="number" min="0" value={adminStatsShotsVisitante} onChange={e => setAdminStatsShotsVisitante(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-neutral-400 text-[9px] font-bold uppercase tracking-wider mb-1 text-center">Faltas (L / V)</label>
+                  <div className="flex gap-1">
+                    <input type="number" min="0" value={adminStatsFoulsLocal} onChange={e => setAdminStatsFoulsLocal(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                    <input type="number" min="0" value={adminStatsFoulsVisitante} onChange={e => setAdminStatsFoulsVisitante(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-neutral-400 text-[9px] font-bold uppercase tracking-wider mb-1 text-center">Esquinas (L / V)</label>
+                  <div className="flex gap-1">
+                    <input type="number" min="0" value={adminStatsCornersLocal} onChange={e => setAdminStatsCornersLocal(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                    <input type="number" min="0" value={adminStatsCornersVisitante} onChange={e => setAdminStatsCornersVisitante(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-850 text-center py-1 text-xs text-neutral-300 rounded-lg font-mono" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1 text-center">Tarjetas Amarillas (L / V)</label>
+                  <div className="flex gap-2">
+                    <input type="number" min="0" value={adminStatsYellowLocal} onChange={e => setAdminStatsYellowLocal(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-800 text-center py-1.5 text-xs text-neutral-300 rounded-lg font-mono" />
+                    <input type="number" min="0" value={adminStatsYellowVisitante} onChange={e => setAdminStatsYellowVisitante(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-800 text-center py-1.5 text-xs text-neutral-300 rounded-lg font-mono" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1 text-center">Tarjetas Rojas (L / V)</label>
+                  <div className="flex gap-2">
+                    <input type="number" min="0" value={adminStatsRedLocal} onChange={e => setAdminStatsRedLocal(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-800 text-center py-1.5 text-xs text-neutral-300 rounded-lg font-mono" />
+                    <input type="number" min="0" value={adminStatsRedVisitante} onChange={e => setAdminStatsRedVisitante(Math.max(0, parseInt(e.target.value) || 0))} className="w-1/2 bg-neutral-950 border border-neutral-800 text-center py-1.5 text-xs text-neutral-300 rounded-lg font-mono" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1">Árbitro</label>
+                  <input type="text" value={adminStatsArbitro} onChange={e => setAdminStatsArbitro(e.target.value)} placeholder="Nombre del árbitro"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-300 outline-none transition" />
+                </div>
+                <div>
+                  <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1">Clima / Temp</label>
+                  <input type="text" value={adminStatsTemperatura} onChange={e => setAdminStatsTemperatura(e.target.value)} placeholder="ej: 18°C, Lluvia"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-300 outline-none transition" />
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block text-neutral-400 text-xs font-bold uppercase tracking-wide mb-2">Enlaces de Transmisión (separados por coma)</label>
               <textarea value={adminTransmisionEnlaces} onChange={e => setAdminTransmisionEnlaces(e.target.value)}
                 placeholder="ej: Bolivia TV: https://boliviatv.bo, Unitel: https://unitel.tv" rows={2}
                 className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-xs text-neutral-300 outline-none transition focus:border-yellow-500/35 resize-none placeholder-neutral-700 font-mono" />
             </div>
+            
             <button onClick={handleAdminUpdateMatch} disabled={adminSubmitting}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-neutral-950 font-bold py-3.5 rounded-xl text-sm transition tracking-wider uppercase flex items-center justify-center gap-2 active:scale-[0.98]">
+              className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-neutral-950 font-bold py-3.5 rounded-xl text-sm transition tracking-wider uppercase flex items-center justify-center gap-2 active:scale-[0.98] mt-2">
               <Check className="w-4 h-4" />
-              <span>{adminSubmitting ? 'Guardando Marcador...' : 'Guardar Marcador'}</span>
+              <span>{adminSubmitting ? 'Guardando Partido...' : 'Guardar Partido'}</span>
             </button>
           </div>
         </div>

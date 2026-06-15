@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
     const sessionToken = jwt.sign(
       { id: user.id, email: user.email, tipo: user.tipo },
       process.env.JWT_SECRET!,
-      { expiresIn: 7200 }
+      { expiresIn: 604800 }
     );
     console.log('Generated sessionToken for:', user.email, 'length:', sessionToken.length);
 

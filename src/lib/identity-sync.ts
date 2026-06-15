@@ -79,7 +79,7 @@ export async function unsyncCompanyAssignment(
 export async function syncUserToIdentity(params: {
   email: string;
   name: string;
-  password: string;
+  password?: string;
 }): Promise<void> {
   const { appSecret, baseUrl } = getIdentityConfig();
   if (!appSecret) return;

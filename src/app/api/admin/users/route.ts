@@ -170,10 +170,12 @@ export async function POST(req: NextRequest) {
 
       const r = await pool.query(updateQuery, params);
       if (r.rows.length === 0) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
-      // Sync password to Identity if it was changed
+      // Sync changes to Identity
       if (password?.trim()) {
         void syncUserToIdentity({ email: emailNorm, name: nombreSafe, password: password.trim() });
         void syncUserPassword({ email: emailNorm, password: password.trim() });
+      } else {
+        void syncUserToIdentity({ email: emailNorm, name: nombreSafe });
       }
       return NextResponse.json({ success: true, user: r.rows[0] });
     }

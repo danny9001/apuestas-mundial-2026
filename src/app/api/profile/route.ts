@@ -6,7 +6,7 @@ import path from 'path';
 import bcrypt from 'bcryptjs';
 import sharp from 'sharp';
 import { sanitizeText, validatePassword, BCRYPT_ROUNDS, MAX_AVATAR_BYTES, validateUploadedFile } from '@/lib/validation';
-import { syncUserPassword } from '@/lib/identity-sync';
+import { syncUserPassword, syncUserToIdentity } from '@/lib/identity-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,11 +69,13 @@ export async function POST(req: NextRequest) {
         [nombreSafe, avatarPath, passwordHash, telefonoSafe, user.id]
       );
       void syncUserPassword({ email: user.email, password: password.trim() });
+      void syncUserToIdentity({ email: user.email, name: nombreSafe, password: password.trim() });
     } else {
       await pool.query(
         'UPDATE users SET nombre = $1, avatar = $2, telefono = $3 WHERE id = $4',
         [nombreSafe, avatarPath, telefonoSafe, user.id]
       );
+      void syncUserToIdentity({ email: user.email, name: nombreSafe });
     }
     console.log('[profile] Database updated successfully');
 

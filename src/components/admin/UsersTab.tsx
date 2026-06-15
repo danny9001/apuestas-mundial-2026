@@ -311,11 +311,11 @@ export default function UsersTab({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Nombre Completo *</label>
-            <input type="text" required value={newUserNombre} onChange={e => setNewUserNombre(e.target.value)} placeholder="ej: Diego Armando" className="w-full input-stitch px-3 py-2 text-xs" />
+            <input type="text" required value={newUserNombre} onChange={e => setNewUserNombre(e.target.value)} placeholder="ej: Diego Armando" className="w-full input-stitch px-3 py-2 text-xs" autoComplete="name" />
           </div>
           <div className="space-y-1.5">
             <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Correo Electrónico *</label>
-            <input type="email" required value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} placeholder="usuario@empresa.com" className="w-full input-stitch px-3 py-2 text-xs" />
+            <input type="email" required value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} placeholder="usuario@empresa.com" className="w-full input-stitch px-3 py-2 text-xs" autoComplete="username" />
           </div>
           <div className="space-y-1.5">
             <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Contraseña (mín. 8) *</label>
@@ -333,7 +333,7 @@ export default function UsersTab({
             <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Celular / WhatsApp</label>
             <div className="flex gap-2 items-center">
               <span className="text-neutral-400 text-sm flex-shrink-0">📱</span>
-              <input type="tel" value={newUserPhone} onChange={e => setNewUserPhone(e.target.value)} placeholder="+591 XXXXXXXX" className="w-full input-stitch px-3 py-2 text-xs" />
+              <input type="tel" value={newUserPhone} onChange={e => setNewUserPhone(e.target.value)} placeholder="+591 XXXXXXXX" className="w-full input-stitch px-3 py-2 text-xs" autoComplete="tel" />
             </div>
           </div>
           {user.tipo === 'superadmin' && (

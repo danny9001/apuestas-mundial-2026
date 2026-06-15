@@ -29,7 +29,11 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
             <span className="truncate">{m.fase}</span>
             <span className="text-neutral-500 font-mono flex-shrink-0">•</span>
             <span className="text-neutral-500 font-mono flex-shrink-0">
-              {m.estado === 'upcoming' ? new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : m.estado === 'live' ? 'Jugándose' : 'Finalizado'}
+              {m.estado === 'upcoming'
+                ? new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                : m.estado === 'live'
+                  ? (m.stats?.time ? `⏱️ ${m.stats.time}${m.stats.extra_time ? ` (${m.stats.extra_time})` : ''}` : 'Jugándose')
+                  : 'Finalizado'}
             </span>
           </div>
           {m.estado === 'live' && (
@@ -93,7 +97,12 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
     >
       <div className="flex justify-between items-center border-b border-neutral-800/40 pb-3 text-[11px] font-bold tracking-wider text-neutral-400" onClick={e => e.stopPropagation()}>
         <span className="font-extrabold">{m.fase.toUpperCase()} - GRP {m.grupo}</span>
-        {m.estado === 'live' && <span className="text-red-500 font-black flex items-center gap-1 text-[10px] animate-pulse"><span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span> EN VIVO</span>}
+        {m.estado === 'live' && (
+          <span className="text-red-500 font-black flex items-center gap-1 text-[10px] animate-pulse">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span>
+            <span>EN VIVO {m.stats?.time ? `(${m.stats.time}${m.stats.extra_time ? ` ${m.stats.extra_time}` : ''})` : ''}</span>
+          </span>
+        )}
         {m.estado === 'finished' && <span className="text-neutral-500 font-semibold uppercase text-[10px]">FINALIZADO</span>}
         {m.estado === 'upcoming' && <span className="text-neutral-500 font-semibold text-[10px]">{new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
       </div>

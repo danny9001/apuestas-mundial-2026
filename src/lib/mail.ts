@@ -6,6 +6,7 @@ interface MailOptions {
   html: string;
   cc?: string | string[];
   bcc?: string | string[];
+  bypassSetting?: boolean;
 }
 
 async function getGraphToken(): Promise<string | null> {
@@ -35,13 +36,15 @@ async function getGraphToken(): Promise<string | null> {
 
 export async function sendMail(opts: MailOptions): Promise<boolean> {
   // Check database setting for email sending
-  try {
-    const settingRes = await pool.query("SELECT value FROM settings WHERE key = 'mail_notifications_enabled'");
-    if (settingRes.rows.length > 0 && settingRes.rows[0].value !== 'true') {
-      return false;
+  if (!opts.bypassSetting) {
+    try {
+      const settingRes = await pool.query("SELECT value FROM settings WHERE key = 'mail_notifications_enabled'");
+      if (settingRes.rows.length > 0 && settingRes.rows[0].value !== 'true') {
+        return false;
+      }
+    } catch (err) {
+      console.error('Error reading mail_notifications_enabled setting from DB:', err);
     }
-  } catch (err) {
-    console.error('Error reading mail_notifications_enabled setting from DB:', err);
   }
 
   const toAddresses = Array.isArray(opts.to) ? opts.to : [opts.to];

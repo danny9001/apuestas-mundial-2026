@@ -131,7 +131,8 @@ export async function POST(req: NextRequest) {
     await sendMail({
       to: sessionUser.email,
       subject: `[Mundial 2026] Reporte de Control de Pagos - ${new Date().toLocaleDateString('es-BO')}`,
-      html
+      html,
+      bypassSetting: true
     });
 
     return NextResponse.json({ success: true, message: 'Reporte de pagos enviado por correo electrónico' });

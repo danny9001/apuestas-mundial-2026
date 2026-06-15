@@ -22,6 +22,7 @@ export default function FixturePage() {
   const [infoModalMatch, setInfoModalMatch] = useState<any | null>(null);
   const [tincasoSelection, setTincasoSelection] = useState('');
   const [tincasoSubmitting, setTincasoSubmitting] = useState(false);
+  const [filterTeam, setFilterTeam] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -157,21 +158,35 @@ export default function FixturePage() {
       </div>
 
       {/* Partidos */}
-      {subTab === 'partidos' && (
-        <div className="space-y-4">
-          {loading ? <div className="py-20 text-center text-neutral-500">Cargando...</div>
-          : getMatchesByDate(matches).length === 0 ? <div className="py-20 text-center text-neutral-500">Sin partidos.</div>
-          : getMatchesByDate(matches).map(g => (
-            <div key={g.dateStr} className="space-y-4">
-              <div className="flex items-center gap-2 border-b border-neutral-850 pb-2">
-                <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">{g.dateStr}</span>
-                <span className="text-neutral-500 text-[10px] uppercase font-black tracking-wider">({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})</span>
+      {subTab === 'partidos' && (() => {
+        const filteredMatches = matches.filter(m => !filterTeam || m.local === filterTeam || m.visitante === filterTeam);
+        const matchesByDate = getMatchesByDate(filteredMatches);
+        return (
+          <div className="space-y-4">
+            {filterTeam && (
+              <div className="flex items-center justify-between bg-yellow-500/10 border border-yellow-500/20 px-4 py-3 rounded-2xl">
+                <div className="text-xs text-neutral-300 font-bold">
+                  Mostrando partidos de: <span className="text-yellow-500 font-black">{filterTeam}</span>
+                </div>
+                <button onClick={() => setFilterTeam('')} className="text-xs text-red-400 hover:text-red-300 font-black uppercase tracking-wider">
+                  ✕ Mostrar Todos
+                </button>
               </div>
-              <div className={gridClass}>{renderCards(g.matches)}</div>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+            {loading ? <div className="py-20 text-center text-neutral-500">Cargando...</div>
+            : matchesByDate.length === 0 ? <div className="py-20 text-center text-neutral-500">Sin partidos para este equipo.</div>
+            : matchesByDate.map(g => (
+              <div key={g.dateStr} className="space-y-4">
+                <div className="flex items-center gap-2 border-b border-neutral-850 pb-2">
+                  <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">{g.dateStr}</span>
+                  <span className="text-neutral-500 text-[10px] uppercase font-black tracking-wider">({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})</span>
+                </div>
+                <div className={gridClass}>{renderCards(g.matches)}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Posiciones */}
       {subTab === 'posiciones' && (
@@ -195,11 +210,11 @@ export default function FixturePage() {
                     </thead>
                     <tbody className="divide-y divide-neutral-850">
                       {standings[grp].map((s: any, idx: number) => (
-                        <tr key={s.team} className="hover:bg-neutral-800/30 transition">
+                        <tr key={s.team} className="hover:bg-neutral-800/30 transition cursor-pointer" onClick={() => { setSubTab('partidos'); setFilterTeam(s.team); }}>
                           <td className="px-3 py-2 flex items-center gap-1.5">
                             <span className="font-mono text-neutral-600 text-[9px] w-3 flex-shrink-0">{idx + 1}</span>
                             <span className="text-base flex-shrink-0">{getTeamFlag(s.team)}</span>
-                            <span className="font-bold text-neutral-300 truncate max-w-[90px]">{s.team}</span>
+                            <span className="font-bold text-neutral-350 hover:text-yellow-500 transition truncate max-w-[90px]">{s.team}</span>
                           </td>
                           <td className="px-1.5 py-2 text-center font-black text-neutral-100">{s.pts}</td>
                           {[s.pj,s.pg,s.pe,s.pp,s.gf,s.gc].map((v, i) => (

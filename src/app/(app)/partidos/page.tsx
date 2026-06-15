@@ -18,6 +18,7 @@ export default function PartidosPage() {
   const [compactView, setCompactView] = useState(false);
   const [filterFase, setFilterFase] = useState('ALL');
   const [filterGrupo, setFilterGrupo] = useState('ALL');
+  const [filterTeam, setFilterTeam] = useState('');
   const [groupDate, setGroupDate] = useState(true);
   const [groupRemaining, setGroupRemaining] = useState(false);
 
@@ -65,7 +66,8 @@ export default function PartidosPage() {
 
   const filtered = matches
     .filter(m => filterGrupo === 'ALL' || m.grupo === filterGrupo)
-    .filter(m => filterFase === 'ALL' || m.fase === filterFase);
+    .filter(m => filterFase === 'ALL' || m.fase === filterFase)
+    .filter(m => !filterTeam || m.local === filterTeam || m.visitante === filterTeam);
 
   const gridClass = compactView ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4';
 
@@ -73,6 +75,10 @@ export default function PartidosPage() {
     <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
       compact={compactView} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
   ));
+
+  const uniqueTeams = Array.from(new Set(matches.flatMap(m => [m.local, m.visitante])))
+    .filter(t => t && !/\d/.test(t) && !/Ganador|Perdedor|definir/i.test(t))
+    .sort();
 
   return (
     <section className="space-y-6">
@@ -85,6 +91,19 @@ export default function PartidosPage() {
           }`}>
           {compactView ? '📱 Vista Normal' : '🔍 Vista Compacta'}
         </button>
+      </div>
+
+      {/* Team Filter Search */}
+      <div className="flex flex-wrap items-center gap-2 bg-neutral-900/30 border border-neutral-850 p-3 rounded-2xl">
+        <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Filtrar por Equipo:</span>
+        <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)}
+          className="bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-1.5 text-xs text-neutral-100 font-bold focus:border-yellow-500 max-w-xs">
+          <option value="">-- Todos los equipos --</option>
+          {uniqueTeams.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        {filterTeam && (
+          <button onClick={() => setFilterTeam('')} className="text-[10px] text-red-400 hover:text-red-300 font-bold uppercase tracking-wider">✕ Limpiar</button>
+        )}
       </div>
 
       {/* Fase filter */}

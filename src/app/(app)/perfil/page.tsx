@@ -216,19 +216,19 @@ export default function PerfilPage() {
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block">Nombre Completo</label>
-                <input type="text" required value={profileNombre} onChange={(e) => setProfileNombre(e.target.value)}
+                <input type="text" required value={profileNombre} onChange={(e) => setProfileNombre(e.target.value)} autoComplete="name"
                   className="w-full bg-neutral-950 border border-neutral-850 rounded-xl px-4 py-3 text-neutral-200 text-xs focus:border-yellow-500/35 outline-none transition font-semibold" />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block">Correo (No editable)</label>
-                <input type="email" disabled value={user.email}
+                <input type="email" disabled value={user.email} autoComplete="email"
                   className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-500 text-xs cursor-not-allowed opacity-60 font-semibold" />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block">Celular / WhatsApp</label>
-                <input type="tel" value={profileTelefono} onChange={(e) => setProfileTelefono(e.target.value)}
+                <input type="tel" value={profileTelefono} onChange={(e) => setProfileTelefono(e.target.value)} autoComplete="tel"
                   placeholder="+591 XXXXXXXX"
                   className="w-full bg-neutral-950 border border-neutral-850 rounded-xl px-4 py-3 text-neutral-200 text-xs focus:border-yellow-500/35 outline-none transition font-semibold" />
               </div>

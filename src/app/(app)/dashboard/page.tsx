@@ -408,14 +408,17 @@ export default function DashboardPage() {
         />
       )}
 
-      {infoModalMatch && (
-        <MatchInfoModal
-          match={infoModalMatch}
-          prediction={predictions.find(p => p.match_id === infoModalMatch.id) ?? null}
-          onBet={() => setBetModalMatch(infoModalMatch)}
-          onClose={() => setInfoModalMatch(null)}
-        />
-      )}
+      {infoModalMatch && (() => {
+        const freshMatch = matches.find(m => m.id === infoModalMatch.id) || infoModalMatch;
+        return (
+          <MatchInfoModal
+            match={freshMatch}
+            prediction={predictions.find(p => p.match_id === freshMatch.id) ?? null}
+            onBet={() => setBetModalMatch(freshMatch)}
+            onClose={() => setInfoModalMatch(null)}
+          />
+        );
+      })()}
     </section>
   );
 }

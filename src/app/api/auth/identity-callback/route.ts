@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import pool from '@/lib/db';
-import { setSession } from '@/lib/auth';
 import { syncCompanyAssignment } from '@/lib/identity-sync';
 
 export const dynamic = 'force-dynamic';
@@ -92,7 +91,7 @@ export async function GET(req: NextRequest) {
     );
     const user = result.rows[0];
 
-    // Consume invitation if provided — assigns user to company
+    // Consume invitation if provided
     if (inviteToken) {
       try {
         const inv = await pool.query(
@@ -107,7 +106,6 @@ export async function GET(req: NextRequest) {
                 'INSERT INTO user_companies (user_id, company_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
                 [user.id, invitation.company_id]
               );
-              // Sync to Identity
               const compRes = await pool.query('SELECT nombre FROM companies WHERE id = $1', [invitation.company_id]);
               if (compRes.rows.length > 0) {
                 syncCompanyAssignment(user.email, compRes.rows[0].nombre, user.tipo).catch(() => {});
@@ -143,65 +141,30 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Generar JWT sin establecer cookie aún
+    // Generar JWT de sesión
     const sessionToken = jwt.sign(
       { id: user.id, email: user.email, tipo: user.tipo },
       process.env.JWT_SECRET!,
       { expiresIn: 604800 }
     );
-    console.log('Generated sessionToken for:', user.email, 'length:', sessionToken.length);
 
     let safeRedirect = '/';
     if (redirectTo.startsWith('/') && !redirectTo.startsWith('//')) {
       safeRedirect = redirectTo;
     }
-    const dest = safeRedirect;
 
-    // Usar JavaScript para hacer POST automático
-    // Esto evita problemas de NextResponse.redirect() con cookies
-    const htmlForm = `
-      <!DOCTYPE html>
-      <html>
-        <head><title>Iniciando sesión...</title></head>
-        <body style="margin:0; padding:0; background:#f5f5f5;">
-          <script>
-            (async () => {
-              try {
-                const res = await fetch('/api/auth/sso-complete', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    token: ${JSON.stringify(sessionToken)},
-                    redirect: ${JSON.stringify(dest)}
-                  }),
-                  credentials: 'include'
-                });
-                const data = await res.json();
-                if (data.success && data.redirect) {
-                  window.location.href = data.redirect;
-                } else {
-                  window.location.href = '/?error=sso_failed';
-                }
-              } catch (err) {
-                window.location.href = '/?error=sso_failed';
-              }
-            })();
-          </script>
-          <div style="display:flex; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; color:#666;">
-            <div style="text-align:center;">
-              <div style="font-size:18px; margin-bottom:20px;">Iniciando sesión...</div>
-              <div style="width:40px; height:40px; border:4px solid #f3f3f3; border-top:4px solid #3498db; border-radius:50%; margin:0 auto; animation:spin 1s linear infinite;"></div>
-              <style>@keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }</style>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    return new NextResponse(htmlForm, {
-      status: 200,
-      headers: { 'Content-Type': 'text/html; charset=utf-8; charset=utf-8' },
+    // Establecer cookie DIRECTAMENTE en la respuesta redirect — más confiable que fetch/JS
+    // especialmente en iOS Safari / PWA donde fetch+Set-Cookie no siempre persiste
+    const response = NextResponse.redirect(`${base}${safeRedirect}`);
+    response.cookies.set('apuestas_session', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 604800,
+      path: '/',
     });
+
+    return response;
   } catch (err) {
     console.error('identity-callback error:', err);
     return NextResponse.redirect(`${base}/?error=sso_failed`);

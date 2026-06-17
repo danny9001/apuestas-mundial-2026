@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Trophy } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { getStandings, getMatchesByDate } from '@/lib/match-utils';
@@ -23,6 +23,7 @@ export default function FixturePage() {
   const [tincasoSelection, setTincasoSelection] = useState('');
   const [tincasoSubmitting, setTincasoSubmitting] = useState(false);
   const [filterTeam, setFilterTeam] = useState('');
+  const todayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -51,6 +52,14 @@ export default function FixturePage() {
       } catch {}
     })();
   }, [lastMatchUpdate]);
+
+  useEffect(() => {
+    if (subTab === 'partidos' && matches.length > 0 && todayRef.current) {
+      setTimeout(() => {
+        todayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [subTab, matches.length]);
 
   const handleSavePrediction = async (matchId: number, predLocal: number, predVisitante: number, userId: number) => {
     const res = await fetch('/api/predictions', {
@@ -176,7 +185,7 @@ export default function FixturePage() {
             {loading ? <div className="py-20 text-center text-neutral-500">Cargando...</div>
             : matchesByDate.length === 0 ? <div className="py-20 text-center text-neutral-500">Sin partidos para este equipo.</div>
             : matchesByDate.map(g => (
-              <div key={g.dateStr} className="space-y-4">
+              <div key={g.dateStr} className="space-y-4" ref={g.dateStr.includes('(HOY)') ? todayRef : null}>
                 <div className="flex items-center gap-2 border-b border-neutral-850 pb-2">
                   <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">{g.dateStr}</span>
                   <span className="text-neutral-500 text-[10px] uppercase font-black tracking-wider">({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})</span>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { getMatchesByDate } from '@/lib/match-utils';
+import { getMatchesByDate, getTodayMatchGroupIndex } from '@/lib/match-utils';
 import MatchCard from '@/components/MatchCard';
 import BetModal from '@/components/BetModal';
 import MatchInfoModal from '@/components/MatchInfoModal';
@@ -21,6 +21,7 @@ export default function PartidosPage() {
   const [filterTeam, setFilterTeam] = useState('');
   const [groupDate, setGroupDate] = useState(true);
   const [groupRemaining, setGroupRemaining] = useState(false);
+  const todayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -48,6 +49,14 @@ export default function PartidosPage() {
       } catch {}
     })();
   }, [lastMatchUpdate]);
+
+  useEffect(() => {
+    if (groupDate && matches.length > 0 && todayRef.current) {
+      setTimeout(() => {
+        todayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [groupDate, matches.length]);
 
   const handleSavePrediction = async (matchId: number, predLocal: number, predVisitante: number, userId: number) => {
     const res = await fetch('/api/predictions', {
@@ -153,8 +162,8 @@ export default function PartidosPage() {
 
       {groupDate && (
         <div className="space-y-8">
-          {getMatchesByDate(filtered).map(g => (
-            <div key={g.dateStr} className="space-y-4">
+          {getMatchesByDate(filtered).map((g, idx) => (
+            <div key={g.dateStr} className="space-y-4" ref={g.dateStr.includes('(HOY)') ? todayRef : null}>
               <div className="flex items-center gap-2 border-b border-neutral-850 pb-2">
                 <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">{g.dateStr}</span>
                 <span className="text-neutral-500 text-[10px] uppercase font-black tracking-wider">({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})</span>

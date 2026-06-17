@@ -57,3 +57,7 @@ export function getMatchesByDate(matchesList: any[]) {
   });
   return groups;
 }
+
+export function getTodayMatchGroupIndex(groupedMatches: { dateStr: string; matches: any[] }[]): number {
+  return groupedMatches.findIndex(g => g.dateStr.includes('(HOY)'));
+}

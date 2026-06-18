@@ -56,58 +56,81 @@ async function notifyUpcomingMatches(force: boolean = false) {
     FROM matches m
     WHERE m.estado = 'upcoming'
       AND m.fecha BETWEEN NOW() AND NOW() + INTERVAL '12 hours'
+    ORDER BY m.fecha ASC
   `;
-  if (!force) {
-    query += `
-      AND NOT EXISTS (
-        SELECT 1 FROM scheduled_notify_log WHERE tipo = 'match_reminder' AND referencia_id = m.id
-      )
-    `;
-  }
-  query += ` ORDER BY m.fecha ASC`;
 
   const matches = await pool.query(query);
+  let notifiedCount = 0;
 
   for (const m of matches.rows) {
     const diffMs = new Date(m.fecha).getTime() - Date.now();
     const diffMins = Math.round(diffMs / 60000);
     
+    let shouldNotify = false;
+    let reminderType = '';
     let tiempoRestanteStr = '';
-    if (diffMins >= 60) {
-      const hrs = Math.floor(diffMins / 60);
-      const mins = diffMins % 60;
-      const hrsText = hrs === 1 ? '1 hora' : `${hrs} horas`;
-      const minsText = mins > 0 ? ` y ${mins} minutos` : '';
-      tiempoRestanteStr = `${hrsText}${minsText}`;
+
+    if (force) {
+      shouldNotify = true;
+      reminderType = 'match_reminder_forced';
+      if (diffMins >= 60) {
+        const hrs = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+        const hrsText = hrs === 1 ? '1 hora' : `${hrs} horas`;
+        const minsText = mins > 0 ? ` y ${mins} minutos` : '';
+        tiempoRestanteStr = `${hrsText}${minsText}`;
+      } else {
+        tiempoRestanteStr = `${diffMins} minutos`;
+      }
     } else {
-      tiempoRestanteStr = `${diffMins} minutos`;
+      // 90 minutes reminder (1:30 antes, window 75 to 105 mins)
+      if (diffMins >= 75 && diffMins < 105) {
+        reminderType = 'match_reminder_90';
+        tiempoRestanteStr = '1 hora y 30 minutos';
+        const logCheck = await pool.query(
+          'SELECT id FROM scheduled_notify_log WHERE tipo = $1 AND referencia_id = $2',
+          [reminderType, m.id]
+        );
+        if (logCheck.rows.length === 0) {
+          shouldNotify = true;
+        }
+      }
+      // 60 minutes reminder (1 hora antes, window 45 to 75 mins)
+      else if (diffMins >= 45 && diffMins < 75) {
+        reminderType = 'match_reminder_60';
+        tiempoRestanteStr = '1 hora';
+        const logCheck = await pool.query(
+          'SELECT id FROM scheduled_notify_log WHERE tipo = $1 AND referencia_id = $2',
+          [reminderType, m.id]
+        );
+        if (logCheck.rows.length === 0) {
+          shouldNotify = true;
+        }
+      }
     }
 
-    const titulo = `⚽ Partido próximo: ${m.local} vs ${m.visitante}`;
-    const contenido = `Falta ${tiempoRestanteStr} para el inicio del partido. ¡Registra tu pronóstico ahora! Recuerda que las apuestas cierran 1 hora antes de que inicie el partido.`;
+    if (shouldNotify && reminderType) {
+      const titulo = `⚽ Partido próximo: ${m.local} vs ${m.visitante}`;
+      const contenido = `Falta ${tiempoRestanteStr} para el inicio del partido. ¡Registra tu pronóstico ahora! Recuerda que las apuestas cierran 15 minutos antes de que inicie el partido.`;
 
-    await insertNotification(titulo, contenido, 'info', 'all', null);
+      await insertNotification(titulo, contenido, 'info', 'all', null);
 
-    // Push a todos los usuarios activos
-    const users = await pool.query('SELECT id FROM users WHERE activo = true AND aprobado = true');
-    for (const u of users.rows) {
-      await sendPushNotification(u.id, { title: titulo, body: contenido, icon: '/icon-192x192.svg', url: '/' });
-    }
+      // Push a todos los usuarios activos
+      const users = await pool.query('SELECT id FROM users WHERE activo = true AND aprobado = true');
+      for (const u of users.rows) {
+        await sendPushNotification(u.id, { title: titulo, body: contenido, icon: '/icon-192x192.svg', url: '/' });
+      }
 
-    // Insert to log only if not already there to avoid duplicates in automated runs
-    const logCheck = await pool.query(
-      'SELECT id FROM scheduled_notify_log WHERE tipo = $1 AND referencia_id = $2',
-      ['match_reminder', m.id]
-    );
-    if (logCheck.rows.length === 0) {
+      // Insert to log
       await pool.query(
         'INSERT INTO scheduled_notify_log (tipo, referencia_id) VALUES ($1, $2)',
-        ['match_reminder', m.id]
+        [reminderType, m.id]
       );
+      notifiedCount++;
     }
   }
 
-  return matches.rows.length;
+  return notifiedCount;
 }
 
 /** Envía ranking semanal por empresa (lunes) */

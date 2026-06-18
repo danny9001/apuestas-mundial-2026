@@ -62,12 +62,12 @@ export default function ReglasPage() {
             <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2">Reglas Generales</h3>
             <ul className="space-y-3 text-sm">
               {[
-                { icon: '🔒', text: 'Las apuestas se cierran automáticamente 1 hora antes del inicio de cada partido (kickoff lock). No se pueden registrar ni modificar pronósticos pasado este límite.' },
+                { icon: '🔒', text: 'Las apuestas se cierran automáticamente 15 minutos antes del inicio de cada partido (kickoff lock). No se pueden registrar ni modificar pronósticos pasado este límite.' },
                 { icon: '🏆', text: 'Todos los partidos son apostables: Fase de Grupos, Ronda de 32, Octavos, Cuartos, Semifinales, Tercer Puesto y Gran Final.' },
                 { icon: '📊', text: 'La clasificación general es visible para todos los participantes en tiempo real.' },
                 { icon: '🔄', text: 'Los marcadores se actualizan automáticamente desde la API de football-data.org. La clasificación se recalcula al finalizar cada partido.' },
                 { icon: '⚽', text: 'En caso de empate en puntos, se desempata por cantidad de resultados exactos (3 puntos). Si persiste el empate, gana quien se registró primero.' },
-                { icon: '📱', text: 'Puedes realizar y modificar tus pronósticos desde cualquier dispositivo antes del cierre (1 hora antes de cada partido).' },
+                { icon: '📱', text: 'Puedes realizar y modificar tus pronósticos desde cualquier dispositivo antes del cierre (15 minutos antes de cada partido).' },
               ].map((r, i) => (
                 <li key={i} className="flex items-start gap-3 text-neutral-300">
                   <span className="text-lg flex-shrink-0">{r.icon}</span>

@@ -1108,52 +1108,52 @@ export async function syncMatches(): Promise<{
 
 async function sendUpcomingReminders() {
   try {
-    // Find upcoming matches starting in 25-65 minutes (covers both 30min and 60min windows)
+    // Find upcoming matches starting in 50-100 minutes (covers both 60min and 90min windows)
     const res = await pool.query(
       `SELECT id, local, visitante, fecha FROM matches
        WHERE estado = 'upcoming'
-         AND fecha > NOW() + INTERVAL '24 minutes'
-         AND fecha < NOW() + INTERVAL '66 minutes'`
+         AND fecha > NOW() + INTERVAL '50 minutes'
+         AND fecha < NOW() + INTERVAL '100 minutes'`
     );
 
     for (const match of res.rows) {
       const minutesUntil = Math.round((new Date(match.fecha).getTime() - Date.now()) / 60000);
 
-      if (minutesUntil >= 55 && minutesUntil <= 65) {
-        // 60-minute reminder
-        const key60 = `reminder_60`;
-        if (await markNotifSent(match.id, key60)) {
+      if (minutesUntil >= 85 && minutesUntil <= 95) {
+        // 90-minute reminder (1:30 antes)
+        const key90 = `reminder_90`;
+        if (await markNotifSent(match.id, key90)) {
           // Insert notification record for in-app notification tab
           await pool.query(
             `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
              VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '4 hours')`,
             [
-              `⏰ Próximo partido en 1 hora`,
-              `${match.local} vs ${match.visitante} comienza en aproximadamente 60 minutos. ¡No olvides hacer tu pronóstico antes de que cierre!`
+              `⏰ Próximo partido en 1 hora y 30 minutos`,
+              `${match.local} vs ${match.visitante} comienza en aproximadamente 1 hora y 30 minutos. ¡No olvides hacer tu pronóstico! Las apuestas se cierran 15 minutos antes del inicio.`
             ]
           );
           void sendPushToUsersWithoutPrediction(match.id, {
             title: `⏰ Pronóstico pendiente – ${match.local} vs ${match.visitante}`,
-            body: `El partido inicia en ~60 minutos. ¡Aún estás a tiempo de apostar!`,
+            body: `El partido inicia en ~90 minutos. Recuerda que las apuestas cierran 15 minutos antes.`,
             url: '/partidos'
           });
         }
-      } else if (minutesUntil >= 25 && minutesUntil <= 35) {
-        // 30-minute reminder
-        const key30 = `reminder_30`;
-        if (await markNotifSent(match.id, key30)) {
+      } else if (minutesUntil >= 55 && minutesUntil <= 65) {
+        // 60-minute reminder (1 hora antes)
+        const key60 = `reminder_60`;
+        if (await markNotifSent(match.id, key60)) {
           // Insert notification record for in-app notification tab
           await pool.query(
             `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-             VALUES ($1, $2, 'warning', 'all', NOW() + INTERVAL '2 hours')`,
+             VALUES ($1, $2, 'warning', 'all', NOW() + INTERVAL '3 hours')`,
             [
-              `🚨 Último aviso – ${match.local} vs ${match.visitante}`,
-              `El partido inicia en ~30 minutos. ¡Las apuestas cierran pronto!`
+              `⏰ Próximo partido en 1 hora`,
+              `${match.local} vs ${match.visitante} comienza en aproximadamente 60 minutos. ¡No olvides hacer tu pronóstico! Las apuestas se cierran 15 minutos antes del inicio.`
             ]
           );
           void sendPushToUsersWithoutPrediction(match.id, {
-            title: `🚨 ¡Último aviso! ${match.local} vs ${match.visitante}`,
-            body: `Solo quedan ~30 minutos para apostar. ¡No te quedes sin pronóstico!`,
+            title: `⏰ Pronóstico pendiente – ${match.local} vs ${match.visitante}`,
+            body: `El partido inicia en ~60 minutos. ¡Últimos minutos para apostar (cierra 15 min antes)!`,
             url: '/partidos'
           });
         }

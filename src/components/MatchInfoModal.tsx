@@ -175,7 +175,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
 
         {/* Quick Bet / Prediction Info */}
         {(() => {
-          const isClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - 60 * 60 * 1000;
+          const isClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - 15 * 60 * 1000;
           if (prediction) {
             return (
               <div className="w-full bg-neutral-950 border border-neutral-850 rounded-xl p-5 flex flex-col items-center justify-center text-center gap-3 shadow-inner">

@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 
       const { sendPushNotification } = await import('@/lib/push');
       const titulo = `⚠️ Recordatorio: Falta tu apuesta`;
-      const contenido = `Aún no registraste tu pronóstico para el partido ${local} vs ${visitante}. Recuerda que las apuestas cierran 1 hora antes de que comience el partido.`;
+      const contenido = `Aún no registraste tu pronóstico para el partido ${local} vs ${visitante}. Recuerda que las apuestas cierran 15 minutos antes de que comience el partido.`;
 
       let count = 0;
       for (const u of usersList) {
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
 
       const names = usersList.map((u: any) => u.nombre).join(', ');
       const titulo = `🚫 Sin Pronóstico: ${local} vs ${visitante}`;
-      const contenido = `Los siguientes participantes aún no guardaron su pronóstico para el partido ${local} vs ${visitante}:\n${names}\n\n¡Apúrense, cierra 1 hora antes del pitazo inicial!`;
+      const contenido = `Los siguientes participantes aún no guardaron su pronóstico para el partido ${local} vs ${visitante}:\n${names}\n\n¡Apúrense, cierra 15 minutos antes del pitazo inicial!`;
 
       // Insert notification
       const res = await pool.query(

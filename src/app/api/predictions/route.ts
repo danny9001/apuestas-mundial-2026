@@ -103,10 +103,10 @@ export async function POST(req: NextRequest) {
         const { matchId, predLocal, predVisitante } = item;
         const match = matchMap.get(matchId);
         if (!match) { errors.push({ matchId, error: 'Partido no encontrado' }); continue; }
-        // Bets close 1 hour before match starts
-        const closeTime = new Date(new Date(match.fecha).getTime() - 60 * 60 * 1000);
+        // Bets close 15 minutes before match starts
+        const closeTime = new Date(new Date(match.fecha).getTime() - 15 * 60 * 1000);
         if (match.estado !== 'upcoming' || now >= closeTime) {
-          errors.push({ matchId, error: 'Apuestas cerradas (cierran 1 hora antes del partido)' }); continue;
+          errors.push({ matchId, error: 'Apuestas cerradas (cierran 15 minutos antes del partido)' }); continue;
         }
         if (existingSet.has(matchId)) {
           const res = await pool.query(
@@ -160,12 +160,12 @@ export async function POST(req: NextRequest) {
     const match = matchRes.rows[0];
     const matchTime = new Date(match.fecha);
 
-    // Bets close 1 hour before match starts (bypass for superadmin editing others)
+    // Bets close 15 minutes before match starts (bypass for superadmin editing others)
     if (!isSuperAdminBypass) {
-      const closeTime = new Date(matchTime.getTime() - 60 * 60 * 1000);
+      const closeTime = new Date(matchTime.getTime() - 15 * 60 * 1000);
       if (match.estado !== 'upcoming' || now >= closeTime) {
         return NextResponse.json(
-          { error: 'Apuestas cerradas. Los pronósticos se cierran 1 hora antes del inicio.' },
+          { error: 'Apuestas cerradas. Los pronósticos se cierran 15 minutos antes del inicio.' },
           { status: 400 }
         );
       }

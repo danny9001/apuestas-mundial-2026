@@ -12,7 +12,7 @@ interface MatchCardProps {
 }
 
 export default function MatchCard({ match: m, prediction: myPred, compact = true, onBet, onClick }: MatchCardProps) {
-  const isClosed = m.estado !== 'upcoming' || new Date().getTime() >= new Date(m.fecha).getTime() - 60 * 60 * 1000;
+  const isClosed = m.estado !== 'upcoming' || new Date().getTime() >= new Date(m.fecha).getTime() - 15 * 60 * 1000;
 
   if (compact) {
     return (

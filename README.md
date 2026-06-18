@@ -214,3 +214,21 @@ ecosystem.config.js               # Configuración PM2
 ---
 
 Desarrollado por [Genial IT](https://genial-it.net) · Mundial 2026
+
+## Licencia
+
+**LICENCIA CREATIVA ELITEPASS**  
+© 2024–2026 Genial IT — Todos los derechos reservados.
+
+Este software nació de la colaboración entre intelecto humano e inteligencia artificial:
+
+| Rol | |
+|-----|--|
+| Concepción y dirección | Daniel Landivar |
+| Asistencia en desarrollo | Claude · Antigravity · Codex |
+
+> Claude, Antigravity y Codex son herramientas de la línea de desarrollo de Genial IT.
+
+El código, diseño y arquitectura son propiedad exclusiva de Genial IT. No se permite su uso, copia, modificación ni distribución sin autorización expresa y por escrito.
+
+Hecho con 🤝 humanos + IA · Genial IT · Bolivia

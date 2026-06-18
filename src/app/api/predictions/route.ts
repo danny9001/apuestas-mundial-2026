@@ -69,6 +69,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const settingRes = await pool.query(
+      "SELECT value FROM settings WHERE key = 'prediction_close_minutes'"
+    );
+    const closeMinutes = settingRes.rows.length > 0 ? parseInt(settingRes.rows[0].value, 10) || 15 : 15;
+    const closeMs = closeMinutes * 60 * 1000;
+
     const body = await req.json();
 
     // Check if the request is a batch array
@@ -103,10 +109,9 @@ export async function POST(req: NextRequest) {
         const { matchId, predLocal, predVisitante } = item;
         const match = matchMap.get(matchId);
         if (!match) { errors.push({ matchId, error: 'Partido no encontrado' }); continue; }
-        // Bets close 15 minutes before match starts
-        const closeTime = new Date(new Date(match.fecha).getTime() - 15 * 60 * 1000);
+        const closeTime = new Date(new Date(match.fecha).getTime() - closeMs);
         if (match.estado !== 'upcoming' || now >= closeTime) {
-          errors.push({ matchId, error: 'Apuestas cerradas (cierran 15 minutos antes del partido)' }); continue;
+          errors.push({ matchId, error: `Apuestas cerradas (cierran ${closeMinutes} minutos antes del partido)` }); continue;
         }
         if (existingSet.has(matchId)) {
           const res = await pool.query(
@@ -160,12 +165,11 @@ export async function POST(req: NextRequest) {
     const match = matchRes.rows[0];
     const matchTime = new Date(match.fecha);
 
-    // Bets close 15 minutes before match starts (bypass for superadmin editing others)
     if (!isSuperAdminBypass) {
-      const closeTime = new Date(matchTime.getTime() - 15 * 60 * 1000);
+      const closeTime = new Date(matchTime.getTime() - closeMs);
       if (match.estado !== 'upcoming' || now >= closeTime) {
         return NextResponse.json(
-          { error: 'Apuestas cerradas. Los pronósticos se cierran 15 minutos antes del inicio.' },
+          { error: `Apuestas cerradas. Los pronósticos se cierran ${closeMinutes} minutos antes del inicio.` },
           { status: 400 }
         );
       }

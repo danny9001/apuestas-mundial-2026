@@ -3,6 +3,7 @@
 import React from 'react';
 import { X, MapPin, Sparkles, Newspaper, Calendar } from 'lucide-react';
 import { getTeamFlag } from '@/lib/constants';
+import { useApp } from '@/contexts/AppContext';
 
 interface MatchInfoModalProps {
   match: any;
@@ -108,6 +109,7 @@ const STADIUM_MAPPING: Record<string, string> = {
 };
 
 export default function MatchInfoModal({ match, prediction, onBet, onClose }: MatchInfoModalProps) {
+  const { predictionCloseMinutes } = useApp();
   const localTrivia = TEAM_TRIVIA[match.local] || {
     trivia: `${match.local} busca hacer historia en esta edición de la Copa del Mundo y consolidarse como una potencia de su confederación.`,
     news: `La delegación de ${match.local} se muestra concentrada y enfocada en los entrenamientos diarios.`
@@ -175,7 +177,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
 
         {/* Quick Bet / Prediction Info */}
         {(() => {
-          const isClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - 15 * 60 * 1000;
+          const isClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - predictionCloseMinutes * 60 * 1000;
           if (prediction) {
             return (
               <div className="w-full bg-neutral-950 border border-neutral-850 rounded-xl p-5 flex flex-col items-center justify-center text-center gap-3 shadow-inner">

@@ -105,9 +105,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Datos incompletos para notificar' }, { status: 400 });
       }
 
+      const closeRes = await pool.query("SELECT value FROM settings WHERE key = 'prediction_close_minutes'");
+      const closeMinutes = closeRes.rows.length > 0 ? parseInt(closeRes.rows[0].value, 10) || 15 : 15;
+
       const { sendPushNotification } = await import('@/lib/push');
       const titulo = `⚠️ Recordatorio: Falta tu apuesta`;
-      const contenido = `Aún no registraste tu pronóstico para el partido ${local} vs ${visitante}. Recuerda que las apuestas cierran 15 minutos antes de que comience el partido.`;
+      const contenido = `Aún no registraste tu pronóstico para el partido ${local} vs ${visitante}. Recuerda que las apuestas cierran ${closeMinutes} minutos antes de que comience el partido.`;
 
       let count = 0;
       for (const u of usersList) {
@@ -137,9 +140,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Datos incompletos para publicar' }, { status: 400 });
       }
 
+      const closeRes2 = await pool.query("SELECT value FROM settings WHERE key = 'prediction_close_minutes'");
+      const closeMinutes2 = closeRes2.rows.length > 0 ? parseInt(closeRes2.rows[0].value, 10) || 15 : 15;
+
       const names = usersList.map((u: any) => u.nombre).join(', ');
       const titulo = `🚫 Sin Pronóstico: ${local} vs ${visitante}`;
-      const contenido = `Los siguientes participantes aún no guardaron su pronóstico para el partido ${local} vs ${visitante}:\n${names}\n\n¡Apúrense, cierra 15 minutos antes del pitazo inicial!`;
+      const contenido = `Los siguientes participantes aún no guardaron su pronóstico para el partido ${local} vs ${visitante}:\n${names}\n\n¡Apúrense, cierra ${closeMinutes2} minutos antes del pitazo inicial!`;
 
       // Insert notification
       const res = await pool.query(

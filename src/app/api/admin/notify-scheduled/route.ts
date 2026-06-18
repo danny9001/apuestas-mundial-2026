@@ -49,8 +49,17 @@ async function insertNotification(titulo: string, contenido: string, tipo: strin
 
 
 
+async function getPredictionCloseMinutes(): Promise<number> {
+  try {
+    const res = await pool.query("SELECT value FROM settings WHERE key = 'prediction_close_minutes'");
+    return res.rows.length > 0 ? parseInt(res.rows[0].value, 10) || 15 : 15;
+  } catch { return 15; }
+}
+
 /** Envía aviso de partidos próximas 12h que aún no se han notificado */
 async function notifyUpcomingMatches(force: boolean = false) {
+  const closeMinutes = await getPredictionCloseMinutes();
+
   let query = `
     SELECT m.id, m.local, m.visitante, m.fecha, m.fase
     FROM matches m
@@ -111,7 +120,7 @@ async function notifyUpcomingMatches(force: boolean = false) {
 
     if (shouldNotify && reminderType) {
       const titulo = `⚽ Partido próximo: ${m.local} vs ${m.visitante}`;
-      const contenido = `Falta ${tiempoRestanteStr} para el inicio del partido. ¡Registra tu pronóstico ahora! Recuerda que las apuestas cierran 15 minutos antes de que inicie el partido.`;
+      const contenido = `Falta ${tiempoRestanteStr} para el inicio del partido. ¡Registra tu pronóstico ahora! Recuerda que las apuestas cierran ${closeMinutes} minutos antes de que inicie el partido.`;
 
       await insertNotification(titulo, contenido, 'info', 'all', null);
 

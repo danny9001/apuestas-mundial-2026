@@ -30,8 +30,9 @@ async function ensureSettingsTable() {
     `);
   } else {
     await pool.query(`
-      INSERT INTO settings (key, value) VALUES 
-      ('mail_notifications_enabled', 'true')
+      INSERT INTO settings (key, value) VALUES
+      ('mail_notifications_enabled', 'true'),
+      ('prediction_close_minutes', '15')
       ON CONFLICT (key) DO NOTHING;
     `);
   }
@@ -60,6 +61,27 @@ export async function POST(req: NextRequest) {
     }
 
     await ensureSettingsTable();
+
+    const contentType = req.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      if (user.tipo !== 'superadmin') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      const json = await req.json();
+      const allowed = ['prediction_close_minutes'];
+      for (const key of allowed) {
+        if (json[key] !== undefined) {
+          await pool.query(
+            `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+            [key, String(json[key])]
+          );
+        }
+      }
+      const allSettings = await pool.query('SELECT key, value FROM settings');
+      const settingsMap: Record<string, string> = {};
+      allSettings.rows.forEach((r: any) => { settingsMap[r.key] = r.value; });
+      return NextResponse.json({ success: true, settings: settingsMap });
+    }
 
     const formData = await req.formData();
     const appName = formData.get('app_name') as string;

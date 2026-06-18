@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  ShieldAlert, Building2, RefreshCw, Users, MessageSquare, Coins, Download, X
+  ShieldAlert, Building2, RefreshCw, Users, MessageSquare, Coins, Download, X, Timer
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 
@@ -15,7 +15,7 @@ import LogsTab from '@/components/admin/LogsTab';
 import PwaTab from '@/components/admin/PwaTab';
 
 export default function AdminPage() {
-  const { user, showToast, appName, appLogo, setAppName, setAppLogo } = useApp();
+  const { user, showToast, appName, appLogo, setAppName, setAppLogo, predictionCloseMinutes, setPredictionCloseMinutes } = useApp();
 
   // Sub-tab selector state
   const [adminSubTab, setAdminSubTab] = useState<'usuarios' | 'empresa' | 'mensajes' | 'pagos' | 'logs' | 'pwa'>('usuarios');
@@ -31,6 +31,10 @@ export default function AdminPage() {
   // Mail notification config modal states (maintained in page.tsx as it is triggered from header)
   const [showMailConfigModal, setShowMailConfigModal] = useState(false);
   const [mailConfigEnabled, setMailConfigEnabled] = useState(true);
+
+  // Bet close config modal
+  const [showBetConfigModal, setShowBetConfigModal] = useState(false);
+  const [betCloseInput, setBetCloseInput] = useState(predictionCloseMinutes);
 
   // ── Data fetchers ──
   const fetchAdminUsers = async () => {
@@ -137,6 +141,13 @@ export default function AdminPage() {
           </div>
           {user.tipo === 'superadmin' && (
             <div className="flex gap-2">
+              <button
+                onClick={() => { setBetCloseInput(predictionCloseMinutes); setShowBetConfigModal(true); }}
+                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-750 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow font-sans"
+              >
+                <Timer className="w-3.5 h-3.5" />
+                <span>Cierre Apuestas</span>
+              </button>
               <button
                 onClick={() => setShowMailConfigModal(true)}
                 className="bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-750 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow font-sans"
@@ -301,6 +312,90 @@ export default function AdminPage() {
 
         </div>
       </section>
+
+      {/* ── MODAL: Bet Close Configuration (Super Admin Only) ── */}
+      {showBetConfigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowBetConfigModal(false)}>
+          <div className="glass-card border border-neutral-800/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-neutral-800/50 pb-4">
+              <div>
+                <h3 className="text-sm font-black uppercase text-neutral-100 tracking-wider flex items-center gap-2 font-sans">
+                  <Timer className="w-4 h-4 text-yellow-500" /> Cierre de Apuestas
+                </h3>
+                <p className="text-[10px] text-neutral-500 mt-0.5 font-mono">Minutos antes del partido en que se bloquean los pronósticos</p>
+              </div>
+              <button onClick={() => setShowBetConfigModal(false)} className="text-neutral-500 hover:text-neutral-200 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-neutral-400 leading-relaxed font-sans">
+                Define cuántos minutos antes de cada partido se cierran los pronósticos. El valor por defecto es <strong className="text-yellow-500">15 minutos</strong>.
+              </p>
+
+              <div className="space-y-2">
+                <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Minutos antes del partido</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={240}
+                    value={betCloseInput}
+                    onChange={e => setBetCloseInput(Math.max(1, Math.min(240, parseInt(e.target.value) || 15)))}
+                    className="w-32 input-stitch px-3 py-2 text-sm font-mono text-center"
+                  />
+                  <span className="text-xs text-neutral-500 font-sans">min (1–240)</span>
+                </div>
+                <div className="flex gap-2 flex-wrap mt-2">
+                  {[5, 10, 15, 30, 45, 60].map(v => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setBetCloseInput(v)}
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${betCloseInput === v ? 'bg-yellow-500 border-yellow-500 text-neutral-950' : 'border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+                    >
+                      {v} min
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  onClick={() => setShowBetConfigModal(false)}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold uppercase tracking-wider rounded-xl transition font-sans"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prediction_close_minutes: betCloseInput }),
+                      });
+                      if (res.ok) {
+                        setPredictionCloseMinutes(betCloseInput);
+                        showToast(`✅ Cierre de apuestas: ${betCloseInput} minutos antes`);
+                        setShowBetConfigModal(false);
+                      } else {
+                        showToast('❌ Error al guardar configuración');
+                      }
+                    } catch {
+                      showToast('❌ Error de red');
+                    }
+                  }}
+                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold uppercase tracking-wider rounded-xl transition font-sans"
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL: Configure Email Notifications (Super Admin Only) ── */}
       {showMailConfigModal && (

@@ -1108,6 +1108,9 @@ export async function syncMatches(): Promise<{
 
 async function sendUpcomingReminders() {
   try {
+    const closeSettingRes = await pool.query("SELECT value FROM settings WHERE key = 'prediction_close_minutes'");
+    const closeMinutes = closeSettingRes.rows.length > 0 ? parseInt(closeSettingRes.rows[0].value, 10) || 15 : 15;
+
     // Find upcoming matches starting in 50-100 minutes (covers both 60min and 90min windows)
     const res = await pool.query(
       `SELECT id, local, visitante, fecha FROM matches
@@ -1129,12 +1132,12 @@ async function sendUpcomingReminders() {
              VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '4 hours')`,
             [
               `⏰ Próximo partido en 1 hora y 30 minutos`,
-              `${match.local} vs ${match.visitante} comienza en aproximadamente 1 hora y 30 minutos. ¡No olvides hacer tu pronóstico! Las apuestas se cierran 15 minutos antes del inicio.`
+              `${match.local} vs ${match.visitante} comienza en aproximadamente 1 hora y 30 minutos. ¡No olvides hacer tu pronóstico! Las apuestas se cierran ${closeMinutes} minutos antes del inicio.`
             ]
           );
           void sendPushToUsersWithoutPrediction(match.id, {
             title: `⏰ Pronóstico pendiente – ${match.local} vs ${match.visitante}`,
-            body: `El partido inicia en ~90 minutos. Recuerda que las apuestas cierran 15 minutos antes.`,
+            body: `El partido inicia en ~90 minutos. Recuerda que las apuestas cierran ${closeMinutes} minutos antes.`,
             url: '/partidos'
           });
         }
@@ -1148,12 +1151,12 @@ async function sendUpcomingReminders() {
              VALUES ($1, $2, 'warning', 'all', NOW() + INTERVAL '3 hours')`,
             [
               `⏰ Próximo partido en 1 hora`,
-              `${match.local} vs ${match.visitante} comienza en aproximadamente 60 minutos. ¡No olvides hacer tu pronóstico! Las apuestas se cierran 15 minutos antes del inicio.`
+              `${match.local} vs ${match.visitante} comienza en aproximadamente 60 minutos. ¡No olvides hacer tu pronóstico! Las apuestas se cierran ${closeMinutes} minutos antes del inicio.`
             ]
           );
           void sendPushToUsersWithoutPrediction(match.id, {
             title: `⏰ Pronóstico pendiente – ${match.local} vs ${match.visitante}`,
-            body: `El partido inicia en ~60 minutos. ¡Últimos minutos para apostar (cierra 15 min antes)!`,
+            body: `El partido inicia en ~60 minutos. ¡Últimos minutos para apostar (cierra ${closeMinutes} min antes)!`,
             url: '/partidos'
           });
         }

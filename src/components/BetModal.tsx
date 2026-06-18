@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Check, ShieldAlert } from 'lucide-react';
 import { getTeamFlag } from '@/lib/constants';
+import { useApp } from '@/contexts/AppContext';
 
 interface BetModalProps {
   match: any;
@@ -14,13 +15,14 @@ interface BetModalProps {
 }
 
 export default function BetModal({ match, user, existingPred, adminUsers = [], onSave, onClose }: BetModalProps) {
+  const { predictionCloseMinutes } = useApp();
   const [predLocal, setPredLocal] = useState(existingPred?.pred_local ?? 0);
   const [predVisitante, setPredVisitante] = useState(existingPred?.pred_visitante ?? 0);
   const [targetUserId, setTargetUserId] = useState<number>(user?.id ?? 0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const isMatchClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - 15 * 60 * 1000;
+  const isMatchClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - predictionCloseMinutes * 60 * 1000;
   const isLocked = isMatchClosed && targetUserId === user?.id;
 
   const handleSave = async () => {

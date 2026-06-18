@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { getTeamFlag } from '@/lib/constants';
+import { useApp } from '@/contexts/AppContext';
 
 interface MatchCardProps {
   match: any;
@@ -12,7 +13,8 @@ interface MatchCardProps {
 }
 
 export default function MatchCard({ match: m, prediction: myPred, compact = true, onBet, onClick }: MatchCardProps) {
-  const isClosed = m.estado !== 'upcoming' || new Date().getTime() >= new Date(m.fecha).getTime() - 15 * 60 * 1000;
+  const { predictionCloseMinutes } = useApp();
+  const isClosed = m.estado !== 'upcoming' || new Date().getTime() >= new Date(m.fecha).getTime() - predictionCloseMinutes * 60 * 1000;
 
   if (compact) {
     return (

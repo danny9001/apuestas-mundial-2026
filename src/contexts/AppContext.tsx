@@ -20,6 +20,7 @@ interface AppContextValue {
   authChecked: boolean;
   appName: string;
   appLogo: string;
+  predictionCloseMinutes: number;
   notifications: any[];
   unreadCount: number;
   pushSubscribed: boolean;
@@ -37,6 +38,7 @@ interface AppContextValue {
   handleTogglePush: () => Promise<void>;
   setAppName: (v: string) => void;
   setAppLogo: (v: string) => void;
+  setPredictionCloseMinutes: (v: number) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -46,6 +48,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authChecked, setAuthChecked] = useState(false);
   const [appName, setAppName] = useState('Mundial 2026');
   const [appLogo, setAppLogo] = useState('🏆');
+  const [predictionCloseMinutes, setPredictionCloseMinutes] = useState(15);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [pushSubscribed, setPushSubscribed] = useState(false);
@@ -142,6 +145,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const s = await settingsRes.json();
           if (s.app_name) setAppName(s.app_name);
           if (s.app_logo) setAppLogo(s.app_logo);
+          if (s.prediction_close_minutes) setPredictionCloseMinutes(parseInt(s.prediction_close_minutes, 10) || 15);
         }
         if (matchesRes.ok) {
           const matches: any[] = await matchesRes.json();
@@ -210,13 +214,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      user, authChecked, appName, appLogo,
+      user, authChecked, appName, appLogo, predictionCloseMinutes,
       notifications, unreadCount, pushSubscribed,
       goalAlert, toastMessage, lastMatchUpdate,
       setUser, setPushSubscribed, setGoalAlert, showToast,
       fetchNotifications, handleMarkNotificationRead,
       handleLogout, handleIdentityLogin, handleTogglePush,
-      setAppName, setAppLogo,
+      setAppName, setAppLogo, setPredictionCloseMinutes,
     }}>
       {children}
     </AppContext.Provider>

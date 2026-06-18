@@ -163,6 +163,26 @@ El proceso `scheduler.js` corre como daemon PM2 y ejecuta:
 
 El endpoint `POST /api/admin/notify-scheduled` también permite disparo manual desde el panel Mensajes del superadmin.
 
+### Timing de Notificaciones (Verificado 2026-06-18)
+
+✅ **Verificación de Sistema Completada**
+
+| Evento | Timing | Estado |
+|--------|--------|--------|
+| Entrada de Scores (Admin) | Sin restricción | ✅ Permitida |
+| Notificación 1:30 antes | 75-105 minutos | ✅ Confirmada |
+| Notificación 1 hora antes | 45-75 minutos | ✅ Confirmada |
+| Cierre de Apuestas | 15 minutos antes | ✅ Validada |
+
+**Detalles de Validación:**
+- Scores pueden ser ingresados/actualizados en cualquier momento por admins
+- Sistema envía dos notificaciones por partido con ventanas temporales específicas
+- Mensaje de notificación comunica el cierre de apuestas en 15 minutos
+- API `/api/predictions` valida cierre de apuestas exactamente 15 min antes del kickoff
+- Scheduler sincroniza scores cada 1 minuto para partidos en vivo/próximos
+
+Ver: [Verificación Completa](https://github.com/danny9001/ElitePass-OpenSec/blob/main/specs/antigravity/verification_score_notifications_2026.md)
+
 ## Estructura del Proyecto
 
 ```

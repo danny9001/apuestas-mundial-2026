@@ -209,8 +209,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
     };
+    // Refetch on SSE reconnect so stale state is corrected if an event was missed
+    sse.onopen = () => setLastMatchUpdate(Date.now());
     return () => sse.close();
   }, [fetchNotifications, showToast]);
+
+  // Fallback polling every 90s — SSE events don't cross PM2 process boundaries,
+  // so clients connected to a different worker than the sync process miss updates.
+  useEffect(() => {
+    const interval = setInterval(() => setLastMatchUpdate(Date.now()), 90 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <AppContext.Provider value={{

@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('Error in sync api endpoint route:', error);
-    return NextResponse.json({ error: 'Error interno: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 
@@ -51,6 +51,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('Error in sync api endpoint POST route:', error);
-    return NextResponse.json({ error: 'Error interno: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

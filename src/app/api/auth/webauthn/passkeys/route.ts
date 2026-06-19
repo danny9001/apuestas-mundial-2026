@@ -19,7 +19,7 @@ export async function GET() {
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 
@@ -39,6 +39,6 @@ export async function DELETE(req: NextRequest) {
     await pool.query('DELETE FROM passkeys WHERE id = $1', [id]);
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

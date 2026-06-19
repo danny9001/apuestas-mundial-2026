@@ -249,6 +249,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Stats error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

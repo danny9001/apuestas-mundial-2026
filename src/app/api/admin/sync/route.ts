@@ -23,7 +23,7 @@ export async function GET() {
       sync_enabled: process.env.SYNC_ENABLED !== 'false'
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 
@@ -37,6 +37,6 @@ export async function POST() {
     const result = await syncMatches();
     return NextResponse.json(result);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

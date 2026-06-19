@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error: any) {
     console.error('Error generating pre-match news:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 

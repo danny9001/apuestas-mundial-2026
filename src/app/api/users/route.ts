@@ -30,6 +30,6 @@ export async function GET() {
 
     return NextResponse.json(res.rows);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

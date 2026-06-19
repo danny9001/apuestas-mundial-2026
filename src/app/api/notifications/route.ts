@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, notification: res.rows[0] });
   } catch (error: any) {
     console.error('Error creating notification:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 
@@ -220,7 +220,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: true, notification: res.rows[0] });
   } catch (error: any) {
     console.error('Error updating notification:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 
@@ -259,7 +259,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error deleting notification:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 

@@ -43,15 +43,18 @@ function getLimit(pathname: string) {
 }
 
 // --- Security headers ---
-function applySecurityHeaders(res: NextResponse, isProd: boolean) {
+function applySecurityHeaders(res: NextResponse, nonce: string, isProd: boolean) {
   res.headers.set('X-Frame-Options', 'DENY');
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
+  // Nonce-based script-src: removes unsafe-inline in production.
+  // Modern browsers (CSP L2+) honour nonces and ignore unsafe-inline when both present,
+  // but we omit unsafe-inline entirely so the policy is unambiguous.
   const scriptSrc = isProd
-    ? "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com";
+    ? `script-src 'self' 'nonce-${nonce}' https://static.cloudflareinsights.com`
+    : `script-src 'self' 'nonce-${nonce}' 'unsafe-eval' https://static.cloudflareinsights.com`;
 
   res.headers.set(
     'Content-Security-Policy',
@@ -88,8 +91,16 @@ export function proxy(req: NextRequest) {
     }
   }
 
-  const res = NextResponse.next();
-  applySecurityHeaders(res, isProd);
+  // Generate a per-request nonce for CSP — forwarded to Server Components via request header
+  // so Next.js applies it to its own injected hydration scripts automatically.
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+
+  const res = NextResponse.next({
+    request: {
+      headers: new Headers({ ...Object.fromEntries(req.headers), 'x-nonce': nonce }),
+    },
+  });
+  applySecurityHeaders(res, nonce, isProd);
   return res;
 }
 

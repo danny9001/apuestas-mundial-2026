@@ -161,6 +161,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, match: matchResult.rows[0] });
   } catch (error: any) {
     console.error('Error creating/updating match:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

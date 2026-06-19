@@ -126,6 +126,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   } catch (error: any) {
     console.error('Error managing group:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

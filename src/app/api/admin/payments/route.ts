@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(res.rows);
   } catch (error: any) {
     console.error('Error fetching payments:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 
@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
                             error.message.includes('supera') || 
                             error.message.includes('extensión');
     return NextResponse.json(
-      { error: isValidationErr ? error.message : 'Error del servidor: ' + error.message },
+      { error: isValidationErr ? error.message : 'Error del servidor' },
       { status: isValidationErr ? 400 : 500 }
     );
   }

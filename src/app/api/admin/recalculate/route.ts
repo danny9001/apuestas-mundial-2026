@@ -21,6 +21,6 @@ export async function POST() {
     return NextResponse.json({ success: true, message: 'Clasificación recalculada con éxito' });
   } catch (error: any) {
     console.error('Error recalculating leaderboard:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

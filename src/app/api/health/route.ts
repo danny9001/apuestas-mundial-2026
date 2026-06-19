@@ -9,6 +9,7 @@ export async function GET() {
     await pool.query('SELECT 1');
     return NextResponse.json({ status: 'healthy', database: 'connected' }, { status: 200 });
   } catch (error: any) {
-    return NextResponse.json({ status: 'unhealthy', error: error.message }, { status: 500 });
+    console.error('[health] DB check failed:', error);
+    return NextResponse.json({ status: 'unhealthy', error: 'Database unavailable' }, { status: 500 });
   }
 }

@@ -49,7 +49,7 @@ export async function GET() {
     return NextResponse.json(settings);
   } catch (error: any) {
     console.error('Error fetching settings:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 
@@ -170,6 +170,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error updating settings:', error);
-    return NextResponse.json({ error: 'Error del servidor: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

@@ -37,6 +37,6 @@ export async function GET() {
       pct_fallo: total > 0 ? Math.round((parseInt(s.fallos) / total) * 100) : 0
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { InactivityGuard } from "@/components/InactivityGuard";
 
@@ -24,22 +25,27 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Nonce injected by middleware (proxy.ts) — required so Next.js applies it
+  // to its own hydration scripts and so our inline SW registration is allowed
+  // by the nonce-based CSP (no unsafe-inline needed).
+  const nonce = (await headers()).get('x-nonce') ?? '';
+
   return (
     <html lang="es" className="dark h-full">
       <head>
         <link rel="manifest" href="/api/manifest" />
-        {/* Favicon dinámico — usa el logo configurado en personalización */}
         <link rel="icon" href="/api/favicon" type="image/png" sizes="any" />
         <link rel="shortcut icon" href="/api/favicon" />
         <link rel="apple-touch-icon" href="/api/favicon" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {

@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error updating profile:', error);
-    return NextResponse.json({ error: `Error del servidor: ${error.message || error}` }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 
@@ -149,6 +149,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error updating PWA status:', error);
-    return NextResponse.json({ error: `Error del servidor: ${error.message || error}` }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

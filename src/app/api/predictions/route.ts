@@ -145,13 +145,15 @@ export async function POST(req: NextRequest) {
     }
 
     let targetUserId = user.id;
-    let isSuperAdminBypass = user.tipo === 'superadmin';
+    // Bypass only when superadmin edits ANOTHER user's prediction — own predictions follow normal time rules
+    let isSuperAdminBypass = false;
 
     if (userId !== undefined && parseInt(userId) !== user.id) {
       if (user.tipo !== 'superadmin') {
         return NextResponse.json({ error: 'No autorizado para editar predicciones de otros usuarios' }, { status: 403 });
       }
       targetUserId = parseInt(userId);
+      isSuperAdminBypass = true;
     }
 
     const now = new Date();

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  ShieldAlert, Building2, RefreshCw, Users, MessageSquare, Coins, Download, X, Timer
+  ShieldAlert, Building2, RefreshCw, Users, MessageSquare, Coins, Download, X, Timer, BarChart3
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 
@@ -13,12 +13,13 @@ import NotificationsTab from '@/components/admin/NotificationsTab';
 import PaymentsTab from '@/components/admin/PaymentsTab';
 import LogsTab from '@/components/admin/LogsTab';
 import PwaTab from '@/components/admin/PwaTab';
+import StatsTab from '@/components/admin/StatsTab';
 
 export default function AdminPage() {
   const { user, showToast, appName, appLogo, setAppName, setAppLogo, predictionCloseMinutes, setPredictionCloseMinutes } = useApp();
 
   // Sub-tab selector state
-  const [adminSubTab, setAdminSubTab] = useState<'usuarios' | 'empresa' | 'mensajes' | 'pagos' | 'logs' | 'pwa'>('usuarios');
+  const [adminSubTab, setAdminSubTab] = useState<'usuarios' | 'empresa' | 'mensajes' | 'pagos' | 'logs' | 'pwa' | 'stats'>('usuarios');
 
   // Shared Data States
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
@@ -176,7 +177,10 @@ export default function AdminPage() {
               { key: 'mensajes', label: 'Mensajes', icon: <MessageSquare className="w-3.5 h-3.5" /> },
               { key: 'pagos', label: 'Pagos 💰', icon: <Coins className="w-3.5 h-3.5" /> },
               { key: 'pwa', label: 'PWA 📱', icon: <Download className="w-3.5 h-3.5" /> },
-              ...(user.tipo === 'superadmin' ? [{ key: 'logs', label: 'Logs 📋', icon: <ShieldAlert className="w-3.5 h-3.5" /> }] : []),
+              ...(user.tipo === 'superadmin' ? [
+                { key: 'stats', label: 'Estadísticas', icon: <BarChart3 className="w-3.5 h-3.5" /> },
+                { key: 'logs', label: 'Logs 📋', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+              ] : []),
             ] as const).map(t => (
               <button
                 key={t.key}
@@ -200,7 +204,10 @@ export default function AdminPage() {
               { key: 'mensajes', label: 'Mensajes', icon: <MessageSquare className="w-3.5 h-3.5" /> },
               { key: 'pagos', label: 'Pagos 💰', icon: <Coins className="w-3.5 h-3.5" /> },
               { key: 'pwa', label: 'PWA 📱', icon: <Download className="w-3.5 h-3.5" /> },
-              ...(user.tipo === 'superadmin' ? [{ key: 'logs', label: 'Logs 📋', icon: <ShieldAlert className="w-3.5 h-3.5" /> }] : []),
+              ...(user.tipo === 'superadmin' ? [
+                { key: 'stats', label: 'Estadísticas', icon: <BarChart3 className="w-3.5 h-3.5" /> },
+                { key: 'logs', label: 'Logs 📋', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+              ] : []),
             ] as const).map(t => (
               <button
                 key={t.key}
@@ -293,6 +300,10 @@ export default function AdminPage() {
                 companies={companies}
                 showToast={showToast}
               />
+            )}
+
+            {adminSubTab === 'stats' && user.tipo === 'superadmin' && (
+              <StatsTab user={user} />
             )}
 
             {adminSubTab === 'logs' && user.tipo === 'superadmin' && (

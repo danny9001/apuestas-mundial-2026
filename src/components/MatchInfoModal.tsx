@@ -434,7 +434,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
               <div className="flex justify-between">
                 <span className="text-neutral-500">Fecha y Hora:</span>
                 <span className="font-semibold text-neutral-300 font-mono">
-                  {new Date(match.fecha).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(match.fecha).toLocaleString('es-ES', { timeZone: 'America/La_Paz', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               <div className="flex justify-between">

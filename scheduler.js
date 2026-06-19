@@ -2,7 +2,7 @@
  * Scheduler de notificaciones automáticas y sincronización de partidos
  * - Cada 15 minutos: avisos de partidos próximas 24h
  * - Cada lunes 8:00: ranking semanal por empresa
- * - Cada 1 minuto: sincroniza marcadores de partidos que están en vivo o próximos a comenzar
+ * - Cada 1 minuto: sincroniza marcadores de partidos en vivo, próximos (15 min) o empezados hace < 2h
  */
 const https = require('https');
 const http = require('http');
@@ -82,8 +82,9 @@ function checkAndSyncMatches() {
           if (m.estado === 'live') return true;
           if (m.estado === 'upcoming') {
             const matchTime = new Date(m.fecha).getTime();
-            // Match starts in the next 10 minutes or started in the last 10 minutes
-            return (matchTime - now <= 10 * 60 * 1000) && (now - matchTime <= 10 * 60 * 1000);
+            // Sync if match starts within 15 min OR already started (within last 2 hours)
+            // The 2-hour window catches cases where the sync missed the narrow window
+            return matchTime - now <= 15 * 60 * 1000 && now - matchTime <= 120 * 60 * 1000;
           }
           return false;
         });

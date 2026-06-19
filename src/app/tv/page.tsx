@@ -82,7 +82,7 @@ export default function AirportTVPage() {
     const timer = setInterval(() => {
       const now = new Date();
       setTime(
-        now.toLocaleTimeString('es-ES', {
+        now.toLocaleTimeString('es-ES', { timeZone: 'America/La_Paz',
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
@@ -339,7 +339,7 @@ export default function AirportTVPage() {
                 {upcomingMatches.slice(0, 10).map((m) => (
                   <tr key={m.id} className="hover:bg-zinc-950/40">
                     <td className="py-5 text-zinc-400 font-mono">
-                      {new Date(m.fecha).toLocaleString('es-ES', {
+                      {new Date(m.fecha).toLocaleString('es-ES', { timeZone: 'America/La_Paz',
                         day: '2-digit',
                         month: '2-digit',
                         hour: '2-digit',

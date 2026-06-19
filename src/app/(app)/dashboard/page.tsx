@@ -338,7 +338,7 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <p className="text-xs xl:text-sm font-bold text-neutral-200 leading-snug">{n.titulo}</p>
                   <p className="text-[10px] xl:text-xs text-neutral-500 mt-0.5 leading-relaxed line-clamp-2">{n.contenido}</p>
-                  <p className="text-[9px] xl:text-[10px] text-neutral-600 mt-1">{new Date(n.created_at).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                  <p className="text-[9px] xl:text-[10px] text-neutral-600 mt-1">{new Date(n.created_at).toLocaleString('es-BO', { timeZone: 'America/La_Paz', dateStyle: 'short', timeStyle: 'short' })}</p>
                 </div>
               </div>
             ))}
@@ -353,7 +353,7 @@ export default function DashboardPage() {
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-[9px] font-black uppercase tracking-widest text-yellow-500">{summaryMatch.fase}{summaryMatch.grupo ? ` · Grupo ${summaryMatch.grupo}` : ''}</span>
-                <p className="text-[10px] text-neutral-500 mt-0.5">{new Date(summaryMatch.fecha).toLocaleString('es-BO', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
+                <p className="text-[10px] text-neutral-500 mt-0.5">{new Date(summaryMatch.fecha).toLocaleString('es-BO', { timeZone: 'America/La_Paz', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
               </div>
               <button onClick={() => setSummaryMatch(null)} className="text-neutral-500 hover:text-neutral-300 p-1 transition">
                 <X className="w-4 h-4" />

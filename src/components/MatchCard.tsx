@@ -32,7 +32,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
             <span className="text-neutral-500 font-mono flex-shrink-0">•</span>
             <span className="text-neutral-500 font-mono flex-shrink-0">
               {m.estado === 'upcoming'
-                ? new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                ? new Date(m.fecha).toLocaleDateString('es-ES', { timeZone: 'America/La_Paz', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                 : m.estado === 'live'
                   ? (m.stats?.time ? `⏱️ ${m.stats.time}${m.stats.extra_time ? ` (${m.stats.extra_time})` : ''}` : 'Jugándose')
                   : 'Finalizado'}
@@ -106,7 +106,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
           </span>
         )}
         {m.estado === 'finished' && <span className="text-neutral-500 font-semibold uppercase text-[10px]">FINALIZADO</span>}
-        {m.estado === 'upcoming' && <span className="text-neutral-500 font-semibold text-[10px]">{new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
+        {m.estado === 'upcoming' && <span className="text-neutral-500 font-semibold text-[10px]">{new Date(m.fecha).toLocaleDateString('es-ES', { timeZone: 'America/La_Paz', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
       </div>
 
       <div className="flex flex-col gap-3 py-1">

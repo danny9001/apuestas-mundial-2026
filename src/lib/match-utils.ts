@@ -37,18 +37,25 @@ export function getStandings(matchesList: any[]) {
   return standings;
 }
 
+const TZ = 'America/La_Paz';
+
+function toBoliviaDateStr(date: Date): string {
+  return date.toLocaleDateString('es-ES', { timeZone: TZ });
+}
+
 export function getMatchesByDate(matchesList: any[]) {
   const sorted = [...matchesList].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
   const groups: { dateStr: string; matches: any[] }[] = [];
-  const nowStr = new Date().toLocaleDateString('es-ES');
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toLocaleDateString('es-ES');
+  const now = new Date();
+  const nowStr = toBoliviaDateStr(now);
+  const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = toBoliviaDateStr(tomorrow);
 
   sorted.forEach(m => {
     const d = new Date(m.fecha);
-    const dateStr = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const dateStr = d.toLocaleDateString('es-ES', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const capitalized = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-    const matchDayStr = d.toLocaleDateString('es-ES');
+    const matchDayStr = toBoliviaDateStr(d);
     const relativeLabel = matchDayStr === nowStr ? ' (HOY)' : matchDayStr === tomorrowStr ? ' (MAÑANA)' : '';
     const key = capitalized + relativeLabel;
     let group = groups.find(g => g.dateStr === key);

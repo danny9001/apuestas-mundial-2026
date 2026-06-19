@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { RefreshCw, TrendingUp, Users, Trophy, Activity, BarChart3, Target } from 'lucide-react';
+import { RefreshCw, TrendingUp, Users, Trophy, Activity, BarChart3, Target, Clock, Mail, CheckCheck } from 'lucide-react';
 
 // Recharts must be loaded client-side only
 const LineChart = dynamic(() => import('recharts').then(m => m.LineChart), { ssr: false });
@@ -338,6 +338,206 @@ export default function StatsTab({ user }: StatsTabProps) {
                   })}
                 </div>
               </>
+            )}
+          </div>
+
+          {/* ── Row: Ingresos por hora + Anticipación pronósticos ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            {/* Ingresos por hora del día */}
+            <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
+              <h4 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-yellow-500" />
+                Ingresos por Hora del Día
+              </h4>
+              {data.loginsByHour.every((h: any) => h.count === 0) ? (
+                <p className="text-neutral-600 text-xs text-center py-8">Sin datos de ingresos en este período</p>
+              ) : (
+                <>
+                  <div className="hidden sm:block" style={{ width: '100%', height: 180 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={data.loginsByHour} style={CHART_STYLE}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fill: '#737373', fontSize: 9 }}
+                          tickLine={false}
+                          axisLine={false}
+                          interval={2}
+                        />
+                        <YAxis tick={{ fill: '#737373', fontSize: 10 }} tickLine={false} axisLine={false} width={24} allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={tooltipStyle}
+                          formatter={(val: any) => [val, 'Ingresos']}
+                        />
+                        <Bar dataKey="count" name="Ingresos" radius={[3, 3, 0, 0]}>
+                          {data.loginsByHour.map((entry: any, index: number) => {
+                            // Highlight peak hours (6am-12pm golden, 12-20 yellow, rest dim)
+                            const h = entry.hour;
+                            const color = h >= 6 && h < 12 ? '#f97316' : h >= 12 && h < 20 ? '#eab308' : '#404040';
+                            return <Cell key={index} fill={color} />;
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Mobile: mini heatmap-style */}
+                  <div className="sm:hidden">
+                    <div className="grid grid-cols-12 gap-0.5">
+                      {data.loginsByHour.map((h: any) => {
+                        const max = Math.max(...data.loginsByHour.map((x: any) => x.count), 1);
+                        const intensity = max > 0 ? h.count / max : 0;
+                        const bg = h.count === 0
+                          ? 'bg-neutral-800'
+                          : intensity > 0.7 ? 'bg-yellow-500' : intensity > 0.3 ? 'bg-yellow-700' : 'bg-yellow-900';
+                        return (
+                          <div key={h.hour} className={`aspect-square rounded-sm ${bg} flex items-center justify-center`} title={`${h.label}: ${h.count}`}>
+                            <span className="text-[7px] text-neutral-300 font-bold">{h.hour}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between text-[9px] text-neutral-600 mt-1">
+                      <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {[...data.loginsByHour].sort((a: any, b: any) => b.count - a.count).slice(0, 3).map((h: any) => (
+                        <div key={h.hour} className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-yellow-500 w-12">{h.label}</span>
+                          <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${(h.count / Math.max(...data.loginsByHour.map((x: any) => x.count), 1)) * 100}%` }} />
+                          </div>
+                          <span className="text-[10px] font-bold text-neutral-300">{h.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-neutral-600 text-center">
+                    Hora pico: {data.loginsByHour.reduce((max: any, h: any) => h.count > (max?.count ?? -1) ? h : max, null)?.label ?? '-'}
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Anticipación de pronósticos */}
+            <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
+              <h4 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-green-400" />
+                Anticipación al Registrar Pronósticos
+              </h4>
+              {!data.predBeforeMatch?.length ? (
+                <p className="text-neutral-600 text-xs text-center py-8">Sin datos</p>
+              ) : (
+                <>
+                  <div style={{ width: '100%', height: 180 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={data.predBeforeMatch} style={CHART_STYLE}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
+                        <XAxis dataKey="bucket" tick={{ fill: '#737373', fontSize: 9 }} tickLine={false} axisLine={false} />
+                        <YAxis tick={{ fill: '#737373', fontSize: 10 }} tickLine={false} axisLine={false} width={30} allowDecimals={false} />
+                        <Tooltip contentStyle={tooltipStyle} formatter={(val: any) => [val, 'Pronósticos']} />
+                        <Bar dataKey="count" name="Pronósticos" radius={[4, 4, 0, 0]}>
+                          {data.predBeforeMatch.map((entry: any, i: number) => {
+                            const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#737373'];
+                            return <Cell key={i} fill={colors[i] ?? '#737373'} />;
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-1">
+                    {(() => {
+                      const total = data.predBeforeMatch.reduce((s: number, r: any) => s + r.count, 0);
+                      const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#737373'];
+                      return data.predBeforeMatch.map((b: any, i: number) => (
+                        <div key={b.bucket} className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors[i] ?? '#737373' }} />
+                          <span className="text-[10px] text-neutral-400 w-20">{b.bucket}</span>
+                          <div className="flex-1 h-1 bg-neutral-800 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${total > 0 ? (b.count / total) * 100 : 0}%`, backgroundColor: colors[i] ?? '#737373' }} />
+                          </div>
+                          <span className="text-[10px] font-bold text-neutral-300 w-8 text-right">{b.count}</span>
+                          <span className="text-[9px] text-neutral-600 w-8 text-right">{total > 0 ? Math.round((b.count / total) * 100) : 0}%</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ── Lectura de Mensajes ── */}
+          <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-4 space-y-4">
+            <h4 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-purple-400" />
+              Estadísticas de Mensajes / Notificaciones
+            </h4>
+            {data.messageStats.totalSent === 0 ? (
+              <p className="text-neutral-600 text-xs text-center py-8">Sin mensajes enviados en este período</p>
+            ) : (
+              <div className="space-y-4">
+                {/* Global read rate */}
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                  <div className="flex gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-black text-purple-400">{data.messageStats.totalSent}</div>
+                      <div className="text-[9px] text-neutral-500 uppercase tracking-widest">Enviados</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-black text-green-400">{data.messageStats.totalLeidas}</div>
+                      <div className="text-[9px] text-neutral-500 uppercase tracking-widest">Leídos</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-black text-yellow-500">{data.messageStats.globalReadPct}%</div>
+                      <div className="text-[9px] text-neutral-500 uppercase tracking-widest">Tasa Lectura</div>
+                    </div>
+                  </div>
+                  {/* Global progress bar */}
+                  <div className="flex-1 w-full space-y-1">
+                    <div className="flex justify-between text-[9px] text-neutral-500">
+                      <span>Leídos</span><span>{data.messageStats.globalReadPct}%</span>
+                    </div>
+                    <div className="h-3 bg-neutral-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${data.messageStats.globalReadPct}%`,
+                          background: `linear-gradient(90deg, #a855f7, #22c55e)`
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* By type */}
+                {data.messageStats.byType.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Por tipo de mensaje</p>
+                    {data.messageStats.byType.map((t: any) => {
+                      const typeColor: Record<string, string> = { info: '#3b82f6', success: '#22c55e', warning: '#f97316', error: '#ef4444' };
+                      const color = typeColor[t.tipo] ?? '#a3a3a3';
+                      const typeLabel: Record<string, string> = { info: 'Informativo', success: 'Éxito', warning: 'Advertencia', error: 'Error' };
+                      return (
+                        <div key={t.tipo} className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                          <span className="text-[10px] text-neutral-400 w-24">{typeLabel[t.tipo] || t.tipo}</span>
+                          <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${t.pct}%`, backgroundColor: color }} />
+                          </div>
+                          <div className="flex gap-2 text-[10px] font-mono">
+                            <span className="text-neutral-500">{t.sent} env.</span>
+                            <span className="flex items-center gap-0.5" style={{ color }}>
+                              <CheckCheck className="w-3 h-3" /> {t.leidas}
+                            </span>
+                            <span className="font-bold" style={{ color }}>{t.pct}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </>

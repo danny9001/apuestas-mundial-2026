@@ -84,7 +84,9 @@ export default function LogsTab({
         </div>
       ) : (
         <div className="bg-neutral-900/40 border border-neutral-900 rounded-2xl overflow-hidden shadow-lg">
-          <div className="overflow-x-auto">
+
+          {/* ── Desktop: tabla ── */}
+          <div className="hidden sm:block overflow-x-auto">
             {logsType === 'mail' && (
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
@@ -102,26 +104,17 @@ export default function LogsTab({
                       <td className="p-3 font-medium text-neutral-200 font-mono">{log.destinatario}</td>
                       <td className="p-3 text-neutral-300">{log.asunto}</td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${
-                          log.estado === 'success'
-                            ? 'bg-green-500/10 border-green-500/20 text-green-400'
-                            : 'bg-red-500/10 border-red-500/20 text-red-400'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${log.estado === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
                           {log.estado === 'success' ? 'ENVIADO' : 'FALLÓ'}
                         </span>
                       </td>
-                      <td className="p-3 text-neutral-400 font-mono text-[10px] max-w-xs truncate" title={log.error_mensaje}>
-                        {log.error_mensaje || '-'}
-                      </td>
-                      <td className="p-3 text-right text-neutral-500 font-mono">
-                        {new Date(log.created_at).toLocaleString('es-BO')}
-                      </td>
+                      <td className="p-3 text-neutral-400 font-mono text-[10px] max-w-xs truncate" title={log.error_mensaje}>{log.error_mensaje || '-'}</td>
+                      <td className="p-3 text-right text-neutral-500 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
-
             {logsType === 'system' && (
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
@@ -137,30 +130,19 @@ export default function LogsTab({
                   {logs.map((log: any) => (
                     <tr key={log.id} className="hover:bg-neutral-900/20 transition-colors">
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${
-                          log.nivel === 'error'
-                            ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                            : log.nivel === 'warn'
-                            ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
-                            : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${log.nivel === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' : log.nivel === 'warn' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}`}>
                           {(log.nivel || 'info').toUpperCase()}
                         </span>
                       </td>
                       <td className="p-3 text-neutral-300 font-mono">{log.categoria}</td>
                       <td className="p-3 font-medium text-neutral-200">{log.mensaje}</td>
-                      <td className="p-3 text-neutral-400 font-mono text-[10px]" title={log.detalles}>
-                        {log.detalles || '-'}
-                      </td>
-                      <td className="p-3 text-right text-neutral-500 font-mono">
-                        {new Date(log.created_at).toLocaleString('es-BO')}
-                      </td>
+                      <td className="p-3 text-neutral-400 font-mono text-[10px]" title={log.detalles}>{log.detalles || '-'}</td>
+                      <td className="p-3 text-right text-neutral-500 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
-
             {logsType === 'audit' && (
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
@@ -177,15 +159,56 @@ export default function LogsTab({
                       <td className="p-3 text-neutral-200 font-bold">{log.user_nombre || `ID: ${log.user_id}`}</td>
                       <td className="p-3 text-neutral-300 font-mono text-[10px]">{log.action}</td>
                       <td className="p-3 text-neutral-400 leading-relaxed">{log.details}</td>
-                      <td className="p-3 text-right text-neutral-500 font-mono">
-                        {new Date(log.created_at).toLocaleString('es-BO')}
-                      </td>
+                      <td className="p-3 text-right text-neutral-500 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
           </div>
+
+          {/* ── Mobile: tarjetas ── */}
+          <div className="sm:hidden divide-y divide-neutral-900">
+            {logsType === 'mail' && logs.map((log: any) => (
+              <div key={log.id} className="p-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold text-neutral-200 font-mono truncate">{log.destinatario}</span>
+                  <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[9px] font-bold border ${log.estado === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                    {log.estado === 'success' ? 'ENVIADO' : 'FALLÓ'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-300">{log.asunto}</p>
+                {log.error_mensaje && <p className="text-[10px] text-red-400 font-mono">{log.error_mensaje}</p>}
+                <p className="text-[9px] text-neutral-600 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
+              </div>
+            ))}
+
+            {logsType === 'system' && logs.map((log: any) => (
+              <div key={log.id} className="p-3 space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${log.nivel === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' : log.nivel === 'warn' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}`}>
+                    {(log.nivel || 'info').toUpperCase()}
+                  </span>
+                  <span className="text-[10px] font-bold text-neutral-400 font-mono">{log.categoria}</span>
+                </div>
+                <p className="text-[11px] font-medium text-neutral-200">{log.mensaje}</p>
+                {log.detalles && <p className="text-[10px] text-neutral-500 font-mono">{log.detalles}</p>}
+                <p className="text-[9px] text-neutral-600 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
+              </div>
+            ))}
+
+            {logsType === 'audit' && logs.map((log: any) => (
+              <div key={log.id} className="p-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold text-neutral-200">{log.user_nombre || `ID: ${log.user_id}`}</span>
+                  <span className="text-[9px] font-mono text-neutral-500 bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded">{log.action}</span>
+                </div>
+                <p className="text-[11px] text-neutral-400 leading-relaxed">{log.details}</p>
+                <p className="text-[9px] text-neutral-600 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
+              </div>
+            ))}
+          </div>
+
         </div>
       )}
     </div>

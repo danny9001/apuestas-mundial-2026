@@ -64,62 +64,80 @@ export default function PwaTab({
         )}
       </div>
 
-      {/* Table */}
-      <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-neutral-950 text-neutral-400 border-b border-neutral-800 uppercase tracking-wider font-black text-[10px]">
-                <th className="p-3">Usuario</th>
-                <th className="p-3">Correo</th>
-                <th className="p-3">Empresa</th>
-                <th className="p-3">Estado PWA</th>
-                <th className="p-3 text-right">Último Reporte</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-850">
-              {adminUsers
-                .filter(u => {
-                  const term = pwaSearch.toLowerCase().trim();
-                  if (!term) return true;
-                  return u.nombre.toLowerCase().includes(term) || u.email.toLowerCase().includes(term);
-                })
-                .map(u => {
-                  const companyNames = Array.isArray(u.companies)
-                    ? u.companies.map((c: any) => c.nombre).join(', ')
-                    : '';
-                  return (
-                    <tr key={u.id} className="hover:bg-neutral-900/20 transition-colors">
-                      <td className="p-3 flex items-center gap-2 font-bold text-neutral-200">
-                        <img
-                          src={u.avatar || 'https://stg00vm.blob.core.windows.net/jet00/default.webp'}
-                          className="w-6 h-6 rounded-full object-cover bg-white"
-                          alt="avatar"
-                          onError={e => { e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }}
-                        />
-                        <span>{u.nombre}</span>
-                      </td>
-                      <td className="p-3 text-neutral-400 font-mono">{u.email}</td>
-                      <td className="p-3 text-neutral-300">{companyNames || <span className="text-neutral-600">-</span>}</td>
-                      <td className="p-3">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
-                          u.pwa_installed
-                            ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                            : 'bg-neutral-800 border-neutral-750 text-neutral-400'
-                        }`}>
-                          {u.pwa_installed ? '📱 PWA Instalada' : '🌐 Navegador'}
+      {/* Table / Cards */}
+      {(() => {
+        const filtered = adminUsers.filter(u => {
+          const term = pwaSearch.toLowerCase().trim();
+          if (!term) return true;
+          return u.nombre.toLowerCase().includes(term) || u.email.toLowerCase().includes(term);
+        });
+        return (
+          <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg">
+
+            {/* Desktop: tabla */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-neutral-950 text-neutral-400 border-b border-neutral-800 uppercase tracking-wider font-black text-[10px]">
+                    <th className="p-3">Usuario</th>
+                    <th className="p-3">Correo</th>
+                    <th className="p-3">Empresa</th>
+                    <th className="p-3">Estado PWA</th>
+                    <th className="p-3 text-right">Último Reporte</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-850">
+                  {filtered.map(u => {
+                    const companyNames = Array.isArray(u.companies) ? u.companies.map((c: any) => c.nombre).join(', ') : '';
+                    return (
+                      <tr key={u.id} className="hover:bg-neutral-900/20 transition-colors">
+                        <td className="p-3 flex items-center gap-2 font-bold text-neutral-200">
+                          <img src={u.avatar || 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} className="w-6 h-6 rounded-full object-cover bg-white" alt="avatar" onError={e => { e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }} />
+                          <span>{u.nombre}</span>
+                        </td>
+                        <td className="p-3 text-neutral-400 font-mono">{u.email}</td>
+                        <td className="p-3 text-neutral-300">{companyNames || <span className="text-neutral-600">-</span>}</td>
+                        <td className="p-3">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${u.pwa_installed ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-neutral-800 border-neutral-750 text-neutral-400'}`}>
+                            {u.pwa_installed ? '📱 PWA Instalada' : '🌐 Navegador'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right text-neutral-500 font-mono">{u.pwa_updated_at ? new Date(u.pwa_updated_at).toLocaleString('es-BO') : '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile: tarjetas */}
+            <div className="sm:hidden divide-y divide-neutral-850">
+              {filtered.map(u => {
+                const companyNames = Array.isArray(u.companies) ? u.companies.map((c: any) => c.nombre).join(', ') : '';
+                return (
+                  <div key={u.id} className="p-3 flex items-center gap-3">
+                    <img src={u.avatar || 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} className="w-9 h-9 rounded-full object-cover bg-white flex-shrink-0" alt="avatar" onError={e => { e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-bold text-neutral-200 truncate">{u.nombre}</span>
+                        <span className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${u.pwa_installed ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-neutral-800 border-neutral-750 text-neutral-400'}`}>
+                          {u.pwa_installed ? '📱 PWA' : '🌐 Web'}
                         </span>
-                      </td>
-                      <td className="p-3 text-right text-neutral-500 font-mono">
-                        {u.pwa_updated_at ? new Date(u.pwa_updated_at).toLocaleString('es-BO') : '-'}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                      </div>
+                      <p className="text-[10px] text-neutral-500 font-mono truncate">{u.email}</p>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-[10px] text-neutral-500">{companyNames || '-'}</span>
+                        <span className="text-[9px] text-neutral-600 font-mono">{u.pwa_updated_at ? new Date(u.pwa_updated_at).toLocaleDateString('es-BO') : '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+        );
+      })()}
     </div>
   );
 }

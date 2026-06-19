@@ -321,7 +321,9 @@ export default function PaymentsTab({
         </div>
       ) : (
         <div className="bg-neutral-900/40 border border-neutral-900 rounded-2xl overflow-hidden shadow-lg">
-          <div className="overflow-x-auto">
+
+          {/* Desktop: tabla */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-neutral-950 text-neutral-400 border-b border-neutral-850 uppercase tracking-wider font-black text-[10px]">
@@ -339,26 +341,13 @@ export default function PaymentsTab({
                   const cuota = u.companies.length > 0 ? u.companies.reduce((sum: number, c: any) => sum + parseFloat(c.monto_participacion || 150), 0) : 150;
                   const totalPagado = u.payments.reduce((sum: number, p: any) => sum + parseFloat(p.monto), 0);
                   const saldo = cuota - totalPagado;
-
-                  let statusColor = "text-red-400";
-                  let statusBg = "bg-red-500/10 border-red-500/20";
-                  if (saldo <= 0) {
-                    statusColor = "text-green-400";
-                    statusBg = "bg-green-500/10 border-green-500/20";
-                  } else if (totalPagado > 0) {
-                    statusColor = "text-yellow-400";
-                    statusBg = "bg-yellow-500/10 border-yellow-500/20";
-                  }
-
+                  const statusColor = saldo <= 0 ? 'text-green-400' : totalPagado > 0 ? 'text-yellow-400' : 'text-red-400';
+                  const statusBg = saldo <= 0 ? 'bg-green-500/10 border-green-500/20' : totalPagado > 0 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-red-500/10 border-red-500/20';
                   return (
                     <tr key={u.id} className="hover:bg-neutral-900/20 transition-colors">
                       <td className="p-3 border-r border-neutral-850/50">
                         <div className="flex items-center gap-2 font-bold text-neutral-200">
-                          <img
-                            src={u.avatar || 'https://stg00vm.blob.core.windows.net/jet00/default.webp'}
-                            className="w-6 h-6 rounded-full border border-neutral-800 object-cover bg-neutral-950"
-                            alt="avatar"
-                          />
+                          <img src={u.avatar || 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} className="w-6 h-6 rounded-full border border-neutral-800 object-cover bg-neutral-950" alt="avatar" />
                           <div>
                             <div>{u.nombre}</div>
                             <div className="text-[10px] text-neutral-500 font-mono font-normal">{u.email}</div>
@@ -367,95 +356,46 @@ export default function PaymentsTab({
                       </td>
                       <td className="p-3 border-r border-neutral-850/50">
                         <div className="flex flex-wrap gap-1">
-                          {u.companies.length > 0 ? (
-                            u.companies.map((c: any) => (
-                              <span key={c.id} className="text-[9px] px-2 py-0.5 rounded-full border font-bold"
-                                style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '15' }}>
-                                {c.nombre}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[9px] px-2 py-0.5 rounded-full border border-neutral-800 text-neutral-500 bg-neutral-950 font-mono">Sin Empresa</span>
-                          )}
+                          {u.companies.length > 0 ? u.companies.map((c: any) => (
+                            <span key={c.id} className="text-[9px] px-2 py-0.5 rounded-full border font-bold" style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '15' }}>{c.nombre}</span>
+                          )) : <span className="text-[9px] px-2 py-0.5 rounded-full border border-neutral-800 text-neutral-500 bg-neutral-950 font-mono">Sin Empresa</span>}
                         </div>
                       </td>
-                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono text-neutral-300">
-                        Bs. {cuota.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono font-bold text-neutral-100">
-                        Bs. {totalPagado.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-                      </td>
+                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono text-neutral-300">Bs. {cuota.toLocaleString('es-BO', { minimumFractionDigits: 2 })}</td>
+                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono font-bold text-neutral-100">Bs. {totalPagado.toLocaleString('es-BO', { minimumFractionDigits: 2 })}</td>
                       <td className="p-3 border-r border-neutral-850/50 text-right font-mono">
-                        <span className={`px-2 py-0.5 rounded-lg border text-[10px] font-black ${statusBg} ${statusColor}`}>
-                          Bs. {saldo.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-                        </span>
+                        <span className={`px-2 py-0.5 rounded-lg border text-[10px] font-black ${statusBg} ${statusColor}`}>Bs. {saldo.toLocaleString('es-BO', { minimumFractionDigits: 2 })}</span>
                       </td>
                       <td className="p-3 border-r border-neutral-850/50">
                         <div className="flex flex-wrap gap-1.5 items-center max-w-xs">
-                          {u.payments.length === 0 ? (
-                            <span className="text-[10px] text-neutral-600 italic font-sans font-medium">Ningún pago</span>
-                          ) : (
-                            u.payments.map((p: any) => (
-                              <span key={p.id} className="inline-flex items-center text-[9px] font-bold bg-neutral-900 border border-neutral-800 rounded-md px-1.5 py-0.5 text-neutral-400">
-                                Bs. {p.monto} <span className="text-neutral-600 ml-1 font-normal">({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})</span>
-                              </span>
-                            ))
-                          )}
+                          {u.payments.length === 0 ? <span className="text-[10px] text-neutral-600 italic">Ningún pago</span> : u.payments.map((p: any) => (
+                            <span key={p.id} className="inline-flex items-center text-[9px] font-bold bg-neutral-900 border border-neutral-800 rounded-md px-1.5 py-0.5 text-neutral-400">
+                              Bs. {p.monto} <span className="text-neutral-600 ml-1 font-normal">({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})</span>
+                            </span>
+                          ))}
                         </div>
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex gap-1.5 justify-center">
-                          <button
-                            onClick={() => {
-                              setPaymentModalUser(u);
-                              setNewPaymentMonto('');
-                              setNewPaymentFecha(new Date().toISOString().split('T')[0]);
-                            }}
-                            className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 font-bold px-2 py-1 rounded-lg transition text-[10px] flex items-center gap-1 cursor-pointer"
-                            title="Registrar Pago"
-                          >
+                          <button onClick={() => { setPaymentModalUser(u); setNewPaymentMonto(''); setNewPaymentFecha(new Date().toISOString().split('T')[0]); }} className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 font-bold px-2 py-1 rounded-lg transition text-[10px] flex items-center gap-1 cursor-pointer">
                             <Plus className="w-3 h-3" /> Pago
                           </button>
-                          <button
-                            onClick={() => {
-                              setManagePaymentsUser(u);
-                              setEditingPaymentId(null);
-                            }}
-                            className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold px-2 py-1 rounded-lg border border-neutral-750 transition text-[10px] cursor-pointer"
-                          >
-                            Detalle
-                          </button>
+                          <button onClick={() => { setManagePaymentsUser(u); setEditingPaymentId(null); }} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold px-2 py-1 rounded-lg border border-neutral-750 transition text-[10px] cursor-pointer">Detalle</button>
                         </div>
                       </td>
                     </tr>
                   );
                 })}
-                {/* Total Summary Row */}
                 {(() => {
-                  const totalCuotas = filteredPaymentsUsers.reduce((sum, u) => {
-                    const cuota = u.companies.length > 0 ? u.companies.reduce((s: number, c: any) => s + parseFloat(c.monto_participacion || '150'), 0) : 150;
-                    return sum + cuota;
-                  }, 0);
-                  const totalPagadoTodos = filteredPaymentsUsers.reduce((sum, u) => {
-                    const total = u.payments.reduce((s: number, p: any) => s + parseFloat(p.monto || '0'), 0);
-                    return sum + total;
-                  }, 0);
+                  const totalCuotas = filteredPaymentsUsers.reduce((sum, u) => { const cuota = u.companies.length > 0 ? u.companies.reduce((s: number, c: any) => s + parseFloat(c.monto_participacion || '150'), 0) : 150; return sum + cuota; }, 0);
+                  const totalPagadoTodos = filteredPaymentsUsers.reduce((sum, u) => { const total = u.payments.reduce((s: number, p: any) => s + parseFloat(p.monto || '0'), 0); return sum + total; }, 0);
                   const totalSaldo = totalCuotas - totalPagadoTodos;
-
                   return (
                     <tr className="bg-neutral-950 font-black text-neutral-200 border-t-2 border-neutral-800">
-                      <td className="p-3 border-r border-neutral-850/50 uppercase tracking-widest text-[9px]" colSpan={2}>
-                        Total General ({filteredPaymentsUsers.length} Participantes)
-                      </td>
-                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono text-neutral-300">
-                        Bs. {totalCuotas.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono text-yellow-500">
-                        Bs. {totalPagadoTodos.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono text-red-400">
-                        Bs. {totalSaldo.toLocaleString('es-BO', { minimumFractionDigits: 2 })}
-                      </td>
+                      <td className="p-3 border-r border-neutral-850/50 uppercase tracking-widest text-[9px]" colSpan={2}>Total General ({filteredPaymentsUsers.length} Participantes)</td>
+                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono text-neutral-300">Bs. {totalCuotas.toLocaleString('es-BO', { minimumFractionDigits: 2 })}</td>
+                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono text-yellow-500">Bs. {totalPagadoTodos.toLocaleString('es-BO', { minimumFractionDigits: 2 })}</td>
+                      <td className="p-3 border-r border-neutral-850/50 text-right font-mono text-red-400">Bs. {totalSaldo.toLocaleString('es-BO', { minimumFractionDigits: 2 })}</td>
                       <td className="p-3" colSpan={2}></td>
                     </tr>
                   );
@@ -463,6 +403,92 @@ export default function PaymentsTab({
               </tbody>
             </table>
           </div>
+
+          {/* Mobile: tarjetas */}
+          <div className="sm:hidden divide-y divide-neutral-900">
+            {filteredPaymentsUsers.map(u => {
+              const cuota = u.companies.length > 0 ? u.companies.reduce((sum: number, c: any) => sum + parseFloat(c.monto_participacion || 150), 0) : 150;
+              const totalPagado = u.payments.reduce((sum: number, p: any) => sum + parseFloat(p.monto), 0);
+              const saldo = cuota - totalPagado;
+              const statusColor = saldo <= 0 ? 'text-green-400' : totalPagado > 0 ? 'text-yellow-400' : 'text-red-400';
+              const statusBg = saldo <= 0 ? 'bg-green-500/10 border-green-500/20' : totalPagado > 0 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-red-500/10 border-red-500/20';
+              const statusLabel = saldo <= 0 ? 'Pagado' : totalPagado > 0 ? 'Parcial' : 'Pendiente';
+              return (
+                <div key={u.id} className="p-3 space-y-2.5">
+                  {/* Header: avatar + nombre + estado */}
+                  <div className="flex items-center gap-2.5">
+                    <img src={u.avatar || 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} className="w-9 h-9 rounded-full border border-neutral-800 object-cover bg-neutral-950 flex-shrink-0" alt="avatar" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-bold text-neutral-200 truncate">{u.nombre}</span>
+                        <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black border ${statusBg} ${statusColor}`}>{statusLabel}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {u.companies.length > 0 ? u.companies.map((c: any) => (
+                          <span key={c.id} className="text-[9px] px-1.5 py-0 rounded-full border font-bold" style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '15' }}>{c.nombre}</span>
+                        )) : <span className="text-[9px] text-neutral-600">Sin empresa</span>}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Montos: 3 columnas */}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-neutral-950/60 rounded-xl p-2">
+                      <div className="text-[11px] font-black text-neutral-300 font-mono">Bs. {cuota.toFixed(0)}</div>
+                      <div className="text-[8px] text-neutral-600 uppercase tracking-wider">Cuota</div>
+                    </div>
+                    <div className="bg-neutral-950/60 rounded-xl p-2">
+                      <div className="text-[11px] font-black text-neutral-100 font-mono">Bs. {totalPagado.toFixed(0)}</div>
+                      <div className="text-[8px] text-neutral-600 uppercase tracking-wider">Pagado</div>
+                    </div>
+                    <div className="bg-neutral-950/60 rounded-xl p-2">
+                      <div className={`text-[11px] font-black font-mono ${statusColor}`}>Bs. {saldo.toFixed(0)}</div>
+                      <div className="text-[8px] text-neutral-600 uppercase tracking-wider">Saldo</div>
+                    </div>
+                  </div>
+                  {/* Pagos chips */}
+                  {u.payments.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {u.payments.map((p: any) => (
+                        <span key={p.id} className="text-[9px] bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 text-neutral-400 font-mono">
+                          Bs.{p.monto} <span className="text-neutral-600">({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Acciones */}
+                  <div className="flex gap-2">
+                    <button onClick={() => { setPaymentModalUser(u); setNewPaymentMonto(''); setNewPaymentFecha(new Date().toISOString().split('T')[0]); }} className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 font-bold py-1.5 rounded-lg transition text-[11px] flex items-center justify-center gap-1">
+                      <Plus className="w-3 h-3" /> Registrar Pago
+                    </button>
+                    <button onClick={() => { setManagePaymentsUser(u); setEditingPaymentId(null); }} className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold py-1.5 rounded-lg border border-neutral-750 transition text-[11px]">Ver Detalle</button>
+                  </div>
+                </div>
+              );
+            })}
+            {/* Total móvil */}
+            {(() => {
+              const totalCuotas = filteredPaymentsUsers.reduce((sum, u) => { const c = u.companies.length > 0 ? u.companies.reduce((s: number, co: any) => s + parseFloat(co.monto_participacion || '150'), 0) : 150; return sum + c; }, 0);
+              const totalPagadoTodos = filteredPaymentsUsers.reduce((sum, u) => sum + u.payments.reduce((s: number, p: any) => s + parseFloat(p.monto || '0'), 0), 0);
+              const totalSaldo = totalCuotas - totalPagadoTodos;
+              return (
+                <div className="p-3 bg-neutral-950 grid grid-cols-3 gap-2 text-center border-t-2 border-neutral-800">
+                  <div>
+                    <div className="text-[11px] font-black text-neutral-300 font-mono">Bs. {totalCuotas.toFixed(0)}</div>
+                    <div className="text-[8px] text-neutral-600 uppercase">Total Cuotas</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-black text-yellow-500 font-mono">Bs. {totalPagadoTodos.toFixed(0)}</div>
+                    <div className="text-[8px] text-neutral-600 uppercase">Total Pagado</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-black text-red-400 font-mono">Bs. {totalSaldo.toFixed(0)}</div>
+                    <div className="text-[8px] text-neutral-600 uppercase">Saldo Total</div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
         </div>
       )}
 

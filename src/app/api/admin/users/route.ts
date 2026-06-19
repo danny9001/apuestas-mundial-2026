@@ -3,7 +3,7 @@ import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { broadcastUpdate } from '@/lib/realtime';
 import { sendPushNotification } from '@/lib/push';
-import { sendMail, buildApprovalEmail, buildDenialEmail, sendPaymentEmailNotification } from '@/lib/mail';
+import { sendMail, buildApprovalEmail, buildDenialEmail, sendPaymentEmailNotification, logSystem } from '@/lib/mail';
 import { isValidEmail, sanitizeText, validatePassword, isValidRole, BCRYPT_ROUNDS } from '@/lib/validation';
 import { syncCompanyAssignment, unsyncCompanyAssignment, syncUserToIdentity, syncUserPassword } from '@/lib/identity-sync';
 
@@ -177,6 +177,7 @@ export async function POST(req: NextRequest) {
       } else {
         void syncUserToIdentity({ email: emailNorm, name: nombreSafe });
       }
+      logSystem('info', 'USUARIO', `${user.nombre} editó usuario ${r.rows[0].nombre}`, `Email: ${emailNorm} | Rol: ${tipo}`).catch(() => {});
       return NextResponse.json({ success: true, user: r.rows[0] });
     }
 
@@ -220,6 +221,7 @@ export async function POST(req: NextRequest) {
           html: buildApprovalEmail(r.rows[0].nombre),
         }).catch((e) => console.error('Approval email error:', e));
       }
+      logSystem('info', 'USUARIO', `${user.nombre} aprobó a ${r.rows[0].nombre}`).catch(() => {});
       return NextResponse.json({ success: true, user: r.rows[0] });
     }
 
@@ -250,6 +252,7 @@ export async function POST(req: NextRequest) {
           html: buildDenialEmail(r.rows[0].nombre),
         }).catch((e) => console.error('Denial email error:', e));
       }
+      logSystem('warn', 'USUARIO', `${user.nombre} denegó a ${r.rows[0].nombre}`).catch(() => {});
       return NextResponse.json({ success: true, user: r.rows[0] });
     }
 
@@ -451,6 +454,7 @@ export async function POST(req: NextRequest) {
       // Sync to Identity — create credential account
       void syncUserToIdentity({ email: emailNorm2, name: nombreSafe2, password: String(password).trim() });
 
+      logSystem('info', 'USUARIO', `${user.nombre} creó usuario ${nombreSafe2}`, `Email: ${emailNorm2} | Rol: ${tipoNuevo}`).catch(() => {});
       return NextResponse.json({ success: true, user: res.rows[0] });
     }
 
@@ -519,11 +523,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'No puedes borrarte a ti mismo' }, { status: 400 });
     }
 
-    const res = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id, nombre', [parseInt(userId)]);
+    const res = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id, nombre, email', [parseInt(userId)]);
     if (res.rows.length === 0) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
+    logSystem('warn', 'USUARIO', `${user.nombre} eliminó usuario ${res.rows[0].nombre}`, `Email: ${res.rows[0].email}`).catch(() => {});
     return NextResponse.json({ success: true, message: `Usuario ${res.rows[0].nombre} eliminado con éxito` });
   } catch (error: any) {
     console.error('Error deleting user:', error);

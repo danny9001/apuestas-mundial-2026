@@ -3,10 +3,11 @@ import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { getSessionUser, setSession, clearSession } from '@/lib/auth';
 import { isValidEmail, validatePassword, sanitizeText, DUMMY_BCRYPT_HASH } from '@/lib/validation';
+import { logSystem } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
-// GET: check current session user
+// GET: check current session user + sliding session renewal
 export async function GET() {
   const user = await getSessionUser();
   if (!user) {
@@ -14,6 +15,9 @@ export async function GET() {
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
   }
+
+  // Renew JWT/cookie on every auth check so active users are never kicked out
+  await setSession({ id: user.id, nombre: user.nombre, email: user.email, tipo: user.tipo, avatar: user.avatar });
 
   const compRes = await pool.query(
     `SELECT c.id, c.nombre, c.color, c.monto_participacion FROM companies c
@@ -87,6 +91,7 @@ export async function POST(req: NextRequest) {
       avatar: user.avatar ?? '',
     });
 
+    logSystem('info', 'ACCESO', `${user.nombre} ingresó a la plataforma`, `Email: ${user.email}`).catch(() => {});
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Login error:', err);
@@ -96,6 +101,10 @@ export async function POST(req: NextRequest) {
 
 // DELETE: logout
 export async function DELETE() {
+  const user = await getSessionUser();
+  if (user) {
+    logSystem('info', 'ACCESO', `${user.nombre} cerró sesión`).catch(() => {});
+  }
   await clearSession();
   return NextResponse.json({ success: true, message: 'Sesión cerrada correctamente' });
 }

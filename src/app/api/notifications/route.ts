@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { broadcastUpdate } from '@/lib/realtime';
+import { logSystem } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
@@ -164,6 +165,9 @@ export async function POST(req: NextRequest) {
       target_type: res.rows[0].target_type,
       target_id: res.rows[0].target_id,
     });
+
+    const targetLabel = resolvedTargetType === 'all' ? 'todos' : resolvedTargetType === 'company' ? `empresa #${resolvedTargetId}` : resolvedTargetType === 'user' ? `usuario #${resolvedTargetId}` : `grupo #${resolvedTargetId}`;
+    logSystem('info', 'MENSAJE', `${user.nombre} envió mensaje: "${titulo.trim()}"`, `Destinatario: ${targetLabel}`).catch(() => {});
 
     return NextResponse.json({ success: true, notification: res.rows[0] });
   } catch (error: any) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
+import { logSystem } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    logSystem('info', 'NOTIFICACION', `${user.nombre} marcó notificaciones como leídas`, notificationId ? `ID: ${notificationId}` : 'Todas').catch(() => {});
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error marking notification as read:', error);

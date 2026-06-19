@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { broadcastUpdate } from '@/lib/realtime';
+import { logSystem } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
 
       // Broadcast general match update
       broadcastUpdate('match', updatedMatch);
+      logSystem('info', 'PARTIDO', `${user.nombre} editó partido ${updatedMatch.local} vs ${updatedMatch.visitante}`, `Estado: ${updatedMatch.estado} | Marcador: ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}`).catch(() => {});
 
     } else {
       // CREATE MATCH
@@ -153,6 +155,7 @@ export async function POST(req: NextRequest) {
 
       const createdMatch = matchResult.rows[0];
       broadcastUpdate('match', createdMatch);
+      logSystem('info', 'PARTIDO', `${user.nombre} creó partido ${createdMatch.local} vs ${createdMatch.visitante}`, `Fase: ${createdMatch.fase} | Grupo: ${createdMatch.grupo || '-'}`).catch(() => {});
     }
 
     return NextResponse.json({ success: true, match: matchResult.rows[0] });

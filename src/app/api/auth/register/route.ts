@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { isValidEmail, validatePassword, sanitizeText, BCRYPT_ROUNDS } from '@/lib/validation';
+import { logSystem } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    logSystem('info', 'REGISTRO', `Nuevo auto-registro: ${nombre}`, `Email: ${email}`).catch(() => {});
     return NextResponse.json({
       success: true,
       message: '¡Cuenta creada! Tu solicitud está pendiente de aprobación por el administrador. Recibirás acceso en breve.',

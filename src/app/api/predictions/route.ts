@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
+import { logSystem } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
       // 1 query para todos los partidos + 1 query para predicciones existentes (en paralelo)
       const [matchesRes, existingRes] = await Promise.all([
         pool.query(
-          `SELECT id, fecha, estado FROM matches WHERE id = ANY($1::int[])`,
+          `SELECT id, fecha, estado, local, visitante FROM matches WHERE id = ANY($1::int[])`,
           [matchIds]
         ),
         pool.query(
@@ -130,6 +131,7 @@ export async function POST(req: NextRequest) {
 
       if (results.length > 0) {
         await pool.query('SELECT recalculate_leaderboard()');
+        logSystem('info', 'PRONOSTICO', `${user.nombre} guardó ${results.length} pronóstico(s) en lote`).catch(() => {});
       }
 
       return NextResponse.json({ success: true, results, errors });
@@ -154,7 +156,7 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
     const matchRes = await pool.query(
-      'SELECT fecha, estado FROM matches WHERE id = $1',
+      'SELECT fecha, estado, local, visitante FROM matches WHERE id = $1',
       [matchId]
     );
 
@@ -188,15 +190,24 @@ export async function POST(req: NextRequest) {
       `);
     };
 
-    const logSuperadminAction = async (superadminId: number, targetId: number, mId: number, oldL: number | null, oldV: number | null, newL: number, newV: number) => {
+    const logSuperadminAction = async (
+      superadminId: number, superadminNombre: string,
+      targetId: number, mId: number,
+      matchLocal: string, matchVisitante: string,
+      oldL: number | null, oldV: number | null,
+      newL: number, newV: number
+    ) => {
       try {
         await ensureAuditLogsTable();
-        const details = `Superadmin (id: ${superadminId}) modificó pronóstico para el usuario (id: ${targetId}) en el partido (id: ${mId}). Valores anteriores: ${oldL !== null ? `${oldL}-${oldV}` : 'Ninguno'}. Nuevos valores: ${newL}-${newV}`;
+        const targetRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [targetId]);
+        const targetNombre = targetRes.rows[0]?.nombre || `ID:${targetId}`;
+        const anteriorStr = oldL !== null ? `${oldL}-${oldV}` : 'Sin pronóstico previo';
+        const details = `${superadminNombre} editó pronóstico de ${targetNombre} | ${matchLocal} vs ${matchVisitante} | Anterior: ${anteriorStr} → Nuevo: ${newL}-${newV}`;
         await pool.query(
           `INSERT INTO audit_logs (user_id, action, details) VALUES ($1, $2, $3)`,
           [superadminId, 'SUPERADMIN_PREDICTION_EDIT', details]
         );
-        console.log('[AUDIT LOG]', details);
+        await logSystem('warn', 'PRONOSTICO', `Admin ${superadminNombre} editó pronóstico de ${targetNombre}`, `${matchLocal} vs ${matchVisitante} | Anterior: ${anteriorStr} → Nuevo: ${newL}-${newV}`);
       } catch (err) {
         console.error('Error writing audit log:', err);
       }
@@ -215,7 +226,9 @@ export async function POST(req: NextRequest) {
         [parseInt(predLocal), parseInt(predVisitante), targetUserId, matchId]
       );
       if (user.tipo === 'superadmin') {
-        await logSuperadminAction(user.id, targetUserId, parseInt(matchId), oldPred.pred_local, oldPred.pred_visitante, parseInt(predLocal), parseInt(predVisitante));
+        await logSuperadminAction(user.id, user.nombre, targetUserId, parseInt(matchId), match.local, match.visitante, oldPred.pred_local, oldPred.pred_visitante, parseInt(predLocal), parseInt(predVisitante));
+      } else {
+        logSystem('info', 'PRONOSTICO', `${user.nombre} editó pronóstico`, `${match.local} vs ${match.visitante}: ${oldPred.pred_local}-${oldPred.pred_visitante} → ${predLocal}-${predVisitante}`).catch(() => {});
       }
       await pool.query('SELECT recalculate_leaderboard()');
       return NextResponse.json({ success: true, prediction: upd.rows[0], corrected: true });
@@ -235,7 +248,9 @@ export async function POST(req: NextRequest) {
     ]);
 
     if (user.tipo === 'superadmin') {
-      await logSuperadminAction(user.id, targetUserId, parseInt(matchId), null, null, parseInt(predLocal), parseInt(predVisitante));
+      await logSuperadminAction(user.id, user.nombre, targetUserId, parseInt(matchId), match.local, match.visitante, null, null, parseInt(predLocal), parseInt(predVisitante));
+    } else {
+      logSystem('info', 'PRONOSTICO', `${user.nombre} registró pronóstico`, `${match.local} vs ${match.visitante}: ${predLocal}-${predVisitante}`).catch(() => {});
     }
     await pool.query('SELECT recalculate_leaderboard()');
 

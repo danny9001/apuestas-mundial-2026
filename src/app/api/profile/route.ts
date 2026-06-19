@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import sharp from 'sharp';
 import { sanitizeText, validatePassword, BCRYPT_ROUNDS, MAX_AVATAR_BYTES, validateUploadedFile } from '@/lib/validation';
 import { syncUserPassword, syncUserToIdentity } from '@/lib/identity-sync';
+import { logSystem } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,6 +108,13 @@ export async function POST(req: NextRequest) {
     console.log('[profile] Setting session cookie');
     await setSession(updatedSession);
     console.log('[profile] Session cookie set successfully');
+
+    const cambios = [];
+    if (nombreSafe !== user.nombre) cambios.push('nombre');
+    if (file && file.size > 0) cambios.push('avatar');
+    if (password && password.trim().length > 0) cambios.push('contraseña');
+    if (telefonoSafe !== (user.telefono ?? null)) cambios.push('teléfono');
+    logSystem('info', 'PERFIL', `${user.nombre} editó su perfil`, cambios.length ? `Cambios: ${cambios.join(', ')}` : undefined).catch(() => {});
 
     return NextResponse.json({
       success: true,

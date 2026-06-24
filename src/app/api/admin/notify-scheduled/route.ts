@@ -217,8 +217,12 @@ export async function POST(req: NextRequest) {
   try {
     // Requires internal secret or admin/superadmin session
     const body = await req.json().catch(() => ({}));
+    const schedulerSecret = process.env.SCHEDULER_SECRET;
+    if (!schedulerSecret) {
+      throw new Error('SCHEDULER_SECRET env variable is not configured');
+    }
     const secret = req.headers.get('x-scheduler-secret');
-    const validSecret = secret === process.env.SCHEDULER_SECRET;
+    const validSecret = !!secret && secret === schedulerSecret;
 
     if (!validSecret) {
       const { getSessionUser } = await import('@/lib/auth');

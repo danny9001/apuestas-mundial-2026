@@ -15,15 +15,16 @@ function safeCompare(a: string, b: string): boolean {
 }
 
 function verifyAuth(req: NextRequest): boolean {
-  const authHeader = req.headers.get('authorization') || '';
-  let token = '';
-  if (authHeader.toLowerCase().startsWith('bearer ')) {
-    token = authHeader.substring(7).trim();
-  } else {
-    const url = new URL(req.url);
-    token = url.searchParams.get('key') || '';
+  const secret = process.env.SYNC_SECRET;
+  if (!secret) {
+    throw new Error('SYNC_SECRET env variable is not configured');
   }
-  const secret = process.env.SYNC_SECRET || 'sync2026';
+
+  const authHeader = req.headers.get('authorization') || '';
+  if (!authHeader.toLowerCase().startsWith('bearer ')) {
+    return false;
+  }
+  const token = authHeader.substring(7).trim();
   return safeCompare(token, secret);
 }
 

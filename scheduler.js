@@ -8,8 +8,15 @@ const https = require('https');
 const http = require('http');
 
 const BASE_URL = process.env.APP_BASE_URL || 'http://localhost:3002';
-const SECRET   = process.env.SCHEDULER_SECRET || '';
-const SYNC_SECRET = process.env.SYNC_SECRET || 'sync2026';
+const SECRET   = process.env.SCHEDULER_SECRET;
+const SYNC_SECRET = process.env.SYNC_SECRET;
+
+if (!SECRET) {
+  throw new Error('SCHEDULER_SECRET environment variable is required');
+}
+if (!SYNC_SECRET) {
+  throw new Error('SYNC_SECRET environment variable is required');
+}
 
 function callApi(tipo) {
   const url = new URL('/api/admin/notify-scheduled', BASE_URL);
@@ -42,15 +49,18 @@ function callApi(tipo) {
 }
 
 function triggerSync() {
-  const url = new URL(`/api/sync?key=${SYNC_SECRET}`, BASE_URL);
+  const url = new URL('/api/sync', BASE_URL);
   const isHttps = url.protocol === 'https:';
   const lib = isHttps ? https : http;
 
   const options = {
     hostname: url.hostname,
     port: url.port || (isHttps ? 443 : 80),
-    path: url.pathname + url.search,
+    path: url.pathname,
     method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SYNC_SECRET}`
+    }
   };
 
   const req = lib.request(options, (res) => {

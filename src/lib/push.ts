@@ -23,8 +23,15 @@ export async function sendTelegramNotification(userId: number, text: string): Pr
     const phone = userRes.rows[0]?.telefono;
     if (!phone) return false;
 
-    const apiKey = 'a42fa223449069d6825989f8206335ca';
-    const res = await fetch('http://10.0.0.4:3200/api/v1/notifications/send', {
+    const apiKey = process.env.TELEGRAM_GATEWAY_KEY;
+    const gatewayUrl = process.env.TELEGRAM_GATEWAY_URL;
+    if (!apiKey || !gatewayUrl) {
+      console.warn('[push] Telegram gateway not fully configured');
+      return false;
+    }
+
+    // Note: HTTP is acceptable here because gatewayUrl resolves to a private internal IP (10.0.0.4) on the local subnet.
+    const res = await fetch(gatewayUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

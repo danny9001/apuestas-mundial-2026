@@ -9,6 +9,7 @@ import MatchCard from '@/components/MatchCard';
 import BetModal from '@/components/BetModal';
 import MatchInfoModal from '@/components/MatchInfoModal';
 import ScoreCorrectionPanel from '@/components/ScoreCorrectionPanel';
+import OnlineUsers from '@/components/OnlineUsers';
 
 export default function DashboardPage() {
   const { user, showToast, notifications, lastMatchUpdate } = useApp();
@@ -232,6 +233,9 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Online Users */}
+      {user && <OnlineUsers currentUserId={user.id} />}
 
       {/* Live Matches — promoted, larger cards */}
       {liveMatches.length > 0 && (

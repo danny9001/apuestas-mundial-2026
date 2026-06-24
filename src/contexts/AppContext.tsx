@@ -222,6 +222,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Presence heartbeat — fires immediately on login, then every 30s
+  useEffect(() => {
+    if (!user || !user.aprobado) return;
+    const ping = () => fetch('/api/presence', { method: 'POST' }).catch(() => {});
+    ping();
+    const interval = setInterval(ping, 30_000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   return (
     <AppContext.Provider value={{
       user, authChecked, appName, appLogo, predictionCloseMinutes,

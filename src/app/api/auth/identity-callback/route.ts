@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
                           THEN users.tipo
                           ELSE EXCLUDED.tipo
                         END,
-             avatar   = COALESCE(EXCLUDED.avatar, users.avatar),
+             avatar   = COALESCE(users.avatar, EXCLUDED.avatar),
              activo   = true,
              aprobado = true
        RETURNING id, nombre, email, tipo, avatar`,

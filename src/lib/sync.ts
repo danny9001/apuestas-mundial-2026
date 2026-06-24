@@ -39,6 +39,22 @@ async function markNotifSent(matchId: number, event: string): Promise<boolean> {
   return res.rows.length > 0;
 }
 
+// Returns true if this exact score was recently corrected FROM by an árbitro or auto-system
+// (prevents API lag from re-applying an annulled score after a manual correction)
+async function isAnnulledScore(matchId: number, local: number, visitante: number): Promise<boolean> {
+  const res = await pool.query(
+    `SELECT 1 FROM score_change_log
+     WHERE match_id = $1
+       AND source IN ('ARBITRO', 'AUTO')
+       AND old_goles_local = $2
+       AND old_goles_visitante = $3
+       AND created_at > NOW() - INTERVAL '15 minutes'
+     LIMIT 1`,
+    [matchId, local, visitante]
+  );
+  return res.rows.length > 0;
+}
+
 const teamNameMapping: Record<string, string> = {
   'Germany': 'Alemania',
   'Saudi Arabia': 'Arabia Saudita',
@@ -216,6 +232,8 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
       const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
       const liveTime = game.gameTimeDisplay || (game.gameTime ? `${game.gameTime}'` : '') || game.statusText || '';
       const timeChanged = estado === 'live' && localMatch.stats?.time !== liveTime;
+
+      if (!isDowngrade && scoreChanged && await isAnnulledScore(localMatch.id, finalGolesLocal, finalGolesVisitante)) continue;
 
       if (stateChanged || scoreChanged || timeChanged) {
         const stats = localMatch.stats || {};
@@ -480,17 +498,19 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
       const stateChanged = localMatch.estado !== estado;
       const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
 
+      if (!isDowngrade && scoreChanged && await isAnnulledScore(localMatch.id, finalGolesLocal, finalGolesVisitante)) continue;
+
       if (stateChanged || scoreChanged) {
         const stats = localMatch.stats || {};
         const updateRes = await pool.query(
-          `UPDATE matches 
-           SET estado = $1, 
-               goles_local = $2, 
-               goles_visitante = $3, 
+          `UPDATE matches
+           SET estado = $1,
+               goles_local = $2,
+               goles_visitante = $3,
                stats = $4,
-               last_synced_at = CURRENT_TIMESTAMP, 
-               updated_at = CURRENT_TIMESTAMP 
-           WHERE id = $5 
+               last_synced_at = CURRENT_TIMESTAMP,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $5
            RETURNING *`,
           [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), localMatch.id]
         );
@@ -746,6 +766,8 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
       const liveTime = comp.status?.type?.detail || comp.status?.displayClock || '';
       const detailsCountChanged = (comp.details?.length || 0) !== (localMatch.stats?.events?.length || 0);
       const timeChanged = estado === 'live' && (localMatch.stats?.time !== liveTime || detailsCountChanged);
+
+      if (!isDowngrade && scoreChanged && await isAnnulledScore(localMatch.id, finalGolesLocal, finalGolesVisitante)) continue;
 
       if (stateChanged || scoreChanged || timeChanged) {
         const stats = localMatch.stats || {};
@@ -1116,9 +1138,11 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
       const stateChanged = localMatch.estado !== estado;
       const scoreChanged = localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante;
 
+      if (!isDowngrade && scoreChanged && await isAnnulledScore(localMatch.id, finalGolesLocal, finalGolesVisitante)) continue;
+
       if (stateChanged || scoreChanged) {
         const stats = apiMatch.stats || {};
-        
+
         const updateRes = await pool.query(
           `UPDATE matches 
            SET estado = $1, 

@@ -37,6 +37,13 @@ export async function GET() {
 // POST: login local con email + password
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+    const rateLimitKey = `login_${ip}`;
+    const { isRateLimited } = await import('@/lib/rate-limit');
+    if (await isRateLimited(rateLimitKey, 5, 60 * 1000)) {
+      return NextResponse.json({ error: 'Demasiados intentos de inicio de sesión. Por favor intentá de nuevo más tarde.' }, { status: 429 });
+    }
+
     const body = await req.json().catch(() => null);
     if (!body) return NextResponse.json({ error: 'Cuerpo de solicitud inválido' }, { status: 400 });
 

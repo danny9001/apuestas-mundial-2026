@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { logSystem } from '@/lib/mail';
+import { validateScore } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,6 +109,13 @@ export async function POST(req: NextRequest) {
 
       for (const item of valid) {
         const { matchId, predLocal, predVisitante } = item;
+        const scoreLocal = validateScore(predLocal);
+        const scoreVisitante = validateScore(predVisitante);
+        if (scoreLocal === null || scoreVisitante === null) {
+          errors.push({ matchId, error: 'Marcador inválido (debe ser número entre 0 y 99)' });
+          continue;
+        }
+
         const match = matchMap.get(matchId);
         if (!match) { errors.push({ matchId, error: 'Partido no encontrado' }); continue; }
         const closeTime = new Date(new Date(match.fecha).getTime() - closeMs);
@@ -117,13 +125,13 @@ export async function POST(req: NextRequest) {
         if (existingSet.has(matchId)) {
           const res = await pool.query(
             `UPDATE predictions SET pred_local = $1, pred_visitante = $2 WHERE user_id = $3 AND match_id = $4 RETURNING *`,
-            [parseInt(predLocal), parseInt(predVisitante), user.id, matchId]
+            [scoreLocal, scoreVisitante, user.id, matchId]
           );
           results.push(res.rows[0]);
         } else {
           const res = await pool.query(
             `INSERT INTO predictions (user_id, match_id, pred_local, pred_visitante) VALUES ($1, $2, $3, $4) RETURNING *`,
-            [user.id, matchId, parseInt(predLocal), parseInt(predVisitante)]
+            [user.id, matchId, scoreLocal, scoreVisitante]
           );
           results.push(res.rows[0]);
         }
@@ -140,8 +148,11 @@ export async function POST(req: NextRequest) {
     // Otherwise, handle standard single prediction
     const { matchId, predLocal, predVisitante, userId } = body;
 
-    if (matchId === undefined || predLocal === undefined || predVisitante === undefined) {
-      return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
+    const scoreLocal = validateScore(predLocal);
+    const scoreVisitante = validateScore(predVisitante);
+
+    if (matchId === undefined || scoreLocal === null || scoreVisitante === null) {
+      return NextResponse.json({ error: 'Marcador inválido (debe ser número entre 0 y 99)' }, { status: 400 });
     }
 
     let targetUserId = user.id;
@@ -225,12 +236,12 @@ export async function POST(req: NextRequest) {
       const oldPred = existingPredRes.rows[0];
       const upd = await pool.query(
         'UPDATE predictions SET pred_local = $1, pred_visitante = $2 WHERE user_id = $3 AND match_id = $4 RETURNING *',
-        [parseInt(predLocal), parseInt(predVisitante), targetUserId, matchId]
+        [scoreLocal, scoreVisitante, targetUserId, matchId]
       );
       if (user.tipo === 'superadmin') {
-        await logSuperadminAction(user.id, user.nombre, targetUserId, parseInt(matchId), match.local, match.visitante, oldPred.pred_local, oldPred.pred_visitante, parseInt(predLocal), parseInt(predVisitante));
+        await logSuperadminAction(user.id, user.nombre, targetUserId, parseInt(matchId), match.local, match.visitante, oldPred.pred_local, oldPred.pred_visitante, scoreLocal, scoreVisitante);
       } else {
-        logSystem('info', 'PRONOSTICO', `${user.nombre} editó pronóstico`, `${match.local} vs ${match.visitante}: ${oldPred.pred_local}-${oldPred.pred_visitante} → ${predLocal}-${predVisitante}`).catch(() => {});
+        logSystem('info', 'PRONOSTICO', `${user.nombre} editó pronóstico`, `${match.local} vs ${match.visitante}: ${oldPred.pred_local}-${oldPred.pred_visitante} → ${scoreLocal}-${scoreVisitante}`).catch(() => {});
       }
       await pool.query('SELECT recalculate_leaderboard()');
       return NextResponse.json({ success: true, prediction: upd.rows[0], corrected: true });
@@ -245,14 +256,14 @@ export async function POST(req: NextRequest) {
     const res = await pool.query(insertQuery, [
       targetUserId,
       matchId,
-      parseInt(predLocal),
-      parseInt(predVisitante)
+      scoreLocal,
+      scoreVisitante
     ]);
 
     if (user.tipo === 'superadmin') {
-      await logSuperadminAction(user.id, user.nombre, targetUserId, parseInt(matchId), match.local, match.visitante, null, null, parseInt(predLocal), parseInt(predVisitante));
+      await logSuperadminAction(user.id, user.nombre, targetUserId, parseInt(matchId), match.local, match.visitante, null, null, scoreLocal, scoreVisitante);
     } else {
-      logSystem('info', 'PRONOSTICO', `${user.nombre} registró pronóstico`, `${match.local} vs ${match.visitante}: ${predLocal}-${predVisitante}`).catch(() => {});
+      logSystem('info', 'PRONOSTICO', `${user.nombre} registró pronóstico`, `${match.local} vs ${match.visitante}: ${scoreLocal}-${scoreVisitante}`).catch(() => {});
     }
     await pool.query('SELECT recalculate_leaderboard()');
 

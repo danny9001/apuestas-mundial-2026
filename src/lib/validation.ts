@@ -146,3 +146,9 @@ export function validateUploadedFile(
 
   return { ok: true };
 }
+
+export function validateScore(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 && n <= 99 ? n : null;
+}

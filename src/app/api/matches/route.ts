@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { broadcastUpdate } from '@/lib/realtime';
 import { logSystem } from '@/lib/mail';
+import { validateScore } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +73,16 @@ export async function POST(req: NextRequest) {
       stats
     } = body;
 
+    const scoreLocal = goles_local !== undefined && goles_local !== null ? validateScore(goles_local) : undefined;
+    const scoreVisitante = goles_visitante !== undefined && goles_visitante !== null ? validateScore(goles_visitante) : undefined;
+
+    if (goles_local !== undefined && goles_local !== null && scoreLocal === null) {
+      return NextResponse.json({ error: 'Goles locales inválidos (debe ser número entre 0 y 99)' }, { status: 400 });
+    }
+    if (goles_visitante !== undefined && goles_visitante !== null && scoreVisitante === null) {
+      return NextResponse.json({ error: 'Goles visitantes inválidos (debe ser número entre 0 y 99)' }, { status: 400 });
+    }
+
     let matchResult;
 
     if (id) {
@@ -104,8 +115,8 @@ export async function POST(req: NextRequest) {
       
       matchResult = await pool.query(updateQuery, [
         fecha, local, visitante, logo_local, logo_visitante, estado,
-        goles_local !== undefined ? parseInt(goles_local) : null,
-        goles_visitante !== undefined ? parseInt(goles_visitante) : null,
+        scoreLocal !== undefined && scoreLocal !== null ? scoreLocal : null,
+        scoreVisitante !== undefined && scoreVisitante !== null ? scoreVisitante : null,
         fase, grupo, transmision_enlaces,
         stats ? (typeof stats === 'string' ? stats : JSON.stringify(stats)) : null,
         id
@@ -149,7 +160,10 @@ export async function POST(req: NextRequest) {
       `;
       matchResult = await pool.query(insertQuery, [
         fecha, local, visitante, logo_local || null, logo_visitante || null,
-        estado || 'upcoming', goles_local || 0, goles_visitante || 0, fase || 'Fase de Grupos', grupo || null, transmision_enlaces || '',
+        estado || 'upcoming',
+        scoreLocal !== undefined && scoreLocal !== null ? scoreLocal : 0,
+        scoreVisitante !== undefined && scoreVisitante !== null ? scoreVisitante : 0,
+        fase || 'Fase de Grupos', grupo || null, transmision_enlaces || '',
         stats ? (typeof stats === 'string' ? stats : JSON.stringify(stats)) : '{}'
       ]);
 

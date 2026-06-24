@@ -9,6 +9,13 @@ export const dynamic = 'force-dynamic';
 // POST: auto-registro de usuarios en mundial
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+    const rateLimitKey = `register_${ip}`;
+    const { isRateLimited } = await import('@/lib/rate-limit');
+    if (await isRateLimited(rateLimitKey, 3, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes de registro desde esta IP. Por favor intentá de nuevo más tarde.' }, { status: 429 });
+    }
+
     const body = await req.json().catch(() => null);
     if (!body) return NextResponse.json({ error: 'Cuerpo de solicitud inválido' }, { status: 400 });
 

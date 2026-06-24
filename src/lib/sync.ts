@@ -410,6 +410,211 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
   };
 }
 
+export async function syncApiFixture(pendingGoalNotifs?: Map<number, PendingGoalNotif>, pendingDowngrades?: Map<number, DowngradeEntry>): Promise<{
+  updated: number;
+  goals_detected: number;
+  finished: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let updatedCount = 0;
+  let goalsDetected = 0;
+  let finishedCount = 0;
+
+  try {
+    const cleanName = (name: string) => {
+      if (!name) return '';
+      return name
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/&/g, 'y')
+        .toLowerCase().trim();
+    };
+
+    // Name overrides for cases where api-fixture.com.ar uses English names
+    const nameMap: Record<string, string> = {
+      'bosnia & herzegovina': 'Bosnia y Herzegovina',
+      'czechia': 'República Checa',
+      'ivory coast': 'Costa de Marfil',
+      'cape verde': 'Cabo Verde',
+      'south korea': 'Corea del Sur',
+      'south africa': 'Sudáfrica',
+      'dr congo': 'RD Congo',
+    };
+
+    const localMatchesRes = await pool.query('SELECT * FROM matches WHERE estado IN (\'live\', \'upcoming\', \'finished\') AND fecha > NOW() - INTERVAL \'2 days\'');
+    const localMatches = localMatchesRes.rows;
+
+    // Query today and yesterday to catch late-night matches
+    const dates: string[] = [];
+    const now = new Date();
+    for (let d = 0; d <= 1; d++) {
+      const dt = new Date(now.getTime() - d * 86400000);
+      dates.push(dt.toISOString().slice(0, 10));
+    }
+
+    for (const fecha of dates) {
+      const res = await fetchWithRetry(`https://api-fixture.com.ar/api/mundial/cronograma?fecha=${fecha}`, { cache: 'no-store' });
+      if (!res.ok) {
+        errors.push(`ApiFixture returned status ${res.status} for ${fecha}`);
+        continue;
+      }
+      const data = await res.json() as { partidos?: any[] };
+      const partidos = data.partidos || [];
+
+      for (const partido of partidos) {
+        const rawLocal = partido.local?.nombre as string | undefined;
+        const rawVisitante = partido.visitante?.nombre as string | undefined;
+        if (!rawLocal || !rawVisitante || !partido.local?.definido || !partido.visitante?.definido) continue;
+
+        const resolvedLocal = nameMap[rawLocal.toLowerCase()] ?? rawLocal;
+        const resolvedVisitante = nameMap[rawVisitante.toLowerCase()] ?? rawVisitante;
+        const cleanLocal = cleanName(resolvedLocal);
+        const cleanVisitante = cleanName(resolvedVisitante);
+
+        const localMatch = localMatches.find(m => {
+          const cl = cleanName(m.local);
+          const cv = cleanName(m.visitante);
+          return (cl === cleanLocal && cv === cleanVisitante) ||
+                 (cl === cleanVisitante && cv === cleanLocal);
+        });
+        if (!localMatch) continue;
+
+        const isLInverted = cleanName(localMatch.local) === cleanVisitante;
+
+        const estatusRaw = (partido.estatus || '') as string;
+        let estado: 'upcoming' | 'live' | 'finished' = 'upcoming';
+        if (estatusRaw === 'Finalizado') estado = 'finished';
+        else if (estatusRaw === 'En vivo') estado = 'live';
+
+        // Parse "0 - 2" score string
+        const marcador = (partido.marcador || '') as string;
+        const parts = marcador.split(' - ');
+        const hasScore = parts.length === 2 && !isNaN(parseInt(parts[0]));
+        const rawGolesLocal = hasScore ? parseInt(parts[0]) : 0;
+        const rawGolesVisitante = hasScore ? parseInt(parts[1]) : 0;
+        const golesLocal = isLInverted ? rawGolesVisitante : rawGolesLocal;
+        const golesVisitante = isLInverted ? rawGolesLocal : rawGolesVisitante;
+
+        const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
+        const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
+        const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+
+        if (pendingDowngrades && estado === 'live' && hasScore) {
+          const ex = pendingDowngrades.get(localMatch.id);
+          if (isDowngrade) {
+            if (!ex) {
+              pendingDowngrades.set(localMatch.id, { proposed_local: golesLocal, proposed_visitante: golesVisitante, agreed: 1, total: 1, conflicted: false });
+            } else if (ex.proposed_local === golesLocal && ex.proposed_visitante === golesVisitante) {
+              pendingDowngrades.set(localMatch.id, { ...ex, agreed: ex.agreed + 1, total: ex.total + 1 });
+            } else {
+              pendingDowngrades.set(localMatch.id, { ...ex, total: ex.total + 1, conflicted: true });
+            }
+          } else {
+            pendingDowngrades.set(localMatch.id, { ...(ex ?? { proposed_local: 0, proposed_visitante: 0, agreed: 0, conflicted: false }), total: (ex?.total ?? 0) + 1 });
+          }
+        }
+
+        if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) continue;
+        if (!hasScore && estado === 'upcoming') continue;
+
+        const stateChanged = localMatch.estado !== estado;
+        const scoreChanged = hasScore && (localMatch.goles_local !== finalGolesLocal || localMatch.goles_visitante !== finalGolesVisitante);
+
+        if (!isDowngrade && scoreChanged && await isAnnulledScore(localMatch.id, finalGolesLocal, finalGolesVisitante)) continue;
+
+        if (stateChanged || scoreChanged) {
+          const updateRes = await pool.query(
+            `UPDATE matches
+             SET estado = $1,
+                 goles_local = $2,
+                 goles_visitante = $3,
+                 last_synced_at = CURRENT_TIMESTAMP,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $4
+             RETURNING *`,
+            [estado, hasScore ? finalGolesLocal : localMatch.goles_local, hasScore ? finalGolesVisitante : localMatch.goles_visitante, localMatch.id]
+          );
+          const updatedMatch = updateRes.rows[0];
+          updatedCount++;
+          broadcastUpdate('match', updatedMatch);
+
+          if (estado === 'live' && localMatch.estado !== 'live') {
+            const key = `live`;
+            if (await markNotifSent(updatedMatch.id, key)) {
+              await pool.query(
+                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+                 VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '3 hours')`,
+                [`⚽ En Vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`, `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`]
+              );
+              broadcastUpdate('notification', { auto: true });
+              void sendPushToAllActive({ title: `⚽ Partido en vivo: ${updatedMatch.local} vs ${updatedMatch.visitante}`, body: `¡El partido acaba de comenzar! Sigue el marcador en tiempo real.`, url: '/fixture' });
+            }
+          }
+
+          if (estado === 'live' && scoreChanged) {
+            goalsDetected++;
+            broadcastUpdate('goal', { matchId: updatedMatch.id, local: updatedMatch.local, visitante: updatedMatch.visitante, goles_local: updatedMatch.goles_local, goles_visitante: updatedMatch.goles_visitante });
+            logSystem('info', 'SYNC', `[ApiFixture] Gol detectado: ${updatedMatch.local} vs ${updatedMatch.visitante}`, `${localMatch.goles_local ?? 0}-${localMatch.goles_visitante ?? 0} → ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}`).catch(() => {});
+            pool.query(`INSERT INTO score_change_log (match_id, source, old_goles_local, old_goles_visitante, new_goles_local, new_goles_visitante, estado) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+              [localMatch.id, 'ApiFixture', localMatch.goles_local ?? 0, localMatch.goles_visitante ?? 0, updatedMatch.goles_local, updatedMatch.goles_visitante, estado]).catch(() => {});
+
+            if (pendingGoalNotifs) {
+              const existing = pendingGoalNotifs.get(updatedMatch.id);
+              pendingGoalNotifs.set(updatedMatch.id, {
+                matchId: updatedMatch.id, local: updatedMatch.local, visitante: updatedMatch.visitante,
+                golesLocal: updatedMatch.goles_local, golesVisitante: updatedMatch.goles_visitante,
+                baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
+                baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
+                isFinished: existing?.isFinished ?? false,
+              });
+            } else {
+              const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
+              if (await markNotifSent(updatedMatch.id, goalKey)) {
+                const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0) ? updatedMatch.local : updatedMatch.visitante;
+                await pool.query(`INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at) VALUES ($1,$2,'success','all',NOW() + INTERVAL '3 hours')`,
+                  [`🥅 ¡GOL de ${scoringTeam}!`, `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`]);
+                broadcastUpdate('notification', { auto: true });
+                void sendPushToAllActive({ title: `🥅 ¡GOL de ${scoringTeam}!`, body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`, url: '/fixture' });
+              }
+            }
+          }
+
+          if (estado === 'finished' && localMatch.estado !== 'finished') {
+            finishedCount++;
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
+            if (pendingGoalNotifs) {
+              const existing = pendingGoalNotifs.get(updatedMatch.id);
+              pendingGoalNotifs.set(updatedMatch.id, {
+                matchId: updatedMatch.id, local: updatedMatch.local, visitante: updatedMatch.visitante,
+                golesLocal: updatedMatch.goles_local, golesVisitante: updatedMatch.goles_visitante,
+                baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
+                baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
+                isFinished: true,
+              });
+            } else {
+              if (await markNotifSent(updatedMatch.id, 'finished')) {
+                await pool.query(`INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at) VALUES ($1,$2,'info','all',NOW() + INTERVAL '24 hours')`,
+                  [`🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`, `¡Partido terminado! La tabla de clasificación ha sido actualizada.`]);
+                broadcastUpdate('notification', { auto: true });
+                void sendPushToAllActive({ title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`, body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`, url: '/ranking' });
+              }
+            }
+          } else if (scoreChanged && (estado === 'finished' || estado === 'live')) {
+            await pool.query('SELECT recalculate_leaderboard()');
+            broadcastUpdate('leaderboard', { updated: true });
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('ApiFixture sync error:', err);
+    errors.push(err.message || 'ApiFixture unknown error');
+  }
+
+  return { updated: updatedCount, goals_detected: goalsDetected, finished: finishedCount, errors };
+}
+
 export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, PendingGoalNotif>, pendingDowngrades?: Map<number, DowngradeEntry>): Promise<{
   updated: number;
   goals_detected: number;
@@ -1482,10 +1687,11 @@ export async function syncMatches(): Promise<{
   const pendingDowngrades = new Map<number, DowngradeEntry>();
 
   // Run all sources sequentially to avoid race conditions and database contentions
-  // FixtureDownload removed: only has static fixture data, never contributed live score changes, and had periodic 500/524 timeouts
+  // FixtureDownload removed: only had static fixture data, never contributed live score changes
   const sources: Array<{ name: string; fn: (m: Map<number, PendingGoalNotif>, d: Map<number, DowngradeEntry>) => Promise<{ updated: number; goals_detected: number; finished: number; errors: string[] }> }> = [
     { name: '365Scores', fn: sync365Scores },
     { name: 'ESPN', fn: syncESPNScoreboard },
+    { name: 'ApiFixture', fn: syncApiFixture },
   ];
 
   const apiKey = process.env.FOOTBALL_API_KEY;

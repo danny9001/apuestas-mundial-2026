@@ -138,6 +138,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, message: 'Reporte de pagos enviado por correo electrónico' });
   } catch (err: any) {
     console.error('Error sending payments report email:', err);
-    return NextResponse.json({ error: 'Error del servidor: ' + err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error interno del servidor', code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

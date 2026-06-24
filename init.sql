@@ -1,32 +1,6 @@
--- Drop tables if they exist
-DROP TABLE IF EXISTS leaderboard CASCADE;
-DROP TABLE IF EXISTS predictions CASCADE;
-DROP TABLE IF EXISTS matches CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS sync_log CASCADE;
-DROP TABLE IF EXISTS companies CASCADE;
-DROP TABLE IF EXISTS user_companies CASCADE;
-DROP TABLE IF EXISTS scheduled_notify_log CASCADE;
-DROP TABLE IF EXISTS notification_reads CASCADE;
-DROP TABLE IF EXISTS notifications CASCADE;
-DROP TABLE IF EXISTS user_payments CASCADE;
-DROP TABLE IF EXISTS push_subscriptions CASCADE;
-DROP TABLE IF EXISTS settings CASCADE;
-DROP TABLE IF EXISTS user_groups CASCADE;
-DROP TABLE IF EXISTS groups CASCADE;
-DROP TABLE IF EXISTS audit_logs CASCADE;
-DROP TABLE IF EXISTS rate_limits CASCADE;
-DROP TABLE IF EXISTS system_logs CASCADE;
-DROP TABLE IF EXISTS score_change_log CASCADE;
-DROP TABLE IF EXISTS pending_downgrades CASCADE;
-DROP TABLE IF EXISTS user_presence CASCADE;
-DROP TABLE IF EXISTS match_notif_log CASCADE;
-DROP TABLE IF EXISTS mail_queue CASCADE;
-DROP TABLE IF EXISTS passkeys CASCADE;
-DROP TABLE IF EXISTS invitations CASCADE;
-
 -- 1. Create USERS table
-CREATE TABLE users (
+-- init.sql is 100% idempotent. For destructive reset use reset.sql (non-production only).
+CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   nombre VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -46,7 +20,7 @@ CREATE TABLE users (
 );
 
 -- 2. Create MATCHES table
-CREATE TABLE matches (
+CREATE TABLE IF NOT EXISTS matches (
   id SERIAL PRIMARY KEY,
   external_id INTEGER UNIQUE,
   fecha TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -67,7 +41,7 @@ CREATE TABLE matches (
 );
 
 -- 3. Create PREDICTIONS table
-CREATE TABLE predictions (
+CREATE TABLE IF NOT EXISTS predictions (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   match_id INTEGER REFERENCES matches(id) ON DELETE CASCADE,
@@ -79,7 +53,7 @@ CREATE TABLE predictions (
 );
 
 -- 4. Create LEADERBOARD table
-CREATE TABLE leaderboard (
+CREATE TABLE IF NOT EXISTS leaderboard (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   puntos_totales INTEGER DEFAULT 0,
   exactos INTEGER DEFAULT 0,
@@ -90,7 +64,7 @@ CREATE TABLE leaderboard (
 );
 
 -- 5. Create SYNC_LOG table
-CREATE TABLE sync_log (
+CREATE TABLE IF NOT EXISTS sync_log (
   id SERIAL PRIMARY KEY,
   synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   matches_updated INTEGER DEFAULT 0,
@@ -101,7 +75,7 @@ CREATE TABLE sync_log (
 );
 
 -- 5b. Create COMPANIES table
-CREATE TABLE companies (
+CREATE TABLE IF NOT EXISTS companies (
   id SERIAL PRIMARY KEY,
   nombre VARCHAR(255) NOT NULL,
   descripcion TEXT,
@@ -115,14 +89,14 @@ CREATE TABLE companies (
 );
 
 -- 5c. Create USER_COMPANIES junction table
-CREATE TABLE user_companies (
+CREATE TABLE IF NOT EXISTS user_companies (
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
   PRIMARY KEY (user_id, company_id)
 );
 
 -- 5d. Create SYSTEM_LOGS table
-CREATE TABLE system_logs (
+CREATE TABLE IF NOT EXISTS system_logs (
   id SERIAL PRIMARY KEY,
   nivel VARCHAR(20) DEFAULT 'info' NOT NULL,
   categoria VARCHAR(50) NOT NULL,
@@ -132,7 +106,7 @@ CREATE TABLE system_logs (
 );
 
 -- 5e. Create SCORE_CHANGE_LOG table
-CREATE TABLE score_change_log (
+CREATE TABLE IF NOT EXISTS score_change_log (
   id SERIAL PRIMARY KEY,
   match_id INTEGER REFERENCES matches(id) ON DELETE CASCADE,
   source VARCHAR(50) NOT NULL,
@@ -143,11 +117,11 @@ CREATE TABLE score_change_log (
   estado VARCHAR(20) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_scl_created_at ON score_change_log (created_at DESC);
-CREATE INDEX idx_scl_match_id ON score_change_log (match_id);
+CREATE INDEX IF NOT EXISTS idx_scl_created_at ON score_change_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scl_match_id ON score_change_log (match_id);
 
 -- 5f. Create PENDING_DOWNGRADES table
-CREATE TABLE pending_downgrades (
+CREATE TABLE IF NOT EXISTS pending_downgrades (
   id SERIAL PRIMARY KEY,
   match_id INTEGER UNIQUE REFERENCES matches(id) ON DELETE CASCADE,
   proposed_local INTEGER NOT NULL,
@@ -159,14 +133,14 @@ CREATE TABLE pending_downgrades (
 );
 
 -- 5g. Create USER_PRESENCE table
-CREATE TABLE user_presence (
+CREATE TABLE IF NOT EXISTS user_presence (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_user_presence_seen ON user_presence (last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_presence_seen ON user_presence (last_seen_at DESC);
 
 -- 5h. Create MATCH_NOTIF_LOG table
-CREATE TABLE match_notif_log (
+CREATE TABLE IF NOT EXISTS match_notif_log (
   match_id INTEGER NOT NULL,
   event VARCHAR(30) NOT NULL,
   sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -174,7 +148,7 @@ CREATE TABLE match_notif_log (
 );
 
 -- 5i. Create MAIL_QUEUE table
-CREATE TABLE mail_queue (
+CREATE TABLE IF NOT EXISTS mail_queue (
   id SERIAL PRIMARY KEY,
   destinatarios TEXT NOT NULL,
   asunto TEXT NOT NULL,
@@ -189,7 +163,7 @@ CREATE TABLE mail_queue (
 );
 
 -- 5j. Create AUDIT_LOGS table
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   action VARCHAR(255) NOT NULL,
@@ -198,14 +172,14 @@ CREATE TABLE audit_logs (
 );
 
 -- 5k. Create RATE_LIMITS table
-CREATE TABLE rate_limits (
+CREATE TABLE IF NOT EXISTS rate_limits (
   key VARCHAR(255) PRIMARY KEY,
   points INTEGER DEFAULT 0,
   expire_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 -- 5l. Create NOTIFICATIONS table
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,
   titulo VARCHAR(255) NOT NULL,
   contenido TEXT NOT NULL,
@@ -218,7 +192,7 @@ CREATE TABLE notifications (
 );
 
 -- 5m. Create NOTIFICATION_READS table
-CREATE TABLE notification_reads (
+CREATE TABLE IF NOT EXISTS notification_reads (
   notification_id INTEGER REFERENCES notifications(id) ON DELETE CASCADE,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   read_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -226,7 +200,7 @@ CREATE TABLE notification_reads (
 );
 
 -- 5n. Create USER_PAYMENTS table
-CREATE TABLE user_payments (
+CREATE TABLE IF NOT EXISTS user_payments (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   monto NUMERIC NOT NULL DEFAULT 0,
@@ -236,7 +210,7 @@ CREATE TABLE user_payments (
 );
 
 -- 5o. Create PUSH_SUBSCRIPTIONS table
-CREATE TABLE push_subscriptions (
+CREATE TABLE IF NOT EXISTS push_subscriptions (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   endpoint TEXT NOT NULL,
@@ -248,7 +222,7 @@ CREATE TABLE push_subscriptions (
 );
 
 -- 5p. Create SETTINGS table
-CREATE TABLE settings (
+CREATE TABLE IF NOT EXISTS settings (
   key VARCHAR(50) PRIMARY KEY,
   value TEXT
 );
@@ -261,7 +235,7 @@ INSERT INTO settings (key, value) VALUES
 ON CONFLICT (key) DO NOTHING;
 
 -- 5q. Create GROUPS table
-CREATE TABLE groups (
+CREATE TABLE IF NOT EXISTS groups (
   id SERIAL PRIMARY KEY,
   nombre VARCHAR(255) NOT NULL,
   descripcion TEXT,
@@ -271,14 +245,14 @@ CREATE TABLE groups (
 );
 
 -- 5r. Create USER_GROUPS junction table
-CREATE TABLE user_groups (
+CREATE TABLE IF NOT EXISTS user_groups (
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
   PRIMARY KEY (user_id, group_id)
 );
 
 -- 5s. Create SCHEDULED_NOTIFY_LOG table
-CREATE TABLE scheduled_notify_log (
+CREATE TABLE IF NOT EXISTS scheduled_notify_log (
   id SERIAL PRIMARY KEY,
   tipo VARCHAR(50) NOT NULL,
   referencia_id INTEGER,
@@ -286,7 +260,7 @@ CREATE TABLE scheduled_notify_log (
 );
 
 -- 5t. Create PASSKEYS table
-CREATE TABLE passkeys (
+CREATE TABLE IF NOT EXISTS passkeys (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   credential_id VARCHAR(512) UNIQUE NOT NULL,
@@ -301,7 +275,7 @@ CREATE TABLE passkeys (
 );
 
 -- 5u. Create INVITATIONS table
-CREATE TABLE invitations (
+CREATE TABLE IF NOT EXISTS invitations (
   id SERIAL PRIMARY KEY,
   token VARCHAR(255) UNIQUE NOT NULL,
   company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
@@ -413,8 +387,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 7. SEED USERS
-INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo) VALUES
-('Daniel Admin', 'admin@mundial.com', '$2b$10$aPOUgT9FX/pYSsXZ8KaTq.1o5Y.jaFSAtzYO0MzRTvTa9QexniUqi', 'admin', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', true);
+-- Admin user is seeded via: node scripts/seed-admin.js
+-- Requires env vars: ADMIN_EMAIL, ADMIN_PASSWORD
 
 
 -- 8. SEED ALL 104 MATCHES (48 Group Stage + 56 Knockout Stage)

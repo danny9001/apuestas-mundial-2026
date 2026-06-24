@@ -1,3 +1,14 @@
+// Secrets must be set in the OS environment or .env.local — never hardcode them here.
+// Required: SYNC_SECRET, SCHEDULER_SECRET, JWT_SECRET, DB_*, FOOTBALL_API_KEY, ...
+// See .env.example for the full list.
+const required = ['SYNC_SECRET', 'SCHEDULER_SECRET'];
+for (const key of required) {
+  if (!process.env[key]) {
+    console.error(`[ecosystem] FATAL: environment variable ${key} is not set`);
+    process.exit(1);
+  }
+}
+
 module.exports = {
   apps: [
     {
@@ -8,7 +19,6 @@ module.exports = {
       instances: 4,
       env: {
         NODE_ENV: 'production',
-        SYNC_SECRET: 'qPSaiExBS5AaGTU2WwLDvMZjEjGuabXMJhzTzde7MHM'
       }
     },
     {
@@ -17,8 +27,6 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         APP_BASE_URL: 'http://localhost:3002',
-        SCHEDULER_SECRET: 'D6q*K5@!46AQ4&c@2$Avc5x$',
-        SYNC_SECRET: 'qPSaiExBS5AaGTU2WwLDvMZjEjGuabXMJhzTzde7MHM'
       }
     }
   ]

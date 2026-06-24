@@ -1,6 +1,6 @@
 {
   "name": "apuestas-mundial-2026",
-  "version": "1.1.97",
+  "version": "1.1.98",
   "browserslist": [
     "last 2 Chrome versions",
     "last 2 Firefox versions",
@@ -15,7 +15,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:admin": "node scripts/seed-admin.js",
+    "db:reset": "node -e \"if(process.env.NODE_ENV==='production'){console.error('db:reset blocked in production');process.exit(1)}\" && psql $DATABASE_URL -f reset.sql"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.32.0",

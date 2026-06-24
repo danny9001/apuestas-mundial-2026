@@ -17,9 +17,6 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy .env.local if exists
-COPY .env.local* .
-
 # Copy built app from builder
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static

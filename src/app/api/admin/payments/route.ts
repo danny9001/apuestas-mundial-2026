@@ -6,6 +6,11 @@ import { validateUploadedFile } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
+class ValidationError extends Error {
+  readonly isValidation = true as const;
+  constructor(message: string) { super(message); this.name = 'ValidationError'; }
+}
+
 
 // GET: fetch participants and their payments
 export async function GET(req: NextRequest) {
@@ -112,7 +117,7 @@ export async function POST(req: NextRequest) {
     const uploadReceipt = async (targetId: number, receiptFile: File) => {
       const fileCheck = validateUploadedFile(receiptFile, ['image/*', 'application/pdf'], 10 * 1024 * 1024);
       if (!fileCheck.ok) {
-        throw new Error(fileCheck.error);
+        throw new ValidationError(fileCheck.error ?? 'Archivo no válido');
       }
 
       const userRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [targetId]);
@@ -231,12 +236,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   } catch (error: any) {
     console.error('Error managing payment:', error);
-    const isValidationErr = error.message.includes('tipo de archivo') || 
-                            error.message.includes('supera') || 
-                            error.message.includes('extensión');
-    return NextResponse.json(
-      { error: isValidationErr ? error.message : 'Error del servidor' },
-      { status: isValidationErr ? 400 : 500 }
-    );
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    return NextResponse.json({ error: 'Error interno del servidor', code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

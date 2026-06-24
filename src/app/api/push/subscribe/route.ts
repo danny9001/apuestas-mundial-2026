@@ -4,20 +4,6 @@ import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-async function ensurePushTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS push_subscriptions (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      endpoint TEXT NOT NULL,
-      p256dh TEXT NOT NULL,
-      auth TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, endpoint)
-    )
-  `);
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,7 +16,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Suscripción inválida' }, { status: 400 });
     }
 
-    await ensurePushTable();
 
     await pool.query(
       `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, updated_at)

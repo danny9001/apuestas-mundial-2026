@@ -4,29 +4,10 @@ import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-async function ensureGroupsTables() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS groups (
-      id SERIAL PRIMARY KEY,
-      nombre VARCHAR(255) NOT NULL,
-      descripcion TEXT,
-      color VARCHAR(20) DEFAULT '#10b981',
-      activo BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS user_groups (
-      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
-      PRIMARY KEY (user_id, group_id)
-    );
-  `);
-}
 
 export async function GET() {
   try {
-    await ensureGroupsTables();
+
 
     const [groupsRes, countsRes] = await Promise.all([
       pool.query('SELECT id, nombre, descripcion, color, activo, created_at FROM groups ORDER BY nombre ASC'),
@@ -54,7 +35,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    await ensureGroupsTables();
+
 
     const body = await req.json();
     const { action } = body;

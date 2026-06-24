@@ -6,6 +6,26 @@ DROP TABLE IF EXISTS predictions CASCADE;
 DROP TABLE IF EXISTS matches CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS sync_log CASCADE;
+DROP TABLE IF EXISTS companies CASCADE;
+DROP TABLE IF EXISTS user_companies CASCADE;
+DROP TABLE IF EXISTS scheduled_notify_log CASCADE;
+DROP TABLE IF EXISTS notification_reads CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS user_payments CASCADE;
+DROP TABLE IF EXISTS push_subscriptions CASCADE;
+DROP TABLE IF EXISTS settings CASCADE;
+DROP TABLE IF EXISTS user_groups CASCADE;
+DROP TABLE IF EXISTS groups CASCADE;
+DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS rate_limits CASCADE;
+DROP TABLE IF EXISTS system_logs CASCADE;
+DROP TABLE IF EXISTS score_change_log CASCADE;
+DROP TABLE IF EXISTS pending_downgrades CASCADE;
+DROP TABLE IF EXISTS user_presence CASCADE;
+DROP TABLE IF EXISTS match_notif_log CASCADE;
+DROP TABLE IF EXISTS mail_queue CASCADE;
+DROP TABLE IF EXISTS passkeys CASCADE;
+DROP TABLE IF EXISTS invitations CASCADE;
 
 -- 1. Create USERS table
 CREATE TABLE users (
@@ -13,10 +33,17 @@ CREATE TABLE users (
   nombre VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  tipo VARCHAR(50) DEFAULT 'externo', -- 'interno', 'externo', 'admin'
+  tipo VARCHAR(50) DEFAULT 'externo', -- 'interno', 'externo', 'admin', 'superadmin'
   avatar TEXT,
+  telefono VARCHAR(30),
+  tincaso VARCHAR(255),
+  notif_prefs JSONB DEFAULT '{"email": true, "push": true}'::jsonb,
+  pwa_installed BOOLEAN DEFAULT FALSE,
+  pwa_updated_at TIMESTAMP WITH TIME ZONE,
   activo BOOLEAN DEFAULT TRUE,
   aprobado BOOLEAN DEFAULT FALSE,
+  denegado BOOLEAN DEFAULT FALSE,
+  arbitro_marcador BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -35,6 +62,7 @@ CREATE TABLE matches (
   fase VARCHAR(100) DEFAULT 'Fase de Grupos',
   grupo VARCHAR(10),
   estadio VARCHAR(255),
+  transmision_enlaces TEXT DEFAULT '',
   stats JSONB DEFAULT '{}',
   last_synced_at TIMESTAMP WITH TIME ZONE,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -79,7 +107,12 @@ CREATE TABLE companies (
   id SERIAL PRIMARY KEY,
   nombre VARCHAR(255) NOT NULL,
   descripcion TEXT,
+  logo TEXT,
+  color VARCHAR(20) DEFAULT '#6366f1',
   activo BOOLEAN DEFAULT TRUE,
+  monto_participacion NUMERIC DEFAULT 150,
+  modo_apuesta VARCHAR(20) DEFAULT 'partido',
+  modos_por_fase JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -88,6 +121,196 @@ CREATE TABLE user_companies (
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
   PRIMARY KEY (user_id, company_id)
+);
+
+-- 5d. Create SYSTEM_LOGS table
+CREATE TABLE system_logs (
+  id SERIAL PRIMARY KEY,
+  nivel VARCHAR(20) DEFAULT 'info' NOT NULL,
+  categoria VARCHAR(50) NOT NULL,
+  mensaje TEXT NOT NULL,
+  detalles TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5e. Create SCORE_CHANGE_LOG table
+CREATE TABLE score_change_log (
+  id SERIAL PRIMARY KEY,
+  match_id INTEGER REFERENCES matches(id) ON DELETE CASCADE,
+  source VARCHAR(50) NOT NULL,
+  old_goles_local INTEGER,
+  old_goles_visitante INTEGER,
+  new_goles_local INTEGER NOT NULL,
+  new_goles_visitante INTEGER NOT NULL,
+  estado VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_scl_created_at ON score_change_log (created_at DESC);
+CREATE INDEX idx_scl_match_id ON score_change_log (match_id);
+
+-- 5f. Create PENDING_DOWNGRADES table
+CREATE TABLE pending_downgrades (
+  id SERIAL PRIMARY KEY,
+  match_id INTEGER UNIQUE REFERENCES matches(id) ON DELETE CASCADE,
+  proposed_local INTEGER NOT NULL,
+  proposed_visitante INTEGER NOT NULL,
+  sources_agreed INTEGER DEFAULT 0 NOT NULL,
+  total_sources INTEGER DEFAULT 0 NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  applied BOOLEAN DEFAULT FALSE
+);
+
+-- 5g. Create USER_PRESENCE table
+CREATE TABLE user_presence (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_user_presence_seen ON user_presence (last_seen_at DESC);
+
+-- 5h. Create MATCH_NOTIF_LOG table
+CREATE TABLE match_notif_log (
+  match_id INTEGER NOT NULL,
+  event VARCHAR(30) NOT NULL,
+  sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (match_id, event)
+);
+
+-- 5i. Create MAIL_QUEUE table
+CREATE TABLE mail_queue (
+  id SERIAL PRIMARY KEY,
+  destinatarios TEXT NOT NULL,
+  asunto TEXT NOT NULL,
+  html TEXT NOT NULL,
+  cc TEXT,
+  bcc TEXT,
+  intentos INTEGER DEFAULT 0 NOT NULL,
+  estado VARCHAR(20) DEFAULT 'pending' NOT NULL,
+  error_mensaje TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  processed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- 5j. Create AUDIT_LOGS table
+CREATE TABLE audit_logs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action VARCHAR(255) NOT NULL,
+  details TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5k. Create RATE_LIMITS table
+CREATE TABLE rate_limits (
+  key VARCHAR(255) PRIMARY KEY,
+  points INTEGER DEFAULT 0,
+  expire_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+-- 5l. Create NOTIFICATIONS table
+CREATE TABLE notifications (
+  id SERIAL PRIMARY KEY,
+  titulo VARCHAR(255) NOT NULL,
+  contenido TEXT NOT NULL,
+  tipo VARCHAR(20) DEFAULT 'info',
+  target_type VARCHAR(20) DEFAULT 'all',
+  target_id INTEGER,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  expires_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5m. Create NOTIFICATION_READS table
+CREATE TABLE notification_reads (
+  notification_id INTEGER REFERENCES notifications(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  read_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (notification_id, user_id)
+);
+
+-- 5n. Create USER_PAYMENTS table
+CREATE TABLE user_payments (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  monto NUMERIC NOT NULL DEFAULT 0,
+  fecha TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  comprobante_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5o. Create PUSH_SUBSCRIPTIONS table
+CREATE TABLE push_subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, endpoint)
+);
+
+-- 5p. Create SETTINGS table
+CREATE TABLE settings (
+  key VARCHAR(50) PRIMARY KEY,
+  value TEXT
+);
+
+INSERT INTO settings (key, value) VALUES 
+('app_name', 'Mundial 2026'),
+('app_logo', '🏆'),
+('mail_notifications_enabled', 'true'),
+('prediction_close_minutes', '15')
+ON CONFLICT (key) DO NOTHING;
+
+-- 5q. Create GROUPS table
+CREATE TABLE groups (
+  id SERIAL PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  descripcion TEXT,
+  color VARCHAR(20) DEFAULT '#10b981',
+  activo BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5r. Create USER_GROUPS junction table
+CREATE TABLE user_groups (
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, group_id)
+);
+
+-- 5s. Create SCHEDULED_NOTIFY_LOG table
+CREATE TABLE scheduled_notify_log (
+  id SERIAL PRIMARY KEY,
+  tipo VARCHAR(50) NOT NULL,
+  referencia_id INTEGER,
+  enviado_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5t. Create PASSKEYS table
+CREATE TABLE passkeys (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  credential_id VARCHAR(512) UNIQUE NOT NULL,
+  public_key BYTEA NOT NULL,
+  counter BIGINT DEFAULT 0 NOT NULL,
+  device_type VARCHAR(32) NOT NULL,
+  backed_up BOOLEAN DEFAULT FALSE NOT NULL,
+  transports VARCHAR(64)[],
+  label VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  last_used_at TIMESTAMP WITH TIME ZONE
+);
+
+-- 5u. Create INVITATIONS table
+CREATE TABLE invitations (
+  id SERIAL PRIMARY KEY,
+  token VARCHAR(255) UNIQUE NOT NULL,
+  company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+  created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  email_usado VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 6. FUNCTION TO RECALCULATE LEADERBOARD

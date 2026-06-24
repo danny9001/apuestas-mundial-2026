@@ -6,22 +6,6 @@ import { validateUploadedFile } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
-async function ensurePaymentsTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS user_payments (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      monto NUMERIC NOT NULL DEFAULT 0,
-      fecha TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-  try {
-    await pool.query(`ALTER TABLE user_payments ADD COLUMN IF NOT EXISTS comprobante_url TEXT;`);
-  } catch (e) {
-    console.error('Error adding comprobante_url column:', e);
-  }
-}
 
 // GET: fetch participants and their payments
 export async function GET(req: NextRequest) {
@@ -31,7 +15,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    await ensurePaymentsTable();
+
 
     let queryText = `
       SELECT u.id, u.nombre, u.email, u.participa, u.activo, u.aprobado, u.notas,
@@ -89,7 +73,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    await ensurePaymentsTable();
+
 
     let action, userId, paymentId, monto, fecha, file, notas;
     const contentType = req.headers.get('content-type') || '';

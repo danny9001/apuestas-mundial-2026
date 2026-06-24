@@ -5,27 +5,9 @@ import { broadcastUpdate } from '@/lib/realtime';
 
 export const dynamic = 'force-dynamic';
 
-async function ensureCompaniesTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS companies (
-      id SERIAL PRIMARY KEY,
-      nombre VARCHAR(255) NOT NULL,
-      logo TEXT,
-      color VARCHAR(20) DEFAULT '#6366f1',
-      activo BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-  await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS monto_participacion NUMERIC DEFAULT 150`);
-  // Legacy single-field (kept for backward compat, not actively used)
-  await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS modo_apuesta VARCHAR(20) DEFAULT 'partido'`);
-  // New: per-phase modes stored as JSONB
-  await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS modos_por_fase JSONB DEFAULT '{}'::jsonb`);
-}
 
 export async function GET() {
   try {
-    await ensureCompaniesTable();
     const res = await pool.query(
       'SELECT id, nombre, logo, color, activo, monto_participacion, modo_apuesta, modos_por_fase, created_at FROM companies ORDER BY nombre ASC'
     );
@@ -45,7 +27,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    await ensureCompaniesTable();
 
     const body = await req.json();
     // Admins can only update (not create/delete) their own companies

@@ -5,37 +5,6 @@ import { broadcastUpdate } from '@/lib/realtime';
 
 export const dynamic = 'force-dynamic';
 
-async function ensureNotifTables() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id SERIAL PRIMARY KEY,
-      titulo VARCHAR(255) NOT NULL,
-      contenido TEXT NOT NULL,
-      tipo VARCHAR(20) DEFAULT 'info',
-      target_type VARCHAR(20) DEFAULT 'all',
-      target_id INTEGER,
-      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      expires_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS notification_reads (
-      notification_id INTEGER REFERENCES notifications(id) ON DELETE CASCADE,
-      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      read_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (notification_id, user_id)
-    )
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS scheduled_notify_log (
-      id SERIAL PRIMARY KEY,
-      tipo VARCHAR(50) NOT NULL,
-      referencia_id INTEGER,
-      enviado_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-}
 
 async function insertNotification(titulo: string, contenido: string, tipo: string, targetType: string, targetId: number | null) {
   const res = await pool.query(
@@ -196,7 +165,7 @@ async function notifyWeeklyRankings(force: boolean = false) {
 // GET: estado del scheduler
 export async function GET() {
   try {
-    await ensureNotifTables();
+
     const lastMatch = await pool.query(
       "SELECT enviado_at FROM scheduled_notify_log WHERE tipo='match_reminder' ORDER BY enviado_at DESC LIMIT 1"
     );
@@ -232,7 +201,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await ensureNotifTables();
+
 
     const tipo = body.tipo || 'all';
     const force = body.force === true;

@@ -11,16 +11,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Ensure table exists
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_payments (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        monto NUMERIC NOT NULL DEFAULT 0,
-        fecha TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
 
     // Fetch user's companies to get fee
     const compRes = await pool.query(

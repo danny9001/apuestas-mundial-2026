@@ -190,18 +190,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Helper to log Superadmin actions
-    const ensureAuditLogsTable = async () => {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS audit_logs (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-          action VARCHAR(255) NOT NULL,
-          details TEXT,
-          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-    };
 
     const logSuperadminAction = async (
       superadminId: number, superadminNombre: string,
@@ -211,7 +199,7 @@ export async function POST(req: NextRequest) {
       newL: number, newV: number
     ) => {
       try {
-        await ensureAuditLogsTable();
+
         const targetRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [targetId]);
         const targetNombre = targetRes.rows[0]?.nombre || `ID:${targetId}`;
         const anteriorStr = oldL !== null ? `${oldL}-${oldV}` : 'Sin pronóstico previo';

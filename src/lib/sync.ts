@@ -1441,37 +1441,6 @@ export async function syncMatches(): Promise<{
   // Send reminders for upcoming matches (60 min and 30 min before kickoff)
   await sendUpcomingReminders();
 
-  // Ensure score audit table exists (created once, silent on subsequent calls)
-  pool.query(`
-    CREATE TABLE IF NOT EXISTS score_change_log (
-      id SERIAL PRIMARY KEY,
-      match_id INTEGER REFERENCES matches(id) ON DELETE CASCADE,
-      source VARCHAR(50) NOT NULL,
-      old_goles_local INTEGER,
-      old_goles_visitante INTEGER,
-      new_goles_local INTEGER NOT NULL,
-      new_goles_visitante INTEGER NOT NULL,
-      estado VARCHAR(20) NOT NULL,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE INDEX IF NOT EXISTS idx_scl_match_id ON score_change_log(match_id);
-    CREATE INDEX IF NOT EXISTS idx_scl_created_at ON score_change_log(created_at DESC);
-  `).catch(() => {});
-
-  // Ensure pending_downgrades table exists
-  pool.query(`
-    CREATE TABLE IF NOT EXISTS pending_downgrades (
-      id SERIAL PRIMARY KEY,
-      match_id INTEGER REFERENCES matches(id) ON DELETE CASCADE UNIQUE,
-      proposed_local INTEGER NOT NULL,
-      proposed_visitante INTEGER NOT NULL,
-      sources_agreed INTEGER NOT NULL DEFAULT 0,
-      total_sources INTEGER NOT NULL DEFAULT 0,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      applied BOOLEAN DEFAULT FALSE
-    )
-  `).catch(() => {});
-
   // Apply confirmed downgrades older than 2 minutes (no árbitro correction needed)
   await applyConfirmedDowngrades();
 

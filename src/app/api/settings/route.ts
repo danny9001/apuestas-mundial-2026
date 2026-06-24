@@ -10,37 +10,10 @@ import { validateUploadedFile } from '@/lib/validation';
 export const dynamic = 'force-dynamic';
 
 // Helper to ensure the settings table exists and default values are populated
-async function ensureSettingsTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key VARCHAR(50) PRIMARY KEY,
-      value TEXT
-    );
-  `);
-  
-  // Seed defaults if empty
-  const res = await pool.query('SELECT COUNT(*) FROM settings');
-  if (parseInt(res.rows[0].count, 10) === 0) {
-    await pool.query(`
-      INSERT INTO settings (key, value) VALUES 
-      ('app_name', 'Mundial 2026'),
-      ('app_logo', '🏆'),
-      ('mail_notifications_enabled', 'true')
-      ON CONFLICT (key) DO NOTHING;
-    `);
-  } else {
-    await pool.query(`
-      INSERT INTO settings (key, value) VALUES
-      ('mail_notifications_enabled', 'true'),
-      ('prediction_close_minutes', '15')
-      ON CONFLICT (key) DO NOTHING;
-    `);
-  }
-}
 
 export async function GET() {
   try {
-    await ensureSettingsTable();
+
     const res = await pool.query('SELECT key, value FROM settings');
     const settings: Record<string, string> = {};
     res.rows.forEach((row) => {
@@ -60,7 +33,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    await ensureSettingsTable();
+
 
     const contentType = req.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {

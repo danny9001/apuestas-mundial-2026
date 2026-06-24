@@ -6,29 +6,6 @@ import { logSystem } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
-async function ensureNotificationsTables() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id SERIAL PRIMARY KEY,
-      titulo VARCHAR(255) NOT NULL,
-      contenido TEXT NOT NULL,
-      tipo VARCHAR(20) DEFAULT 'info',
-      target_type VARCHAR(20) DEFAULT 'all',
-      target_id INTEGER,
-      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      expires_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS notification_reads (
-      notification_id INTEGER REFERENCES notifications(id) ON DELETE CASCADE,
-      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      read_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (notification_id, user_id)
-    );
-  `);
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -37,7 +14,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    await ensureNotificationsTables();
 
     const { searchParams } = new URL(req.url);
     const isAdminQuery = searchParams.get('admin') === 'true';
@@ -112,7 +88,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
-    await ensureNotificationsTables();
 
     const body = await req.json();
     const { titulo, contenido, tipo, target_type, target_id, expires_at } = body;

@@ -13,6 +13,7 @@ export interface UserSession {
   telefono?: string;
   tincaso?: string;
   notif_prefs?: any;
+  arbitro_marcador?: boolean;
 }
 
 const SESSION_TTL_SECONDS = 604800; // 7 days
@@ -46,7 +47,7 @@ export async function getSessionUser(): Promise<UserSession | null> {
     }
 
     const res = await pool.query(
-      'SELECT id, nombre, email, avatar, tipo, aprobado, denegado, telefono, tincaso, notif_prefs, activo FROM users WHERE id = $1',
+      'SELECT id, nombre, email, avatar, tipo, aprobado, denegado, telefono, tincaso, notif_prefs, activo, arbitro_marcador FROM users WHERE id = $1',
       [payload.id]
     );
 
@@ -70,6 +71,7 @@ export async function getSessionUser(): Promise<UserSession | null> {
       telefono: res.rows[0].telefono,
       tincaso: res.rows[0].tincaso,
       notif_prefs: res.rows[0].notif_prefs,
+      arbitro_marcador: !!res.rows[0].arbitro_marcador,
     };
   } catch (err: any) {
     console.error('[getSessionUser] Catch all error:', err);

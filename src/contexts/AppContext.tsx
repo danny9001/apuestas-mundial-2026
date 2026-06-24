@@ -13,6 +13,7 @@ interface AppUser {
   telefono?: string;
   tincaso?: string;
   companies?: any[];
+  arbitro_marcador?: boolean;
 }
 
 interface AppContextValue {

@@ -150,6 +150,20 @@ export default function UsersTab({
     } catch { showToast('Error de red'); }
   };
 
+  const handleToggleArbitro = async (userId: number) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggleArbitroMarcador', userId }),
+      });
+      if (!res.ok) { const d = await res.json(); showToast(d.error || 'Error'); return; }
+      const d = await res.json();
+      setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, arbitro_marcador: d.arbitro_marcador } : u));
+      showToast(d.arbitro_marcador ? '⚖️ Árbitro del Marcador asignado' : '⚖️ Rol de árbitro removido');
+    } catch { showToast('Error de red'); }
+  };
+
   const handleToggleUserCompany = async (userId: number, companyId: number, currentlyMember: boolean) => {
     try {
       const res = await fetch('/api/admin/users', {
@@ -519,6 +533,13 @@ export default function UsersTab({
                     <button onClick={() => handleToggleParticipa(u.id, u.participa !== false)}
                       className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.participa !== false ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20' : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-400 border border-neutral-700'}`}>
                       {u.participa !== false ? '⚽ Participa' : '👁 Visor'}
+                    </button>
+                  )}
+                  {user.tipo === 'superadmin' && u.aprobado && (
+                    <button onClick={() => handleToggleArbitro(u.id)}
+                      title={u.arbitro_marcador ? 'Quitar rol de Árbitro del Marcador' : 'Asignar como Árbitro del Marcador'}
+                      className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.arbitro_marcador ? 'bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-400 border border-yellow-500/30' : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-500 border border-neutral-700'}`}>
+                      ⚖️ {u.arbitro_marcador ? 'Árbitro' : 'Árbitro?'}
                     </button>
                   )}
                   {user.tipo === 'superadmin' && (

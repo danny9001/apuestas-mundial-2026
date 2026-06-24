@@ -8,6 +8,7 @@ import { getTeamFlag } from '@/lib/constants';
 import MatchCard from '@/components/MatchCard';
 import BetModal from '@/components/BetModal';
 import MatchInfoModal from '@/components/MatchInfoModal';
+import ScoreCorrectionPanel from '@/components/ScoreCorrectionPanel';
 
 export default function DashboardPage() {
   const { user, showToast, notifications, lastMatchUpdate } = useApp();
@@ -117,6 +118,11 @@ export default function DashboardPage() {
   const myCompanyRank = myCompanyRankIndex >= 0 ? myCompanyRankIndex + 1 : null;
   const liveMatches = matches.filter(m => m.estado === 'live');
   const upcomingMatches = matches.filter(m => m.estado === 'upcoming').sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).slice(0, 3);
+  const isArbitro = !!(user as any)?.arbitro_marcador || user?.tipo === 'admin' || user?.tipo === 'superadmin';
+  const GRACE_MS = 15 * 60 * 1000;
+  const recentlyFinished = isArbitro
+    ? matches.filter(m => m.estado === 'finished' && m.updated_at && Date.now() - new Date(m.updated_at).getTime() <= GRACE_MS)
+    : [];
   const countdownMatch = matches.filter(m => m.estado === 'upcoming' && new Date(m.fecha).getTime() > Date.now()).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
 
   return (
@@ -244,8 +250,40 @@ export default function DashboardPage() {
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {liveMatches.map(m => (
-              <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
-                compact={false} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
+              <div key={m.id}>
+                <MatchCard match={m} prediction={predictions.find(p => p.match_id === m.id)}
+                  compact={false} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
+                {isArbitro && (
+                  <ScoreCorrectionPanel
+                    match={m}
+                    showToast={showToast}
+                    onCorrected={updated => setMatches(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Correction window for recently finished matches (árbitros only) */}
+      {recentlyFinished.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500">⚖️ Corrección post-partido</span>
+            <span className="text-[9px] text-neutral-500 font-mono">(ventana 15 min)</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {recentlyFinished.map(m => (
+              <div key={m.id}>
+                <MatchCard match={m} prediction={predictions.find(p => p.match_id === m.id)}
+                  compact={false} onBet={() => {}} onClick={() => setInfoModalMatch(m)} />
+                <ScoreCorrectionPanel
+                  match={m}
+                  showToast={showToast}
+                  onCorrected={updated => setMatches(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                />
+              </div>
             ))}
           </div>
         </div>

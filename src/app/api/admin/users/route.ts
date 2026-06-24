@@ -65,7 +65,7 @@ export async function GET() {
     let res;
     if (user.tipo === 'superadmin') {
       res = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso, u.pwa_installed, u.pwa_updated_at,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso, u.pwa_installed, u.pwa_updated_at, u.arbitro_marcador,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -79,7 +79,7 @@ export async function GET() {
     } else {
       // Company admin: only users in shared companies OR users with no company assigned (pending approval)
       res = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso, u.pwa_installed, u.pwa_updated_at,
+        `SELECT u.id, u.nombre, u.email, u.tipo, u.avatar, u.activo, u.aprobado, u.denegado, u.created_at, u.telefono, u.participa, u.tincaso, u.pwa_installed, u.pwa_updated_at, u.arbitro_marcador,
                 COALESCE(
                   json_agg(json_build_object('id', c.id, 'nombre', c.nombre, 'color', c.color))
                   FILTER (WHERE c.id IS NOT NULL), '[]'
@@ -312,6 +312,23 @@ export async function POST(req: NextRequest) {
         [targetUserId]
       );
       return NextResponse.json({ success: true, participa: r.rows[0]?.participa });
+    }
+
+    if (action === 'toggleArbitroMarcador') {
+      if (user.tipo !== 'superadmin') return NextResponse.json({ error: 'Solo superadmin puede asignar árbitros del marcador' }, { status: 403 });
+      const { userId: targetUserId } = body;
+      if (!targetUserId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
+      const r = await pool.query(
+        'UPDATE users SET arbitro_marcador = NOT arbitro_marcador WHERE id = $1 RETURNING id, arbitro_marcador, nombre',
+        [targetUserId]
+      );
+      const target = r.rows[0];
+      if (!target) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+      logSystem('info', 'ARBITRO',
+        `${user.nombre} ${target.arbitro_marcador ? 'asignó' : 'quitó'} rol Árbitro del Marcador a ${target.nombre}`,
+        `UserID: ${targetUserId}`
+      ).catch(() => {});
+      return NextResponse.json({ success: true, arbitro_marcador: target.arbitro_marcador });
     }
 
     if (action === 'setCompanies') {

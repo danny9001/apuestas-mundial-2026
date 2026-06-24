@@ -175,7 +175,12 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
                   className={`w-8 h-8 rounded-full border border-neutral-800 flex-shrink-0 object-cover ${(!user.avatar || user.avatar === 'null' || user.avatar === 'undefined' || user.avatar.includes('avatar_5.png') || user.avatar.includes('default.webp')) ? 'bg-white' : 'bg-neutral-900'}`} alt="avatar" />
                 <div className="truncate">
                   <div className="text-xs font-bold text-neutral-300 truncate">{user.nombre}</div>
-                  <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-mono">{user.tipo}</div>
+                  <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-mono flex items-center gap-1.5">
+                    {user.tipo}
+                    {(user as any).arbitro_marcador && (
+                      <span className="text-yellow-500/80" title="Árbitro del Marcador">⚖️</span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">

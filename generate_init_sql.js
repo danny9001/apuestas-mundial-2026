@@ -217,7 +217,7 @@ const groupMatches = [
   { fase: 'Fase de Grupos', grupo: 'C', fecha: '2026-06-13 18:00:00-04', local: 'Brasil', visitante: 'Marruecos', estadio: 'Nueva York/NJ', extId: 2613 },
   { fase: 'Fase de Grupos', grupo: 'C', fecha: '2026-06-13 21:00:00-04', local: 'Haití', visitante: 'Escocia', estadio: 'Boston', extId: 2614 },
   { fase: 'Fase de Grupos', grupo: 'C', fecha: '2026-06-19 18:00:00-04', local: 'Escocia', visitante: 'Marruecos', estadio: 'Houston', extId: 2615 },
-  { fase: 'Fase de Grupos', grupo: 'C', fecha: '2026-06-19 21:00:00-04', local: 'Brasil', visitante: 'Haití', estadio: 'Kansas City', extId: 2616 },
+  { fase: 'Fase de Grupos', grupo: 'C', fecha: '2026-06-19 20:30:00-04', local: 'Brasil', visitante: 'Haití', estadio: 'Kansas City', extId: 2616 },
   { fase: 'Fase de Grupos', grupo: 'C', fecha: '2026-06-25 18:00:00-04', local: 'Marruecos', visitante: 'Haití', estadio: 'CDMX', extId: 2617 },
   { fase: 'Fase de Grupos', grupo: 'C', fecha: '2026-06-25 18:00:00-04', local: 'Escocia', visitante: 'Brasil', estadio: 'Boston', extId: 2618 },
 
@@ -225,7 +225,7 @@ const groupMatches = [
   { fase: 'Fase de Grupos', grupo: 'D', fecha: '2026-06-12 21:00:00-04', local: 'Estados Unidos', visitante: 'Paraguay', estadio: 'Los Ángeles', extId: 2619 },
   { fase: 'Fase de Grupos', grupo: 'D', fecha: '2026-06-14 00:00:00-04', local: 'Australia', visitante: 'Turquía', estadio: 'Vancouver', extId: 2620 },
   { fase: 'Fase de Grupos', grupo: 'D', fecha: '2026-06-19 15:00:00-04', local: 'Estados Unidos', visitante: 'Australia', estadio: 'Seattle', extId: 2621 },
-  { fase: 'Fase de Grupos', grupo: 'D', fecha: '2026-06-19 21:00:00-04', local: 'Turquía', visitante: 'Paraguay', estadio: 'Filadelfia', extId: 2622 },
+  { fase: 'Fase de Grupos', grupo: 'D', fecha: '2026-06-19 23:00:00-04', local: 'Turquía', visitante: 'Paraguay', estadio: 'Filadelfia', extId: 2622 },
   { fase: 'Fase de Grupos', grupo: 'D', fecha: '2026-06-25 22:00:00-04', local: 'Turquía', visitante: 'Estados Unidos', estadio: 'Los Ángeles', extId: 2623 },
   { fase: 'Fase de Grupos', grupo: 'D', fecha: '2026-06-25 22:00:00-04', local: 'Paraguay', visitante: 'Australia', estadio: 'Vancouver', extId: 2624 },
 

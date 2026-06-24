@@ -1482,10 +1482,10 @@ export async function syncMatches(): Promise<{
   const pendingDowngrades = new Map<number, DowngradeEntry>();
 
   // Run all sources sequentially to avoid race conditions and database contentions
+  // FixtureDownload removed: only has static fixture data, never contributed live score changes, and had periodic 500/524 timeouts
   const sources: Array<{ name: string; fn: (m: Map<number, PendingGoalNotif>, d: Map<number, DowngradeEntry>) => Promise<{ updated: number; goals_detected: number; finished: number; errors: string[] }> }> = [
-    { name: 'ESPN', fn: syncESPNScoreboard },
     { name: '365Scores', fn: sync365Scores },
-    { name: 'FixtureDownload', fn: syncFixtureDownload }
+    { name: 'ESPN', fn: syncESPNScoreboard },
   ];
 
   const apiKey = process.env.FOOTBALL_API_KEY;

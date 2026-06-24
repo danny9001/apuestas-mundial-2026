@@ -2,6 +2,7 @@ import pool from './db';
 import { broadcastUpdate } from './realtime';
 import { sendPushToAllActive, sendPushToUsersWithoutPrediction } from './push';
 import { logSystem } from './mail';
+import { fetchWithRetry } from './http/fetchWithRetry';
 
 type PendingGoalNotif = {
   matchId: number;
@@ -130,7 +131,7 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
       return `${day}/${month}/${year}`;
     };
     const url = `https://webws.365scores.com/web/games/?langId=29&timezoneName=America/La_Paz&appTypeId=5&competitions=5930&startDate=${formatDate(twoDaysAgo)}&endDate=${formatDate(twoDaysAhead)}`;
-    const res = await fetch(url, {
+    const res = await fetchWithRetry(url, {
       cache: 'no-store',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -403,7 +404,7 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
   let finishedCount = 0;
 
   try {
-    const res = await fetch('https://fixturedownload.com/feed/json/fifa-world-cup-2026', { cache: 'no-store' });
+    const res = await fetchWithRetry('https://fixturedownload.com/feed/json/fifa-world-cup-2026', { cache: 'no-store' });
     if (!res.ok) {
       throw new Error(`FixtureDownload returned status ${res.status}`);
     }
@@ -648,7 +649,7 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
   let finishedCount = 0;
 
   try {
-    const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard', {
+    const res = await fetchWithRetry('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard', {
       cache: 'no-store',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -1035,7 +1036,7 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
   }
 
   try {
-    const response = await fetch(`${apiBase}/competitions/${wcId}/matches`, {
+    const response = await fetchWithRetry(`${apiBase}/competitions/${wcId}/matches`, {
       cache: 'no-store',
       headers: {
         'X-Auth-Token': apiKey
@@ -1438,6 +1439,14 @@ export async function syncMatches(): Promise<{
     return { updated: 0, goals_detected: 0, finished: 0, errors: ['Auto-sync is disabled via env'], duration_ms: 0 };
   }
 
+  // Distributed lock: only one worker runs sync at a time
+  const lockId = 20260624;
+  const lockRes = await pool.query('SELECT pg_try_advisory_lock($1) AS acquired', [lockId]);
+  if (!lockRes.rows[0]?.acquired) {
+    return { updated: 0, goals_detected: 0, finished: 0, errors: ['sync already in progress'], duration_ms: 0 };
+  }
+
+  try {
   // Send reminders for upcoming matches (60 min and 30 min before kickoff)
   await sendUpcomingReminders();
 
@@ -1499,6 +1508,9 @@ export async function syncMatches(): Promise<{
     errors,
     duration_ms: durationMs
   };
+  } finally {
+    await pool.query('SELECT pg_advisory_unlock($1)', [lockId]);
+  }
 }
 
 async function sendUpcomingReminders() {

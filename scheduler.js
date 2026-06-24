@@ -154,3 +154,44 @@ setInterval(() => {
 }, 60 * 1000);
 
 scheduleWeeklyRankings();
+
+// Weekly log retention: delete old records (Sundays at 03:00)
+function scheduleWeeklyRetention() {
+  const { Pool } = require('pg');
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+  async function runRetention() {
+    try {
+      const results = await Promise.all([
+        pool.query("DELETE FROM sync_log WHERE synced_at < NOW() - INTERVAL '90 days'"),
+        pool.query("DELETE FROM system_logs WHERE created_at < NOW() - INTERVAL '90 days'"),
+        pool.query("DELETE FROM mail_queue WHERE created_at < NOW() - INTERVAL '90 days' AND estado = 'sent'"),
+        pool.query("DELETE FROM notification_reads WHERE read_at < NOW() - INTERVAL '180 days'"),
+        pool.query("DELETE FROM audit_logs WHERE created_at < NOW() - INTERVAL '180 days'"),
+      ]);
+      const total = results.reduce((sum, r) => sum + r.rowCount, 0);
+      console.log(`[retention] Cleaned ${total} old rows`);
+    } catch (err) {
+      console.error('[retention] Error:', err.message);
+    }
+  }
+
+  function msUntilNextSunday3am() {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(3, 0, 0, 0);
+    const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+    target.setDate(now.getDate() + daysUntilSunday);
+    return target - now;
+  }
+
+  function setNextSunday() {
+    const ms = msUntilNextSunday3am();
+    console.log(`[retention] Próxima limpieza en ${Math.round(ms / 1000 / 60)} minutos`);
+    setTimeout(() => { runRetention(); setNextSunday(); }, ms);
+  }
+
+  setNextSunday();
+}
+
+scheduleWeeklyRetention();

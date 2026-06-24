@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
+import { NextResponse } from 'next/server';
 import pool from './db';
 
 export interface UserSession {
@@ -107,4 +108,36 @@ export async function setSession(user: {
 export async function clearSession() {
   const cookieStore = await cookies();
   cookieStore.delete('apuestas_session');
+}
+
+// --- Auth guards for route handlers ---
+
+type Unauthorized = NextResponse;
+
+export async function requireUser(): Promise<UserSession | Unauthorized> {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  return user;
+}
+
+export async function requireAdmin(): Promise<UserSession | Unauthorized> {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (user.tipo !== 'admin' && user.tipo !== 'superadmin') {
+    return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
+  }
+  return user;
+}
+
+export async function requireSuperAdmin(): Promise<UserSession | Unauthorized> {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (user.tipo !== 'superadmin') {
+    return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
+  }
+  return user;
+}
+
+export function isUnauthorized(val: UserSession | Unauthorized): val is Unauthorized {
+  return val instanceof NextResponse;
 }

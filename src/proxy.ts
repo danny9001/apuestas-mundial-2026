@@ -1,41 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRedis } from '@/lib/redis';
 
-// --- Rate limiter in-memory (Edge-compatible) ---
+// --- Rate limiter: Redis when available, in-memory Map as fallback ---
 interface RateLimitEntry { count: number; resetAt: number }
-const store = new Map<string, RateLimitEntry>();
+const memStore = new Map<string, RateLimitEntry>();
 
-function rateLimit(key: string, limit: number, windowMs: number): boolean {
-  const now = Date.now();
-  const entry = store.get(key);
-  if (!entry || now > entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
+async function rateLimit(key: string, limit: number, windowMs: number): Promise<{ allowed: boolean; mode: 'redis' | 'memory' }> {
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const redisKey = `rl:${key}`;
+      const current = await redis.incr(redisKey);
+      if (current === 1) await redis.pexpire(redisKey, windowMs);
+      return { allowed: current <= limit, mode: 'redis' };
+    } catch {
+      // Fall through to memory
+    }
   }
-  if (entry.count >= limit) return false;
+
+  const now = Date.now();
+  const entry = memStore.get(key);
+  if (!entry || now > entry.resetAt) {
+    memStore.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, mode: 'memory' };
+  }
+  if (entry.count >= limit) return { allowed: false, mode: 'memory' };
   entry.count++;
-  return true;
+  return { allowed: true, mode: 'memory' };
 }
 
-// Cleanup stale keys every ~500 requests to avoid memory leak
+// Cleanup stale memory keys every ~500 requests
 let cleanupCounter = 0;
 function maybeCleanup() {
   if (++cleanupCounter < 500) return;
   cleanupCounter = 0;
   const now = Date.now();
-  for (const [key, entry] of store.entries()) {
-    if (now > entry.resetAt) store.delete(key);
+  for (const [key, entry] of memStore.entries()) {
+    if (now > entry.resetAt) memStore.delete(key);
   }
 }
 
 // --- Limits config (most specific patterns FIRST) ---
 const LIMITS: { pattern: RegExp; rps: number; windowMs: number }[] = [
-  { pattern: /^\/api\/auth\/register/,  rps: 3,  windowMs: 60_000 }, // 3 registros/min
-  { pattern: /^\/api\/auth\/webauthn/,  rps: 10, windowMs: 60_000 }, // 10 WebAuthn/min
-  { pattern: /^\/api\/auth/,            rps: 5,  windowMs: 60_000 }, // 5 logins/min
-  { pattern: /^\/api\/profile/,         rps: 5,  windowMs: 60_000 }, // 5 cambios perfil/min
-  { pattern: /^\/api\/admin/,           rps: 15, windowMs: 60_000 }, // 15 admin ops/min
-  { pattern: /^\/api\/sync/,            rps: 3,  windowMs: 60_000 }, // 3 syncs/min
-  { pattern: /^\/api\//,                rps: 30, windowMs: 60_000 }, // general API 30/min
+  { pattern: /^\/api\/auth\/register/,  rps: 3,  windowMs: 60_000 },
+  { pattern: /^\/api\/auth\/webauthn/,  rps: 10, windowMs: 60_000 },
+  { pattern: /^\/api\/auth/,            rps: 5,  windowMs: 60_000 },
+  { pattern: /^\/api\/profile/,         rps: 5,  windowMs: 60_000 },
+  { pattern: /^\/api\/admin/,           rps: 15, windowMs: 60_000 },
+  { pattern: /^\/api\/sync/,            rps: 3,  windowMs: 60_000 },
+  { pattern: /^\/api\//,                rps: 30, windowMs: 60_000 },
 ];
 
 function getLimit(pathname: string) {
@@ -43,36 +56,32 @@ function getLimit(pathname: string) {
 }
 
 // --- Security headers ---
-function applySecurityHeaders(res: NextResponse, nonce: string, isProd: boolean) {
+function applySecurityHeaders(res: NextResponse, nonce: string, isProd: boolean, rlMode?: string) {
   res.headers.set('X-Frame-Options', 'DENY');
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (rlMode) res.headers.set('X-RateLimit-Mode', rlMode);
 
-  // Nonce-based script-src: removes unsafe-inline in production.
-  // Modern browsers (CSP L2+) honour nonces and ignore unsafe-inline when both present,
-  // but we omit unsafe-inline entirely so the policy is unambiguous.
   const scriptSrc = isProd
     ? `script-src 'self' 'nonce-${nonce}' https://static.cloudflareinsights.com`
     : `script-src 'self' 'nonce-${nonce}' 'unsafe-eval' https://static.cloudflareinsights.com`;
 
+  const styleSrc = `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com`;
   res.headers.set(
     'Content-Security-Policy',
-    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' https://maps.google.com https://www.google.com; frame-ancestors 'none';`
+    `default-src 'self'; ${scriptSrc}; ${styleSrc}; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' https://maps.google.com https://www.google.com; frame-ancestors 'none';`
   );
   if (isProd) {
-    res.headers.set(
-      'Strict-Transport-Security',
-      'max-age=63072000; includeSubDomains; preload'
-    );
+    res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   }
 }
 
-export function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isProd = process.env.NODE_ENV === 'production';
+  let rlMode: string | undefined;
 
-  // Rate limiting for API routes
   if (pathname.startsWith('/api/')) {
     const ip =
       req.headers.get('x-real-ip') ||
@@ -81,18 +90,18 @@ export function proxy(req: NextRequest) {
 
     maybeCleanup();
     const { rps, windowMs } = getLimit(pathname);
-    const allowed = rateLimit(`${ip}:${pathname.split('/').slice(0, 3).join('/')}`, rps, windowMs);
+    const rlKey = `${ip}:${pathname.split('/').slice(0, 3).join('/')}`;
+    const { allowed, mode } = await rateLimit(rlKey, rps, windowMs);
+    rlMode = mode;
 
     if (!allowed) {
       return new NextResponse(JSON.stringify({ error: 'Demasiadas solicitudes. Intenta más tarde.' }), {
         status: 429,
-        headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+        headers: { 'Content-Type': 'application/json', 'Retry-After': '60', 'X-RateLimit-Mode': mode },
       });
     }
   }
 
-  // Generate a per-request nonce for CSP — forwarded to Server Components via request header
-  // so Next.js applies it to its own injected hydration scripts automatically.
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
 
   const res = NextResponse.next({
@@ -100,7 +109,7 @@ export function proxy(req: NextRequest) {
       headers: new Headers({ ...Object.fromEntries(req.headers), 'x-nonce': nonce }),
     },
   });
-  applySecurityHeaders(res, nonce, isProd);
+  applySecurityHeaders(res, nonce, isProd, rlMode);
   return res;
 }
 

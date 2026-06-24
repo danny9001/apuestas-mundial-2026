@@ -1,4 +1,5 @@
 import pool from './db';
+import { fetchWithRetry } from './http/fetchWithRetry';
 
 interface MailOptions {
   to: string | string[];
@@ -15,7 +16,7 @@ async function getGraphToken(): Promise<string | null> {
   const clientSecret = process.env.MAIL_GRAPH_CLIENT_SECRET;
   if (!tenantId || !clientId || !clientSecret) return null;
 
-  const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+  const res = await fetchWithRetry(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -109,7 +110,7 @@ async function sendMailDirect(opts: MailOptions): Promise<{ success: boolean; er
     emailAddress: { address: addr },
   }));
 
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `https://graph.microsoft.com/v1.0/users/${senderEmail}/sendMail`,
     {
       method: 'POST',

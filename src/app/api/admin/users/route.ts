@@ -398,16 +398,19 @@ export async function POST(req: NextRequest) {
 
       const bcrypt = await import('bcryptjs');
       const passwordHash = await bcrypt.hash(String(password).trim(), BCRYPT_ROUNDS);
-      const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(nombreSafe2)}`;
 
+      // Use user id as Dicebear seed (not email — PII) — insert first, then update avatar
       const res = await pool.query(
-        `INSERT INTO users (nombre, email, password_hash, tipo, avatar, activo, aprobado, telefono, notas)
-         VALUES ($1, $2, $3, $4, $5, true, true, $6, $7)
+        `INSERT INTO users (nombre, email, password_hash, tipo, activo, aprobado, telefono, notas)
+         VALUES ($1, $2, $3, $4, true, true, $5, $6)
          RETURNING id, nombre, email, tipo, avatar, activo, aprobado, telefono, created_at, notas`,
-        [nombreSafe2, emailNorm2, passwordHash, tipoNuevo, avatarUrl, telSafe, notasSafe]
+        [nombreSafe2, emailNorm2, passwordHash, tipoNuevo, telSafe, notasSafe]
       );
 
       const newUserId = res.rows[0].id;
+      const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${newUserId}`;
+      await pool.query('UPDATE users SET avatar = $1 WHERE id = $2', [avatarUrl, newUserId]);
+      res.rows[0].avatar = avatarUrl;
 
       const parsedMonto = pagoMonto ? parseFloat(pagoMonto) : 0;
       if (parsedMonto > 0) {

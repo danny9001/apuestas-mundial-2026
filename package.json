@@ -1,6 +1,6 @@
 {
   "name": "apuestas-mundial-2026",
-  "version": "1.1.98",
+  "version": "1.1.99",
   "browserslist": [
     "last 2 Chrome versions",
     "last 2 Firefox versions",
@@ -16,7 +16,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "seed:admin": "node scripts/seed-admin.js",
+    "migrate": "node scripts/migrate.js",
     "db:reset": "node -e \"if(process.env.NODE_ENV==='production'){console.error('db:reset blocked in production');process.exit(1)}\" && psql $DATABASE_URL -f reset.sql"
   },
   "dependencies": {
@@ -24,6 +28,7 @@
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.1",
     "bcryptjs": "^3.0.3",
+    "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.17.0",
     "next": "16.2.6",
@@ -42,10 +47,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
+    "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

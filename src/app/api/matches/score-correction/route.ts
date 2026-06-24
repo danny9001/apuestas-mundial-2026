@@ -104,6 +104,16 @@ export async function POST(req: NextRequest) {
       broadcastUpdate('leaderboard', { updated: true });
     }
 
+    // Record in score_change_log so applyConfirmedDowngrades knows an árbitro intervened
+    pool.query(
+      `INSERT INTO score_change_log (match_id, source, old_goles_local, old_goles_visitante, new_goles_local, new_goles_visitante, estado)
+       VALUES ($1,'ARBITRO',$2,$3,$4,$5,$6)`,
+      [matchId, prevLocal, prevVisitante, goles_local, goles_visitante, match.estado]
+    ).catch(() => {});
+
+    // Also cancel any pending auto-downgrade for this match since árbitro intervened
+    pool.query('DELETE FROM pending_downgrades WHERE match_id = $1 AND applied = FALSE', [matchId]).catch(() => {});
+
     // Audit log
     const changeDesc = isAnnulment
       ? `GOL ANULADO: ${annulledTeam}`

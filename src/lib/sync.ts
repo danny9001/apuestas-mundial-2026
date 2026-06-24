@@ -14,6 +14,14 @@ type PendingGoalNotif = {
   isFinished: boolean;
 };
 
+type DowngradeEntry = {
+  proposed_local: number;
+  proposed_visitante: number;
+  agreed: number;   // sources that proposed this exact lower score
+  total: number;    // total sources with live data for this match
+  conflicted: boolean; // two sources proposed different lower scores
+};
+
 async function notifSent(matchId: number, event: string): Promise<boolean> {
   const res = await pool.query(
     'SELECT 1 FROM match_notif_log WHERE match_id = $1 AND event = $2',
@@ -98,7 +106,7 @@ const stageMapping: Record<string, string> = {
   'FINAL': 'Final'
 };
 
-export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalNotif>): Promise<{
+export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalNotif>, pendingDowngrades?: Map<number, DowngradeEntry>): Promise<{
   updated: number;
   goals_detected: number;
   finished: number;
@@ -182,6 +190,22 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
       const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
       const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+
+      // Track downgrade consensus across sources for auto-correction
+      if (pendingDowngrades && estado === 'live') {
+        const ex = pendingDowngrades.get(localMatch.id);
+        if (isDowngrade) {
+          if (!ex) {
+            pendingDowngrades.set(localMatch.id, { proposed_local: golesLocal, proposed_visitante: golesVisitante, agreed: 1, total: 1, conflicted: false });
+          } else if (ex.proposed_local === golesLocal && ex.proposed_visitante === golesVisitante) {
+            pendingDowngrades.set(localMatch.id, { ...ex, agreed: ex.agreed + 1, total: ex.total + 1 });
+          } else {
+            pendingDowngrades.set(localMatch.id, { ...ex, total: ex.total + 1, conflicted: true });
+          }
+        } else {
+          pendingDowngrades.set(localMatch.id, { ...(ex ?? { proposed_local: 0, proposed_visitante: 0, agreed: 0, conflicted: false }), total: (ex?.total ?? 0) + 1 });
+        }
+      }
 
       if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
         continue;
@@ -367,7 +391,7 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
   };
 }
 
-export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, PendingGoalNotif>): Promise<{
+export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, PendingGoalNotif>, pendingDowngrades?: Map<number, DowngradeEntry>): Promise<{
   updated: number;
   goals_detected: number;
   finished: number;
@@ -430,6 +454,22 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
       const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
       const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+
+      // Track downgrade consensus across sources for auto-correction
+      if (pendingDowngrades && estado === 'live') {
+        const ex = pendingDowngrades.get(localMatch.id);
+        if (isDowngrade) {
+          if (!ex) {
+            pendingDowngrades.set(localMatch.id, { proposed_local: golesLocal, proposed_visitante: golesVisitante, agreed: 1, total: 1, conflicted: false });
+          } else if (ex.proposed_local === golesLocal && ex.proposed_visitante === golesVisitante) {
+            pendingDowngrades.set(localMatch.id, { ...ex, agreed: ex.agreed + 1, total: ex.total + 1 });
+          } else {
+            pendingDowngrades.set(localMatch.id, { ...ex, total: ex.total + 1, conflicted: true });
+          }
+        } else {
+          pendingDowngrades.set(localMatch.id, { ...(ex ?? { proposed_local: 0, proposed_visitante: 0, agreed: 0, conflicted: false }), total: (ex?.total ?? 0) + 1 });
+        }
+      }
 
       // Avoid downgrading finished/live to upcoming
       if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
@@ -596,7 +636,7 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
   };
 }
 
-export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, PendingGoalNotif>): Promise<{
+export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, PendingGoalNotif>, pendingDowngrades?: Map<number, DowngradeEntry>): Promise<{
   updated: number;
   goals_detected: number;
   finished: number;
@@ -679,6 +719,22 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
       const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
       const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+
+      // Track downgrade consensus across sources for auto-correction
+      if (pendingDowngrades && estado === 'live') {
+        const ex = pendingDowngrades.get(localMatch.id);
+        if (isDowngrade) {
+          if (!ex) {
+            pendingDowngrades.set(localMatch.id, { proposed_local: golesLocal, proposed_visitante: golesVisitante, agreed: 1, total: 1, conflicted: false });
+          } else if (ex.proposed_local === golesLocal && ex.proposed_visitante === golesVisitante) {
+            pendingDowngrades.set(localMatch.id, { ...ex, agreed: ex.agreed + 1, total: ex.total + 1 });
+          } else {
+            pendingDowngrades.set(localMatch.id, { ...ex, total: ex.total + 1, conflicted: true });
+          }
+        } else {
+          pendingDowngrades.set(localMatch.id, { ...(ex ?? { proposed_local: 0, proposed_visitante: 0, agreed: 0, conflicted: false }), total: (ex?.total ?? 0) + 1 });
+        }
+      }
 
       if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
         continue;
@@ -958,7 +1014,7 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
   };
 }
 
-export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGoalNotif>): Promise<{
+export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGoalNotif>, pendingDowngrades?: Map<number, DowngradeEntry>): Promise<{
   updated: number;
   goals_detected: number;
   finished: number;
@@ -1035,6 +1091,22 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
       const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
       const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+
+      // Track downgrade consensus across sources for auto-correction
+      if (pendingDowngrades && estado === 'live') {
+        const ex = pendingDowngrades.get(localMatch.id);
+        if (isDowngrade) {
+          if (!ex) {
+            pendingDowngrades.set(localMatch.id, { proposed_local: golesLocal, proposed_visitante: golesVisitante, agreed: 1, total: 1, conflicted: false });
+          } else if (ex.proposed_local === golesLocal && ex.proposed_visitante === golesVisitante) {
+            pendingDowngrades.set(localMatch.id, { ...ex, agreed: ex.agreed + 1, total: ex.total + 1 });
+          } else {
+            pendingDowngrades.set(localMatch.id, { ...ex, total: ex.total + 1, conflicted: true });
+          }
+        } else {
+          pendingDowngrades.set(localMatch.id, { ...(ex ?? { proposed_local: 0, proposed_visitante: 0, agreed: 0, conflicted: false }), total: (ex?.total ?? 0) + 1 });
+        }
+      }
 
       if (estado === 'upcoming' && (localMatch.estado === 'live' || localMatch.estado === 'finished')) {
         continue;
@@ -1198,6 +1270,104 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
   };
 }
 
+async function reconcileDowngrades(observed: Map<number, DowngradeEntry>): Promise<void> {
+  for (const [matchId, entry] of observed) {
+    const isFullConsensus = !entry.conflicted && entry.agreed > 0 && entry.agreed === entry.total && entry.total >= 2;
+    if (isFullConsensus) {
+      // All sources agree on the same lower score — record as pending
+      await pool.query(
+        `INSERT INTO pending_downgrades (match_id, proposed_local, proposed_visitante, sources_agreed, total_sources)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (match_id) DO UPDATE SET
+           proposed_local      = CASE WHEN pending_downgrades.proposed_local = EXCLUDED.proposed_local AND pending_downgrades.proposed_visitante = EXCLUDED.proposed_visitante THEN pending_downgrades.proposed_local ELSE EXCLUDED.proposed_local END,
+           proposed_visitante  = CASE WHEN pending_downgrades.proposed_local = EXCLUDED.proposed_local AND pending_downgrades.proposed_visitante = EXCLUDED.proposed_visitante THEN pending_downgrades.proposed_visitante ELSE EXCLUDED.proposed_visitante END,
+           sources_agreed      = EXCLUDED.sources_agreed,
+           total_sources       = EXCLUDED.total_sources,
+           created_at          = CASE WHEN pending_downgrades.proposed_local = EXCLUDED.proposed_local AND pending_downgrades.proposed_visitante = EXCLUDED.proposed_visitante THEN pending_downgrades.created_at ELSE CURRENT_TIMESTAMP END,
+           applied             = FALSE
+         WHERE pending_downgrades.applied = FALSE`,
+        [matchId, entry.proposed_local, entry.proposed_visitante, entry.agreed, entry.total]
+      ).catch(() => {});
+    } else if (entry.agreed < entry.total || entry.conflicted) {
+      // Sources disagree → cancel any pending downgrade
+      await pool.query(
+        'DELETE FROM pending_downgrades WHERE match_id = $1 AND applied = FALSE',
+        [matchId]
+      ).catch(() => {});
+    }
+  }
+}
+
+async function applyConfirmedDowngrades(): Promise<void> {
+  const pending = await pool.query(
+    `SELECT pd.*, m.local, m.visitante, m.goles_local, m.goles_visitante, m.estado, m.updated_at AS match_updated
+     FROM pending_downgrades pd
+     JOIN matches m ON m.id = pd.match_id
+     WHERE pd.applied = FALSE
+       AND pd.created_at <= NOW() - INTERVAL '2 minutes'
+       AND m.estado = 'live'`
+  ).catch(() => ({ rows: [] }));
+
+  for (const row of pending.rows) {
+    // Skip if current score is already at or below proposed (already fixed)
+    if ((row.goles_local ?? 0) <= row.proposed_local && (row.goles_visitante ?? 0) <= row.proposed_visitante) {
+      await pool.query('UPDATE pending_downgrades SET applied = TRUE WHERE id = $1', [row.id]).catch(() => {});
+      continue;
+    }
+
+    // Skip if an árbitro already corrected this match since the downgrade was first seen
+    const arbitroFix = await pool.query(
+      `SELECT 1 FROM score_change_log WHERE match_id = $1 AND source = 'ARBITRO' AND created_at > $2 LIMIT 1`,
+      [row.match_id, row.created_at]
+    ).catch(() => ({ rows: [] }));
+    if (arbitroFix.rows.length > 0) {
+      await pool.query('UPDATE pending_downgrades SET applied = TRUE WHERE id = $1', [row.id]).catch(() => {});
+      continue;
+    }
+
+    // Apply the automatic correction
+    const updateRes = await pool.query(
+      `UPDATE matches SET goles_local = $1, goles_visitante = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3 RETURNING *`,
+      [row.proposed_local, row.proposed_visitante, row.match_id]
+    ).catch(() => ({ rows: [] }));
+
+    if (!updateRes.rows.length) continue;
+    const updated = updateRes.rows[0];
+
+    await pool.query('UPDATE pending_downgrades SET applied = TRUE WHERE id = $1', [row.id]).catch(() => {});
+
+    broadcastUpdate('match', updated);
+    broadcastUpdate('goal', {
+      matchId: updated.id, local: updated.local, visitante: updated.visitante,
+      goles_local: updated.goles_local, goles_visitante: updated.goles_visitante,
+    });
+
+    const annulledTeam = row.proposed_local < (row.goles_local ?? 0) ? updated.local : updated.visitante;
+    const title = `🚫 Gol Anulado — ${annulledTeam}`;
+    const body = `${updated.local} ${updated.goles_local} - ${updated.goles_visitante} ${updated.visitante}`;
+
+    await pool.query(
+      `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
+       VALUES ($1,$2,'warn','all', NOW() + INTERVAL '3 hours')`,
+      [title, body]
+    ).catch(() => {});
+    broadcastUpdate('notification', { auto: true });
+    void sendPushToAllActive({ title, body, url: '/fixture' });
+
+    pool.query(
+      `INSERT INTO score_change_log (match_id, source, old_goles_local, old_goles_visitante, new_goles_local, new_goles_visitante, estado)
+       VALUES ($1,'AUTO',$2,$3,$4,$5,$6)`,
+      [row.match_id, row.goles_local ?? 0, row.goles_visitante ?? 0, row.proposed_local, row.proposed_visitante, updated.estado]
+    ).catch(() => {});
+
+    logSystem('warn', 'SYNC',
+      `[AUTO] Gol anulado aplicado: ${updated.local} vs ${updated.visitante}`,
+      `${row.goles_local ?? 0}-${row.goles_visitante ?? 0} → ${updated.goles_local}-${updated.goles_visitante} | Consenso: ${row.sources_agreed}/${row.total_sources} fuentes | 2min sin corrección de árbitro`
+    ).catch(() => {});
+  }
+}
+
 async function flushPendingNotifications(pending: Map<number, PendingGoalNotif>): Promise<void> {
   for (const [, notif] of pending) {
     if (notif.isFinished) {
@@ -1288,11 +1458,29 @@ export async function syncMatches(): Promise<{
     CREATE INDEX IF NOT EXISTS idx_scl_created_at ON score_change_log(created_at DESC);
   `).catch(() => {});
 
-  // Accumulator: collects goal/finished events; last source write wins per match
+  // Ensure pending_downgrades table exists
+  pool.query(`
+    CREATE TABLE IF NOT EXISTS pending_downgrades (
+      id SERIAL PRIMARY KEY,
+      match_id INTEGER REFERENCES matches(id) ON DELETE CASCADE UNIQUE,
+      proposed_local INTEGER NOT NULL,
+      proposed_visitante INTEGER NOT NULL,
+      sources_agreed INTEGER NOT NULL DEFAULT 0,
+      total_sources INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      applied BOOLEAN DEFAULT FALSE
+    )
+  `).catch(() => {});
+
+  // Apply confirmed downgrades older than 2 minutes (no árbitro correction needed)
+  await applyConfirmedDowngrades();
+
+  // Accumulators: goal notifs + downgrade consensus tracking
   const pendingGoalNotifs = new Map<number, PendingGoalNotif>();
+  const pendingDowngrades = new Map<number, DowngradeEntry>();
 
   // Run all sources sequentially to avoid race conditions and database contentions
-  const sources: Array<{ name: string; fn: (m: Map<number, PendingGoalNotif>) => Promise<{ updated: number; goals_detected: number; finished: number; errors: string[] }> }> = [
+  const sources: Array<{ name: string; fn: (m: Map<number, PendingGoalNotif>, d: Map<number, DowngradeEntry>) => Promise<{ updated: number; goals_detected: number; finished: number; errors: string[] }> }> = [
     { name: 'ESPN', fn: syncESPNScoreboard },
     { name: '365Scores', fn: sync365Scores },
     { name: 'FixtureDownload', fn: syncFixtureDownload }
@@ -1305,7 +1493,7 @@ export async function syncMatches(): Promise<{
 
   for (const source of sources) {
     try {
-      const val = await source.fn(pendingGoalNotifs);
+      const val = await source.fn(pendingGoalNotifs, pendingDowngrades);
       updatedCount += val.updated;
       goalsDetected += val.goals_detected;
       finishedCount += val.finished;
@@ -1316,6 +1504,9 @@ export async function syncMatches(): Promise<{
       errors.push(`[${source.name}] Sync failed: ${err?.message || err}`);
     }
   }
+
+  // Record or dismiss downgrade consensus results
+  await reconcileDowngrades(pendingDowngrades);
 
   // Fire ONE push notification per match using the final confirmed score
   await flushPendingNotifications(pendingGoalNotifs);

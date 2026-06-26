@@ -8,6 +8,7 @@ import {
   Building2, Bell, BellOff, Mail, Moon, Sun, LogOut, Download, X,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
+import AnnouncementPopup from '@/components/AnnouncementPopup';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -214,6 +215,9 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
 
       {/* ── RIGHT CONTENT AREA ── */}
       <div className="flex-1 flex flex-col justify-between min-h-screen relative">
+
+        {/* Announcement popup — novedades y funcionalidades nuevas */}
+        <AnnouncementPopup user={user} />
 
         {/* Full-Screen Goal Alert */}
         {goalAlert && (

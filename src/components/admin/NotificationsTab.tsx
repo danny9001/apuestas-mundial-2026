@@ -33,6 +33,7 @@ export default function NotificationsTab({
   );
   const [notifTargetId, setNotifTargetId] = useState<number | null>(null);
   const [notifExpiresAt, setNotifExpiresAt] = useState('');
+  const [notifShowAsPopup, setNotifShowAsPopup] = useState(false);
   const [notifSubmitting, setNotifSubmitting] = useState(false);
   const [editingNotif, setEditingNotif] = useState<any | null>(null);
 
@@ -109,6 +110,7 @@ export default function NotificationsTab({
         target_type: notifTargetType,
         target_id: notifTargetId,
         expires_at: notifExpiresAt || null,
+        show_as_popup: notifShowAsPopup,
       };
       const res = await fetch('/api/notifications', {
         method,
@@ -116,9 +118,9 @@ export default function NotificationsTab({
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        showToast(editingNotif ? '🔔 Notificación actualizada' : '🔔 Notificación enviada');
+        showToast(editingNotif ? '🔔 Notificación actualizada' : notifShowAsPopup ? '📣 Popup publicado' : '🔔 Notificación enviada');
         setNotifTitulo(''); setNotifContenido(''); setNotifTargetType(user?.tipo === 'superadmin' ? 'all' : 'company');
-        setNotifTargetId(null); setNotifExpiresAt(''); setEditingNotif(null);
+        setNotifTargetId(null); setNotifExpiresAt(''); setNotifShowAsPopup(false); setEditingNotif(null);
         fetchAdminNotifications();
       } else {
         const d = await res.json(); showToast(d.error || 'Error');
@@ -135,6 +137,7 @@ export default function NotificationsTab({
     setNotifTargetType(n.target_type);
     setNotifTargetId(n.target_id);
     setNotifExpiresAt(n.expires_at ? new Date(n.expires_at).toISOString().slice(0, 16) : '');
+    setNotifShowAsPopup(!!n.show_as_popup);
   };
 
   const handleCancelEditNotification = () => {
@@ -224,6 +227,19 @@ export default function NotificationsTab({
           <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Expira (opcional)</label>
           <input type="datetime-local" value={notifExpiresAt} onChange={e => setNotifExpiresAt(e.target.value)} className="input-stitch px-3 py-2 text-xs" />
         </div>
+        {/* Popup toggle */}
+        <label className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border transition ${notifShowAsPopup ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-neutral-900/40 border-neutral-800 hover:border-neutral-700'}`}>
+          <input type="checkbox" checked={notifShowAsPopup} onChange={e => setNotifShowAsPopup(e.target.checked)}
+            className="mt-0.5 accent-yellow-500 w-3.5 h-3.5 flex-shrink-0" />
+          <div>
+            <div className={`text-[11px] font-black uppercase tracking-wider ${notifShowAsPopup ? 'text-yellow-400' : 'text-neutral-300'}`}>
+              📣 Mostrar como Popup al ingresar
+            </div>
+            <div className="text-[9px] text-neutral-500 mt-0.5">
+              Aparece como modal al entrar a la app. Una vez visto, no se muestra de nuevo. Ideal para anunciar novedades o funcionalidades nuevas.
+            </div>
+          </div>
+        </label>
         <div className="flex justify-end pt-2 gap-2">
           {editingNotif && (
             <button type="button" onClick={handleCancelEditNotification} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold px-4 py-2 rounded-lg transition active:scale-95">
@@ -285,6 +301,9 @@ export default function NotificationsTab({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${cls}`}>{n.tipo}</span>
                     <span className="text-[9px] bg-neutral-850 text-neutral-400 border border-neutral-800 px-1.5 py-0.5 rounded-full font-bold">Destino: {n.target_type} {n.target_id ? `(ID: ${n.target_id})` : ''}</span>
+                    {n.show_as_popup && (
+                      <span className="text-[9px] bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 px-1.5 py-0.5 rounded-full font-bold">📣 Popup</span>
+                    )}
                   </div>
                   <div className="font-bold text-neutral-200">{n.titulo}</div>
                   <div className="text-neutral-500 leading-relaxed text-[11px] whitespace-pre-wrap">{n.contenido}</div>

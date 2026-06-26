@@ -50,9 +50,11 @@ export async function GET(req: NextRequest) {
       return response;
     }
 
+    const popupOnly = searchParams.get('popup') === 'true';
+
     const res = await pool.query(
       `SELECT n.id, n.titulo, n.contenido, n.tipo, n.target_type, n.target_id,
-              n.expires_at, n.created_at,
+              n.expires_at, n.created_at, n.show_as_popup,
               (nr.user_id IS NOT NULL) AS leido
        FROM notifications n
        LEFT JOIN notification_reads nr ON nr.notification_id = n.id AND nr.user_id = $1
@@ -67,7 +69,8 @@ export async function GET(req: NextRequest) {
              SELECT 1 FROM user_companies uc WHERE uc.user_id = $1 AND uc.company_id = n.target_id
            ))
          )
-       ORDER BY n.created_at DESC
+         ${popupOnly ? 'AND n.show_as_popup = TRUE AND nr.user_id IS NULL' : ''}
+       ORDER BY n.created_at ASC
        LIMIT 50`,
       [user.id]
     );
@@ -90,7 +93,7 @@ export async function POST(req: NextRequest) {
 
 
     const body = await req.json();
-    const { titulo, contenido, tipo, target_type, target_id, expires_at } = body;
+    const { titulo, contenido, tipo, target_type, target_id, expires_at, show_as_popup } = body;
 
     if (!titulo?.trim() || !contenido?.trim()) {
       return NextResponse.json({ error: 'Título y contenido son requeridos' }, { status: 400 });
@@ -112,15 +115,14 @@ export async function POST(req: NextRequest) {
       }
 
       if (resolvedTargetType !== 'company' || !resolvedTargetId || !userCompanyIds.includes(Number(resolvedTargetId))) {
-        // Automatically default to the admin's first company if they try to send to all, or send to an unauthorized target
         resolvedTargetType = 'company';
         resolvedTargetId = userCompanyIds[0];
       }
     }
 
     const res = await pool.query(
-      `INSERT INTO notifications (titulo, contenido, tipo, target_type, target_id, created_by, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO notifications (titulo, contenido, tipo, target_type, target_id, created_by, expires_at, show_as_popup)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         titulo.trim(),
@@ -130,6 +132,7 @@ export async function POST(req: NextRequest) {
         resolvedTargetId,
         user.id,
         expires_at || null,
+        !!show_as_popup,
       ]
     );
 
@@ -159,7 +162,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, titulo, contenido, tipo, target_type, target_id, expires_at } = body;
+    const { id, titulo, contenido, tipo, target_type, target_id, expires_at, show_as_popup } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
@@ -169,12 +172,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Título y contenido son requeridos' }, { status: 400 });
     }
 
-    // Admins can only edit notifications they created, superadmins can edit anything
-    let query = `UPDATE notifications SET titulo = $1, contenido = $2, tipo = $3, target_type = $4, target_id = $5, expires_at = $6 WHERE id = $7`;
-    let params = [titulo.trim(), contenido.trim(), tipo || 'info', target_type || 'all', target_id || null, expires_at || null, id];
+    let query = `UPDATE notifications SET titulo = $1, contenido = $2, tipo = $3, target_type = $4, target_id = $5, expires_at = $6, show_as_popup = $7 WHERE id = $8`;
+    let params: any[] = [titulo.trim(), contenido.trim(), tipo || 'info', target_type || 'all', target_id || null, expires_at || null, !!show_as_popup, id];
 
     if (user.tipo !== 'superadmin') {
-      query += ` AND created_by = $8`;
+      query += ` AND created_by = $9`;
       params.push(user.id);
     }
 

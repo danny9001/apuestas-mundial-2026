@@ -168,6 +168,19 @@ export default function FixturePage() {
             </button>
           ))}
         </div>
+        {subTab === 'posiciones' && (
+          <div className="flex justify-center mt-2 animate-fade-in">
+            <button
+              onClick={() => {
+                const el = document.getElementById('mejor-tercer-lugar');
+                el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+              className="w-full sm:w-auto bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 hover:text-yellow-400 border border-yellow-500/30 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition duration-300 flex items-center justify-center gap-1.5"
+            >
+              <span>🥉 Ver Mejor Tercer Lugar</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Partidos */}
@@ -221,7 +234,7 @@ export default function FixturePage() {
           <div className="space-y-4">
 
             {/* ── Mejor Tercer Lugar (arriba) ── */}
-            <div className="bg-neutral-900/40 border border-neutral-850 rounded-xl overflow-hidden">
+            <div id="mejor-tercer-lugar" className="bg-neutral-900/40 border border-neutral-850 rounded-xl overflow-hidden">
               <div className="px-4 py-3 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="font-black text-[13px] text-neutral-100 tracking-wide">Mejor Tercer Lugar</div>

@@ -255,12 +255,12 @@ export default function ChatWidget() {
 
       {/* Chat Modal / Overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-neutral-950/80 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-0 sm:p-4 md:p-6 bg-neutral-950/80 backdrop-blur-md animate-fade-in">
           {/* Backdrop click to close */}
           <div className="absolute inset-0" onClick={() => setIsOpen(false)} />
 
           {/* Chat Container */}
-          <div className="relative w-full h-dvh sm:h-[80vh] sm:max-h-[700px] sm:max-w-4xl bg-neutral-900 border border-neutral-800 sm:rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col z-10">
+          <div className="relative w-full h-full sm:h-[80vh] sm:max-h-[700px] sm:max-w-4xl bg-neutral-900 border border-neutral-800 sm:rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col z-10">
             
             {/* Header */}
             <div className="bg-neutral-950 border-b border-neutral-800 px-6 py-4 flex items-center justify-between">

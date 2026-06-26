@@ -42,13 +42,21 @@ function maybeCleanup() {
 
 // --- Limits config (most specific patterns FIRST) ---
 const LIMITS: { pattern: RegExp; rps: number; windowMs: number }[] = [
-  { pattern: /^\/api\/auth\/register/,  rps: 3,  windowMs: 60_000 },
-  { pattern: /^\/api\/auth\/webauthn/,  rps: 10, windowMs: 60_000 },
-  { pattern: /^\/api\/auth/,            rps: 5,  windowMs: 60_000 },
-  { pattern: /^\/api\/profile/,         rps: 5,  windowMs: 60_000 },
-  { pattern: /^\/api\/admin/,           rps: 15, windowMs: 60_000 },
-  { pattern: /^\/api\/sync/,            rps: 3,  windowMs: 60_000 },
-  { pattern: /^\/api\//,                rps: 30, windowMs: 60_000 },
+  { pattern: /^\/api\/auth\/register/,  rps: 3,   windowMs: 60_000 },
+  { pattern: /^\/api\/auth\/webauthn/,  rps: 10,  windowMs: 60_000 },
+  // GET /api/auth is called on every page load for session check.
+  // POST /api/auth (login) has its own internal limiter inside the route handler.
+  { pattern: /^\/api\/auth/,            rps: 60,  windowMs: 60_000 },
+  { pattern: /^\/api\/profile/,         rps: 20,  windowMs: 60_000 },
+  { pattern: /^\/api\/admin/,           rps: 30,  windowMs: 60_000 },
+  { pattern: /^\/api\/sync/,            rps: 3,   windowMs: 60_000 },
+  // SSE endpoint: long-lived connection, not request-based — skip rate limit
+  { pattern: /^\/api\/realtime/,        rps: 10,  windowMs: 60_000 },
+  // Presence ping: called every 30s per active user
+  { pattern: /^\/api\/presence/,        rps: 60,  windowMs: 60_000 },
+  // Online users poll: called every 30s
+  { pattern: /^\/api\/online-users/,    rps: 60,  windowMs: 60_000 },
+  { pattern: /^\/api\//,                rps: 60,  windowMs: 60_000 },
 ];
 
 function getLimit(pathname: string) {

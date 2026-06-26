@@ -1,8 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { getTeamFlag } from '@/lib/constants';
 import { useApp } from '@/contexts/AppContext';
+
+const REACTIONS = ['⚽', '🔥', '😱', '😂', '😢', '😡', '👏', '💔'];
+
+function isChatOpen(m: any): boolean {
+  if (m.estado === 'live') return true;
+  if (m.estado === 'finished' && m.updated_at) {
+    return Date.now() - new Date(m.updated_at).getTime() < 30 * 60 * 1000;
+  }
+  return false;
+}
 
 interface MatchCardProps {
   match: any;
@@ -13,8 +23,35 @@ interface MatchCardProps {
 }
 
 export default function MatchCard({ match: m, prediction: myPred, compact = true, onBet, onClick }: MatchCardProps) {
-  const { predictionCloseMinutes } = useApp();
+  const { predictionCloseMinutes, user } = useApp();
   const isClosed = m.estado !== 'upcoming' || new Date().getTime() >= new Date(m.fecha).getTime() - predictionCloseMinutes * 60 * 1000;
+  const chatActive = isChatOpen(m);
+
+  const [reactions, setReactions] = useState<Record<string, number>>({});
+  const [myReaction, setMyReaction] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!chatActive) return;
+    fetch(`/api/matches/${m.id}/reactions?t=${Date.now()}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) { setReactions(data.counts || {}); setMyReaction(data.myReaction || null); } })
+      .catch(() => {});
+  }, [m.id, chatActive]);
+
+  const handleReaction = async (e: React.MouseEvent, emoji: string) => {
+    e.stopPropagation();
+    if (!user) return;
+    const res = await fetch(`/api/matches/${m.id}/reactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reaction: emoji }),
+    }).catch(() => null);
+    if (res?.ok) {
+      const data = await res.json();
+      setReactions(data.counts || {});
+      setMyReaction(data.myReaction || null);
+    }
+  };
 
   if (compact) {
     return (
@@ -125,6 +162,27 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
           {m.estado !== 'upcoming' && <span className={`font-black font-mono text-neutral-100 ${m.estado === 'live' ? 'text-xl text-red-500' : 'text-base'}`}>{m.goles_visitante}</span>}
         </div>
       </div>
+
+      {/* Reactions row — live or 30 min after finish */}
+      {chatActive && (
+        <div className="flex flex-wrap gap-1 border-t border-neutral-800/30 pt-2 -mx-1 px-1" onClick={e => e.stopPropagation()}>
+          {REACTIONS.map(emoji => {
+            const count = reactions[emoji] || 0;
+            const isMe = myReaction === emoji;
+            if (!count && !user) return null;
+            return (
+              <button key={emoji} onClick={e => handleReaction(e, emoji)}
+                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg text-xs border transition active:scale-95 ${
+                  isMe ? 'bg-yellow-500/15 border-yellow-500/40 text-yellow-400' : count > 0 ? 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-yellow-500/30' : 'bg-neutral-950/50 border-neutral-900 text-neutral-600 hover:border-neutral-800'
+                } ${!user ? 'cursor-default' : ''}`}
+                disabled={!user}>
+                <span className="text-[13px]">{emoji}</span>
+                {count > 0 && <span className="text-[9px] font-mono">{count}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex justify-between items-center border-t border-neutral-800/40 pt-3 text-xs" onClick={e => e.stopPropagation()}>
         {myPred ? (

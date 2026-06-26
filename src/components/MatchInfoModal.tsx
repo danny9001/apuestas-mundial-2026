@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
-import { X, MapPin, Sparkles, Newspaper, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, MapPin, Sparkles, Newspaper, Calendar, MessageCircle, Send, Flag } from 'lucide-react';
 import { getTeamFlag } from '@/lib/constants';
 import { useApp } from '@/contexts/AppContext';
+
+const REACTIONS = ['⚽', '🔥', '😱', '😂', '😢', '😡', '👏', '💔'];
 
 interface MatchInfoModalProps {
   match: any;
@@ -108,8 +110,106 @@ const STADIUM_MAPPING: Record<string, string> = {
   'Tarija': 'Estadio IV Centenario, Tarija'
 };
 
+function isChatOpen(match: any): boolean {
+  if (match.estado === 'live') return true;
+  if (match.estado === 'finished' && match.updated_at) {
+    return Date.now() - new Date(match.updated_at).getTime() < 30 * 60 * 1000;
+  }
+  return false;
+}
+
 export default function MatchInfoModal({ match, prediction, onBet, onClose }: MatchInfoModalProps) {
-  const { predictionCloseMinutes } = useApp();
+  const { predictionCloseMinutes, user } = useApp();
+  const chatOpen = isChatOpen(match);
+  const isArbitro = user && (user.tipo === 'admin' || user.tipo === 'superadmin' || (user as any).is_moderador === true);
+
+  const [messages, setMessages] = useState<any[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [reactions, setReactions] = useState<Record<string, number>>({});
+  const [myReaction, setMyReaction] = useState<string | null>(null);
+  const [chatTab, setChatTab] = useState<'chat' | 'info'>(chatOpen ? 'chat' : 'info');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+  const fetchChat = async () => {
+    try {
+      const res = await fetch(`/api/matches/${match.id}/chat?t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages || []);
+      }
+    } catch {}
+  };
+
+  const fetchReactions = async () => {
+    try {
+      const res = await fetch(`/api/matches/${match.id}/reactions?t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setReactions(data.counts || {});
+        setMyReaction(data.myReaction || null);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!chatOpen) return;
+    setChatLoading(true);
+    Promise.all([fetchChat(), fetchReactions()]).finally(() => setChatLoading(false));
+    const interval = setInterval(() => { fetchChat(); fetchReactions(); }, 5000);
+    return () => clearInterval(interval);
+  }, [match.id, chatOpen]);
+
+  useEffect(() => {
+    if (chatTab === 'chat') scrollToBottom();
+  }, [messages, chatTab]);
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || sending) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/matches/${match.id}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: newMessage.trim() }),
+      });
+      if (res.ok) {
+        const msg = await res.json();
+        setMessages(prev => [...prev, msg]);
+        setNewMessage('');
+        setTimeout(scrollToBottom, 50);
+      }
+    } catch {}
+    setSending(false);
+  };
+
+  const handleReaction = async (emoji: string) => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/matches/${match.id}/reactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reaction: emoji }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReactions(data.counts || {});
+        setMyReaction(data.myReaction || null);
+      }
+    } catch {}
+  };
+
+  const handleDeleteMessage = async (msgId: number) => {
+    try {
+      const res = await fetch(`/api/matches/${match.id}/chat/${msgId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, deleted_at: new Date().toISOString(), message: null } : m));
+      }
+    } catch {}
+  };
   const localTrivia = TEAM_TRIVIA[match.local] || {
     trivia: `${match.local} busca hacer historia en esta edición de la Copa del Mundo y consolidarse como una potencia de su confederación.`,
     news: `La delegación de ${match.local} se muestra concentrada y enfocada en los entrenamientos diarios.`
@@ -175,6 +275,104 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
           </div>
         </div>
 
+        {/* Chat / Info tabs — solo para partidos en vivo o hasta 30 min después */}
+        {chatOpen && (
+          <div className="space-y-3">
+            {/* Tab selector */}
+            <div className="flex bg-neutral-900/50 rounded-xl p-1 border border-neutral-850">
+              <button onClick={() => setChatTab('chat')}
+                className={`flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition flex items-center justify-center gap-1.5 ${chatTab === 'chat' ? 'bg-neutral-800 text-neutral-100 shadow' : 'text-neutral-500 hover:text-neutral-300'}`}>
+                <MessageCircle className="w-3.5 h-3.5" />
+                Chat en Vivo
+                {messages.length > 0 && <span className="bg-yellow-500 text-neutral-950 text-[9px] font-black px-1.5 py-0.5 rounded-full">{messages.length}</span>}
+              </button>
+              <button onClick={() => setChatTab('info')}
+                className={`flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition ${chatTab === 'info' ? 'bg-neutral-800 text-neutral-100 shadow' : 'text-neutral-500 hover:text-neutral-300'}`}>
+                Info del Partido
+              </button>
+            </div>
+
+            {/* Reacciones */}
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {REACTIONS.map(emoji => {
+                const count = reactions[emoji] || 0;
+                const isMe = myReaction === emoji;
+                return (
+                  <button key={emoji} onClick={() => handleReaction(emoji)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-sm font-bold border transition active:scale-95 ${
+                      isMe ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400' : 'bg-neutral-900 border-neutral-800 text-neutral-300 hover:border-yellow-500/30 hover:bg-neutral-800'
+                    } ${!user ? 'cursor-default opacity-60' : ''}`}
+                    disabled={!user}>
+                    <span>{emoji}</span>
+                    {count > 0 && <span className="text-[10px] font-mono text-neutral-400">{count}</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Chat messages */}
+            {chatTab === 'chat' && (
+              <div className="bg-neutral-950/60 border border-neutral-850 rounded-xl overflow-hidden">
+                <div className="flex flex-col h-64 overflow-y-auto p-3 space-y-2 scroll-smooth">
+                  {chatLoading && messages.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-neutral-500 text-xs">Cargando mensajes...</div>
+                  ) : messages.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-neutral-600 text-xs gap-2">
+                      <MessageCircle className="w-8 h-8 opacity-30" />
+                      <span>Sé el primero en comentar este partido</span>
+                    </div>
+                  ) : (
+                    messages.map(msg => (
+                      <div key={msg.id} className="flex gap-2 group">
+                        <img src={msg.avatar && msg.avatar !== 'null' ? msg.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp'}
+                          onError={e => { e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }}
+                          className="w-7 h-7 rounded-full border border-neutral-800 object-cover flex-shrink-0 mt-0.5 bg-neutral-900" alt="" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-black text-neutral-300">{msg.nombre}</span>
+                            <span className="text-[9px] text-neutral-600 font-mono">{new Date(msg.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                            {isArbitro && !msg.deleted_at && (
+                              <button onClick={() => handleDeleteMessage(msg.id)}
+                                className="opacity-0 group-hover:opacity-100 text-red-500/70 hover:text-red-400 transition ml-auto flex-shrink-0"
+                                title="Eliminar mensaje (árbitro)">
+                                <Flag className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                          {msg.deleted_at ? (
+                            <p className="text-[11px] text-neutral-600 italic">Mensaje eliminado por árbitro 🚩</p>
+                          ) : (
+                            <p className="text-[12px] text-neutral-200 break-words leading-relaxed">{msg.message}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+                {user && user.aprobado ? (
+                  <div className="border-t border-neutral-850 p-2 flex gap-2">
+                    <input
+                      type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                      placeholder="Escribe un mensaje..." maxLength={300}
+                      className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-100 placeholder-neutral-600 focus:border-yellow-500/50 focus:outline-none"
+                    />
+                    <button onClick={handleSend} disabled={sending || !newMessage.trim()}
+                      className="bg-yellow-500 hover:bg-yellow-400 text-neutral-950 px-3 py-2 rounded-lg transition disabled:opacity-40 flex-shrink-0">
+                      <Send className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-t border-neutral-850 px-3 py-2 text-[10px] text-neutral-600 text-center">
+                    {!user ? 'Inicia sesión para chatear' : 'Tu cuenta está pendiente de aprobación'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Quick Bet / Prediction Info */}
         {(() => {
           const isClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - predictionCloseMinutes * 60 * 1000;
@@ -215,6 +413,9 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
           }
           return null;
         })()}
+
+        {/* Info sections — ocultas cuando el tab chat está activo */}
+        {(!chatOpen || chatTab === 'info') && <>
 
         {/* Live Match Statistics */}
         {(match.estado === 'live' || match.estado === 'finished' || (match.stats && Object.keys(match.stats).length > 0)) && (() => {
@@ -533,6 +734,8 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
             </div>
           </div>
         </div>
+
+        </> /* end info sections */}
 
         <div className="flex justify-end pt-2 border-t border-neutral-800/50">
           <button

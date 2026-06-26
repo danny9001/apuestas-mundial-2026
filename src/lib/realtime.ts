@@ -8,7 +8,7 @@ if (!global._realtimeEmitter) {
 
 export const realtimeEmitter = global._realtimeEmitter;
 
-export function broadcastUpdate(type: 'match' | 'leaderboard' | 'goal' | 'notification' | 'settings', data: any) {
+export function broadcastUpdate(type: 'match' | 'leaderboard' | 'goal' | 'notification' | 'settings' | 'chat' | 'reaction', data: any) {
   realtimeEmitter.emit('update', {
     type,
     data,

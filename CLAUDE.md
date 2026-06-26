@@ -16,7 +16,7 @@ pnpm lint         # ESLint check
 npx tsc --noEmit  # TypeScript type check without building
 ```
 
-Build for container (used by Podman/nginx-lb cluster):
+Build for production (PM2 cluster):
 ```bash
 NEXT_BUILD_STANDALONE=1 pnpm build
 ```
@@ -110,4 +110,4 @@ All user inputs go through `src/lib/validation.ts` before DB writes. Never skip 
 When a user or company is created/modified, call `syncUserToIdentity()` / `syncCompanyAssignment()` from `src/lib/identity-sync.ts`. These are fire-and-forget (never throw); failures are logged only.
 
 ### Deployment
-Production runs as a **Podman** cluster: `nginx-lb → app_1 / app_2 → postgres`. No PM2. Rebuild with `podman build --no-cache`. SSH access on port **5001** or **5011** (port 22 is closed).
+Production runs as a **PM2 bare-metal cluster** (4 processes, port 3002) behind nginx (443 → 3002). Deploy: `NEXT_BUILD_STANDALONE=1 pnpm build && pm2 reload elitepass-mundial --update-env`. SSH access on port **5001** or **5011** (port 22 is closed).

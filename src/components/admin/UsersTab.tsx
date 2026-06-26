@@ -164,6 +164,20 @@ export default function UsersTab({
     } catch { showToast('Error de red'); }
   };
 
+  const handleToggleModerador = async (userId: number) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggleModerador', userId }),
+      });
+      if (!res.ok) { const d = await res.json(); showToast(d.error || 'Error'); return; }
+      const d = await res.json();
+      setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, is_moderador: d.is_moderador } : u));
+      showToast(d.is_moderador ? '🟨 Juez de Línea asignado' : '🟨 Rol de Juez removido');
+    } catch { showToast('Error de red'); }
+  };
+
   const handleToggleUserCompany = async (userId: number, companyId: number, currentlyMember: boolean) => {
     try {
       const res = await fetch('/api/admin/users', {
@@ -540,6 +554,13 @@ export default function UsersTab({
                       title={u.arbitro_marcador ? 'Quitar rol de Árbitro del Marcador' : 'Asignar como Árbitro del Marcador'}
                       className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.arbitro_marcador ? 'bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-400 border border-yellow-500/30' : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-500 border border-neutral-700'}`}>
                       ⚖️ {u.arbitro_marcador ? 'Árbitro' : 'Árbitro?'}
+                    </button>
+                  )}
+                  {u.aprobado && (
+                    <button onClick={() => handleToggleModerador(u.id)}
+                      title={u.is_moderador ? 'Quitar rol de Juez de Línea (chat)' : 'Asignar como Juez de Línea (moderador chat)'}
+                      className={`font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition text-[11px] ${u.is_moderador ? 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/30' : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-500 border border-neutral-700'}`}>
+                      🟨 {u.is_moderador ? 'Juez Línea' : 'Juez?'}
                     </button>
                   )}
                   {user.tipo === 'superadmin' && (

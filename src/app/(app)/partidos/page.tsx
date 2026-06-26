@@ -68,34 +68,81 @@ function StatusBadge({ match }: { match: any }) {
   return <span className="text-[9px] font-black uppercase tracking-wide text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">Próximo</span>;
 }
 
-function MatchRow({ match, onInfo, onBet, pred, showTime = true }: { match: any; onInfo: () => void; onBet: () => void; pred?: any; showTime?: boolean }) {
-  const upcoming = match.estado === 'upcoming';
+function MatchRow({ match, onInfo, onBet, pred }: { match: any; onInfo: () => void; onBet: () => void; pred?: any }) {
+  const { predictionCloseMinutes } = useApp();
+  const isClosed = match.estado !== 'upcoming' || new Date().getTime() >= new Date(match.fecha).getTime() - predictionCloseMinutes * 60 * 1000;
+  const isLive = match.estado === 'live';
+
   return (
-    <div className="flex items-center gap-2 bg-neutral-900/30 border border-neutral-850 rounded-xl px-3 py-2 hover:border-neutral-700 transition">
-      {showTime && (
-        <span className="flex-shrink-0 w-10 text-[10px] font-mono text-neutral-500 text-center">{fmtTime(match.fecha)}</span>
-      )}
-      <div className="flex-1 min-w-0 cursor-pointer" onClick={onInfo}>
-        <div className="flex items-center gap-1.5 text-[11px]">
-          <span className="flex-shrink-0 text-sm">{getTeamFlag(match.local)}</span>
-          <span className={`font-bold flex-1 truncate ${!upcoming ? 'text-neutral-200' : 'text-neutral-300'}`}>{match.local}</span>
-          {!upcoming && <span className="font-black text-neutral-100 font-mono text-[12px] flex-shrink-0">{match.goles_local}</span>}
+    <div
+      onClick={onInfo}
+      className={`bg-neutral-900 border ${isLive ? 'border-red-500 bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.12)]' : 'border-neutral-800 hover:border-neutral-600'} rounded-xl px-4 py-2 flex flex-col justify-between transition cursor-pointer relative`}
+    >
+      {/* Top Header Row */}
+      <div className="flex items-center justify-between w-full border-b border-neutral-800/40 pb-1.5 mb-1.5 text-[9px] font-semibold text-neutral-400">
+        <div className="flex items-center gap-1.5 min-w-0 truncate">
+          <span className={`text-[8px] font-extrabold uppercase px-1 py-0.2 rounded font-mono flex-shrink-0 ${isLive ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' : 'bg-neutral-800 text-neutral-350'}`}>
+            {isLive ? 'VIVO' : match.grupo ? `G${match.grupo}` : match.fase.substring(0, 2).toUpperCase()}
+          </span>
+          <span className="truncate">{match.fase}</span>
+          <span className="text-neutral-500 font-mono flex-shrink-0">•</span>
+          <span className="text-neutral-500 font-mono flex-shrink-0">
+            {match.estado === 'upcoming'
+              ? new Date(match.fecha).toLocaleDateString('es-ES', { timeZone: 'America/La_Paz', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+              : isLive
+                ? (match.stats?.time ? `⏱️ ${match.stats.time}` : 'Jugándose')
+                : 'Finalizado'}
+          </span>
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] mt-0.5">
-          <span className="flex-shrink-0 text-sm">{getTeamFlag(match.visitante)}</span>
-          <span className={`font-bold flex-1 truncate ${!upcoming ? 'text-neutral-200' : 'text-neutral-300'}`}>{match.visitante}</span>
-          {!upcoming && <span className="font-black text-neutral-100 font-mono text-[12px] flex-shrink-0">{match.goles_visitante}</span>}
-        </div>
-      </div>
-      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        <StatusBadge match={match} />
-        {pred && <span className="text-[9px] text-yellow-500/80 font-mono">{pred.pred_local}-{pred.pred_visitante}</span>}
-        {upcoming && (
-          <button onClick={onBet} className="text-[9px] font-black text-yellow-400 hover:text-yellow-300 bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded-full transition">
-            Apostar
-          </button>
+        {isLive && (
+          <span className="text-red-500 font-black flex items-center gap-0.5 animate-pulse text-[8px]">
+            <span className="h-1 w-1 rounded-full bg-red-500 live-dot"></span> EN VIVO
+          </span>
         )}
-        {match.estadio && <span className="text-[9px] text-neutral-600 font-mono truncate max-w-[60px]" title={match.estadio}>{match.estadio}</span>}
+      </div>
+
+      {/* Bottom Body Row */}
+      <div className="flex items-center justify-between w-full gap-3">
+        <div className="flex items-center justify-center gap-1.5 flex-grow min-w-0 text-xs font-bold text-neutral-100">
+          <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+            <span className="uppercase text-[9px] sm:text-[10px] font-black text-neutral-100 text-right leading-none truncate">{match.local}</span>
+            <span className="text-base select-none flex-shrink-0">{getTeamFlag(match.local)}</span>
+          </div>
+          <div className="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded font-mono text-[10px] sm:text-[11px] font-black text-center min-w-[36px] sm:min-w-[42px] flex-shrink-0 text-neutral-100">
+            {match.estado !== 'upcoming' ? `${match.goles_local}-${match.goles_visitante}` : 'VS'}
+          </div>
+          <div className="flex items-center gap-1 min-w-0 flex-1 justify-start">
+            <span className="text-base select-none flex-shrink-0">{getTeamFlag(match.visitante)}</span>
+            <span className="uppercase text-[9px] sm:text-[10px] font-black text-neutral-100 text-left leading-none truncate">{match.visitante}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 text-right flex-shrink-0" onClick={e => e.stopPropagation()}>
+          {pred ? (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex flex-col items-end flex-shrink-0">
+                <span className="text-[8px] text-neutral-500 font-semibold leading-none mb-0.5">Mi apuesta</span>
+                <span className="font-extrabold text-neutral-100 text-xs font-mono leading-none">{pred.pred_local} - {pred.pred_visitante}</span>
+              </div>
+              {!isClosed && (
+                <button onClick={onBet} className="text-[9px] font-black text-yellow-500 hover:text-yellow-400 uppercase tracking-wider ml-1">
+                  Editar
+                </button>
+              )}
+            </div>
+          ) : isClosed ? (
+            <span className="text-[9px] text-neutral-500 font-medium italic">Sin apuesta</span>
+          ) : (
+            <button onClick={onBet} className="btn-primary-stitch px-2.5 py-1 text-[9px] tracking-wider uppercase flex-shrink-0">
+              Apostar
+            </button>
+          )}
+          {isClosed && pred && pred.puntos !== null && pred.puntos !== undefined && (
+            <span className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-1 py-0.5 rounded text-[8px] font-black font-mono flex-shrink-0">
+              +{pred.puntos}P
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -182,6 +229,18 @@ export default function PartidosPage() {
       } catch {}
     })();
   }, [lastMatchUpdate]);
+
+  useEffect(() => {
+    if (subTab === 'fixture' && !loading) {
+      // Allow DOM to render, then scroll to today's section
+      setTimeout(() => {
+        const element = document.getElementById('fixture-today-section');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [subTab, loading]);
 
   const handleSavePrediction = async (matchId: number, predLocal: number, predVisitante: number, userId: number) => {
     const res = await fetch('/api/predictions', {
@@ -323,15 +382,15 @@ export default function PartidosPage() {
             const gm = todayMatches.filter(m => m.grupo === grp);
             const hasLive = gm.some(m => m.estado === 'live');
             return (
-              <div key={grp} className="space-y-2">
+              <div key={grp} className="space-y-3">
                 <div className="flex items-center gap-2 border-b border-neutral-850 pb-1.5">
                   <span className="text-yellow-500 font-black text-[10px] bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded uppercase font-mono">Grupo {grp}</span>
                   <span className="text-neutral-500 text-[9px] uppercase font-black tracking-wider">({gm.length})</span>
                   {hasLive && <span className="text-red-400 text-[9px] font-black animate-pulse flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> En vivo</span>}
                 </div>
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                   {gm.map(m => (
-                    <MatchRow key={m.id} match={m} pred={pred(m.id)} showTime
+                    <MatchRow key={m.id} match={m} pred={pred(m.id)}
                       onInfo={() => setInfoModalMatch(m)} onBet={() => setBetModalMatch(m)} />
                   ))}
                 </div>
@@ -341,14 +400,14 @@ export default function PartidosPage() {
 
           {/* Fases knockout */}
           {todayKnockout.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center gap-2 border-b border-neutral-850 pb-1.5">
                 <span className="text-yellow-500 font-black text-[10px] bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded uppercase font-mono">Eliminatoria</span>
                 <span className="text-neutral-500 text-[9px] uppercase font-black tracking-wider">({todayKnockout.length})</span>
               </div>
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {todayKnockout.map(m => (
-                  <MatchRow key={m.id} match={m} pred={pred(m.id)} showTime
+                  <MatchRow key={m.id} match={m} pred={pred(m.id)}
                     onInfo={() => setInfoModalMatch(m)} onBet={() => setBetModalMatch(m)} />
                 ))}
               </div>
@@ -361,7 +420,7 @@ export default function PartidosPage() {
           TAB 2 · FIXTURE
       ═══════════════════════════════════════════════════════════ */}
       {subTab === 'fixture' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {filterTeam && (
             <div className="flex items-center justify-between bg-yellow-500/10 border border-yellow-500/20 px-4 py-2.5 rounded-xl">
               <span className="text-xs text-neutral-300 font-bold">Partidos de: <span className="text-yellow-400 font-black">{filterTeam}</span></span>
@@ -374,16 +433,22 @@ export default function PartidosPage() {
             <div className="py-16 text-center text-neutral-500 text-sm">Sin partidos.</div>
           ) : fixtureByDate.map(g => {
             const hasLive = g.matches.some((m: any) => m.estado === 'live');
+            const isTodayDate = g.dateStr.includes('(HOY)');
             return (
-              <div key={g.dateStr} className="space-y-2">
+              <div
+                key={g.dateStr}
+                id={isTodayDate ? 'fixture-today-section' : undefined}
+                className={`space-y-3 p-1 rounded-xl transition ${isTodayDate ? 'bg-yellow-500/5 border border-yellow-500/10 p-3' : ''}`}
+              >
                 <div className="flex items-center gap-2 border-b border-neutral-850 pb-1.5">
-                  <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">{g.dateStr}</span>
+                  <span className={`font-extrabold text-[10px] font-mono border px-2.5 py-1 rounded-lg uppercase tracking-wider ${isTodayDate ? 'text-yellow-400 bg-yellow-500/15 border-yellow-500/30' : 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20'}`}>{g.dateStr}</span>
                   <span className="text-neutral-500 text-[9px] uppercase font-black tracking-wider">({g.matches.length})</span>
                   {hasLive && <span className="text-red-400 text-[9px] font-black animate-pulse flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> En vivo</span>}
+                  {isTodayDate && <span className="text-yellow-500 text-[9px] font-black tracking-widest uppercase">★ JORNADA EN CURSO</span>}
                 </div>
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                   {g.matches.map((m: any) => (
-                    <MatchRow key={m.id} match={m} pred={pred(m.id)} showTime
+                    <MatchRow key={m.id} match={m} pred={pred(m.id)}
                       onInfo={() => setInfoModalMatch(m)} onBet={() => setBetModalMatch(m)} />
                   ))}
                 </div>

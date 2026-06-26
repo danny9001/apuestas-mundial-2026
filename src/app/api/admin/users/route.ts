@@ -309,8 +309,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'toggleModerador') {
-      if (user.tipo !== 'admin' && user.tipo !== 'superadmin') {
-        return NextResponse.json({ error: 'Solo administradores pueden asignar jueces de línea' }, { status: 403 });
+      if (user.tipo !== 'superadmin') {
+        return NextResponse.json({ error: 'Solo superadmin puede asignar jueces de línea' }, { status: 403 });
       }
       const { userId: targetUserId } = body;
       if (!targetUserId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });

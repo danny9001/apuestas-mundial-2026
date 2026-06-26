@@ -121,6 +121,7 @@ function isChatOpen(match: any): boolean {
 export default function MatchInfoModal({ match, prediction, onBet, onClose }: MatchInfoModalProps) {
   const { predictionCloseMinutes, user } = useApp();
   const chatOpen = isChatOpen(match);
+  const showChatSection = match.estado === 'live' || match.estado === 'finished';
   const isArbitro = user && (user.tipo === 'admin' || user.tipo === 'superadmin' || (user as any).is_moderador === true);
 
   const [messages, setMessages] = useState<any[]>([]);
@@ -129,7 +130,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
   const [sending, setSending] = useState(false);
   const [reactions, setReactions] = useState<Record<string, number>>({});
   const [myReaction, setMyReaction] = useState<string | null>(null);
-  const [chatTab, setChatTab] = useState<'chat' | 'info'>(chatOpen ? 'chat' : 'info');
+  const [chatTab, setChatTab] = useState<'chat' | 'info'>(showChatSection ? 'chat' : 'info');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -156,12 +157,14 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
   };
 
   useEffect(() => {
-    if (!chatOpen) return;
+    if (!showChatSection) return;
     setChatLoading(true);
     Promise.all([fetchChat(), fetchReactions()]).finally(() => setChatLoading(false));
+    // Auto-refresh solo cuando el chat está abierto (partido en vivo o 30 min post)
+    if (!chatOpen) return;
     const interval = setInterval(() => { fetchChat(); fetchReactions(); }, 5000);
     return () => clearInterval(interval);
-  }, [match.id, chatOpen]);
+  }, [match.id, showChatSection, chatOpen]);
 
   useEffect(() => {
     if (chatTab === 'chat') scrollToBottom();
@@ -275,8 +278,8 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
           </div>
         </div>
 
-        {/* Chat / Info tabs — solo para partidos en vivo o hasta 30 min después */}
-        {chatOpen && (
+        {/* Chat / Info tabs — live y finalizado (lectura siempre; escritura solo cuando chatOpen) */}
+        {showChatSection && (
           <div className="space-y-3">
             {/* Tab selector */}
             <div className="flex bg-neutral-900/50 rounded-xl p-1 border border-neutral-850">
@@ -350,7 +353,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                   )}
                   <div ref={messagesEndRef} />
                 </div>
-                {user && user.aprobado ? (
+                {chatOpen && user && user.aprobado ? (
                   <div className="border-t border-neutral-850 p-2 flex gap-2">
                     <input
                       type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)}
@@ -365,7 +368,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                   </div>
                 ) : (
                   <div className="border-t border-neutral-850 px-3 py-2 text-[10px] text-neutral-600 text-center">
-                    {!user ? 'Inicia sesión para chatear' : 'Tu cuenta está pendiente de aprobación'}
+                    {!chatOpen ? '🔒 Chat cerrado — solo lectura del historial' : !user ? 'Inicia sesión para chatear' : 'Tu cuenta está pendiente de aprobación'}
                   </div>
                 )}
               </div>
@@ -415,7 +418,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
         })()}
 
         {/* Info sections — ocultas cuando el tab chat está activo */}
-        {(!chatOpen || chatTab === 'info') && <>
+        {(!showChatSection || chatTab === 'info') && <>
 
         {/* Live Match Statistics */}
         {(match.estado === 'live' || match.estado === 'finished' || (match.stats && Object.keys(match.stats).length > 0)) && (() => {

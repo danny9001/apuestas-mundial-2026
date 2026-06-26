@@ -26,7 +26,7 @@ export default function ChatWidget() {
   // Fetch online users
   const fetchOnlineUsers = async () => {
     try {
-      const res = await fetch('/api/online-users');
+      const res = await fetch(`/api/online-users?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setOnlineUsers(data);
@@ -39,7 +39,7 @@ export default function ChatWidget() {
   // Fetch initial/recent messages
   const fetchInitialMessages = async () => {
     try {
-      const res = await fetch('/api/chat');
+      const res = await fetch(`/api/chat?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
@@ -53,7 +53,7 @@ export default function ChatWidget() {
   // Fetch new messages since the last one
   const fetchNewMessages = async (sinceTime: string) => {
     try {
-      const res = await fetch(`/api/chat?since=${encodeURIComponent(sinceTime)}`);
+      const res = await fetch(`/api/chat?since=${encodeURIComponent(sinceTime)}&t=${Date.now()}`);
       if (res.ok) {
         const newMsgs: any[] = await res.json();
         if (newMsgs.length > 0) {

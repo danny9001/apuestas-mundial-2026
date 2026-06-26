@@ -135,7 +135,9 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
       onClick={() => onClick?.(m)}
     >
       <div className="flex justify-between items-center border-b border-neutral-800/40 pb-3 text-[11px] font-bold tracking-wider text-neutral-400" onClick={e => e.stopPropagation()}>
-        <span className="font-extrabold">{m.fase.toUpperCase()} - GRP {m.grupo}</span>
+        <span className="font-extrabold">
+          {m.grupo ? `GRP ${m.grupo}` : m.fase.replace('Fase de Grupos', 'Grupos').toUpperCase()}
+        </span>
         {m.estado === 'live' && (
           <span className="text-red-500 font-black flex items-center gap-1 text-[10px] animate-pulse">
             <span className="h-1.5 w-1.5 rounded-full bg-red-500 live-dot"></span>

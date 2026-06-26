@@ -157,6 +157,29 @@ export async function POST(req: NextRequest) {
       const { broadcastUpdate } = await import('@/lib/realtime');
       broadcastUpdate('notification', res.rows[0]);
 
+      // Copy notification into global chat as a system message
+      try {
+        let chatMessage = contenido ? `📣 **${titulo}**\n${contenido}` : `📣 **${titulo}**`;
+        if (chatMessage.length > 500) {
+          chatMessage = chatMessage.substring(0, 497) + '...';
+        }
+        const chatRes = await pool.query(
+          `INSERT INTO global_messages (user_id, message, is_system, target_type, target_id)
+           VALUES (NULL, $1, TRUE, 'all', NULL) RETURNING *`,
+          [chatMessage]
+        );
+        const inserted = chatRes.rows[0];
+        const chatMsg = {
+          ...inserted,
+          user_nombre: 'Sistema',
+          user_avatar: '',
+          user_tipo: 'system',
+        };
+        broadcastUpdate('chat', chatMsg);
+      } catch (err) {
+        console.error('[unbet publish_public] Failed to publish message to global_messages:', err);
+      }
+
       // Push notification to all active users
       const { sendPushToAllActive } = await import('@/lib/push');
       await sendPushToAllActive({

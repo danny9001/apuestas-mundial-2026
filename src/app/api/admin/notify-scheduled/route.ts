@@ -13,6 +13,30 @@ async function insertNotification(titulo: string, contenido: string, tipo: strin
     [titulo, contenido, tipo, targetType, targetId]
   );
   broadcastUpdate('notification', res.rows[0]);
+
+  // Copy notification into global chat as a system message
+  try {
+    let chatMessage = contenido ? `📣 **${titulo}**\n${contenido}` : `📣 **${titulo}**`;
+    if (chatMessage.length > 500) {
+      chatMessage = chatMessage.substring(0, 497) + '...';
+    }
+    const chatRes = await pool.query(
+      `INSERT INTO global_messages (user_id, message, is_system, target_type, target_id)
+       VALUES (NULL, $1, TRUE, $2, $3) RETURNING *`,
+      [chatMessage, targetType, targetId]
+    );
+    const inserted = chatRes.rows[0];
+    const chatMsg = {
+      ...inserted,
+      user_nombre: 'Sistema',
+      user_avatar: '',
+      user_tipo: 'system',
+    };
+    broadcastUpdate('chat', chatMsg);
+  } catch (err) {
+    console.error('[insertNotification] Failed to publish message to global_messages:', err);
+  }
+
   return res.rows[0];
 }
 

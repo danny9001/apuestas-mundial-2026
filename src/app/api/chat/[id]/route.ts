@@ -9,8 +9,8 @@ export async function DELETE(
 ) {
   try {
     const user = await getSessionUser();
-    if (!user || user.tipo !== 'superadmin') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    if (!user || !user.aprobado) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
     const params = await props.params;
@@ -19,16 +19,24 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
     }
 
-    const res = await pool.query(
-      `UPDATE global_messages
-       SET deleted_at = NOW(), deleted_by_id = $1
-       WHERE id = $2 AND deleted_at IS NULL
-       RETURNING *`,
-      [user.id, id]
-    );
+    let query = `
+      UPDATE global_messages
+      SET deleted_at = NOW(), deleted_by_id = $1
+      WHERE id = $2 AND deleted_at IS NULL
+    `;
+    const dbParams = [user.id, id];
+
+    if (user.tipo !== 'superadmin') {
+      // Non-superadmins can only delete their own messages
+      query += ` AND user_id = $3`;
+      dbParams.push(user.id);
+    }
+
+    query += ` RETURNING *`;
+    const res = await pool.query(query, dbParams);
 
     if (res.rows.length === 0) {
-      return NextResponse.json({ error: 'Mensaje no encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Mensaje no encontrado o no tienes permisos' }, { status: 404 });
     }
 
     broadcastUpdate('chat', { id, deleted: true });
@@ -36,6 +44,70 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error deleting chat message:', error);
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+  }
+}
+
+export async function PUT(
+  req: NextRequest,
+  props: { params: any }
+) {
+  try {
+    const user = await getSessionUser();
+    if (!user || !user.aprobado) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const params = await props.params;
+    const id = parseInt(params.id, 10);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const { message } = body;
+
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return NextResponse.json({ error: 'El mensaje es requerido' }, { status: 400 });
+    }
+
+    const trimmed = message.trim();
+    if (trimmed.length > 500) {
+      return NextResponse.json({ error: 'El mensaje no puede exceder los 500 caracteres' }, { status: 400 });
+    }
+
+    let query = `
+      UPDATE global_messages
+      SET message = $1
+      WHERE id = $2 AND deleted_at IS NULL
+    `;
+    const dbParams = [trimmed, id];
+
+    if (user.tipo !== 'superadmin') {
+      // Non-superadmins can only edit their own messages
+      query += ` AND user_id = $3`;
+      dbParams.push(user.id);
+    }
+
+    query += ` RETURNING *`;
+    const res = await pool.query(query, dbParams);
+
+    if (res.rows.length === 0) {
+      return NextResponse.json({ error: 'Mensaje no encontrado o no tienes permisos' }, { status: 404 });
+    }
+
+    const updated = res.rows[0];
+
+    // Broadcast the update so other clients update the message in their UI
+    broadcastUpdate('chat', {
+      id: updated.id,
+      message: updated.message,
+      updated: true
+    });
+
+    return NextResponse.json({ success: true, message: updated });
+  } catch (error: any) {
+    console.error('Error updating chat message:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

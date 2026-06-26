@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import { MessageSquare, Send, X, Users, Trash2, Megaphone } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MessageSquare, Send, X, Users, Trash2, Megaphone, Pencil } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 
 export default function ChatWidget() {
@@ -12,6 +12,8 @@ export default function ChatWidget() {
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
   const [showUsersList, setShowUsersList] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
@@ -134,6 +136,10 @@ export default function ChatWidget() {
           const chatData = payload.data;
           if (chatData.deleted) {
             setMessages((prev) => prev.filter((m) => m.id !== chatData.id));
+          } else if (chatData.updated) {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === chatData.id ? { ...m, message: chatData.message } : m))
+            );
           } else {
             setMessages((prev) => {
               if (prev.some((m) => m.id === chatData.id)) return prev;
@@ -185,9 +191,35 @@ export default function ChatWidget() {
     }
   };
 
-  // Delete message (superadmin only)
+  // Update message
+  const handleUpdateMessage = async (msgId: number) => {
+    if (!editingText.trim()) return;
+
+    try {
+      const res = await fetch(`/api/chat/${msgId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: editingText.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === msgId ? { ...m, message: data.message.message } : m))
+          );
+          setEditingId(null);
+        }
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Error al actualizar el mensaje');
+      }
+    } catch (err) {
+      console.error('Error updating message:', err);
+    }
+  };
+
+  // Delete message
   const handleDeleteMessage = async (msgId: number) => {
-    if (!isSuperadmin) return;
     if (!confirm('¿Estás seguro de eliminar este mensaje?')) return;
 
     try {
@@ -228,7 +260,7 @@ export default function ChatWidget() {
           <div className="absolute inset-0" onClick={() => setIsOpen(false)} />
 
           {/* Chat Container */}
-          <div className="relative w-full h-full sm:h-[80vh] sm:max-h-[700px] sm:max-w-4xl bg-neutral-900 border border-neutral-800 sm:rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col z-10">
+          <div className="relative w-full h-dvh sm:h-[80vh] sm:max-h-[700px] sm:max-w-4xl bg-neutral-900 border border-neutral-800 sm:rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col z-10">
             
             {/* Header */}
             <div className="bg-neutral-950 border-b border-neutral-800 px-6 py-4 flex items-center justify-between">
@@ -354,23 +386,70 @@ export default function ChatWidget() {
                                   : 'bg-neutral-850 text-neutral-200 border border-neutral-800 rounded-tl-none'
                               }`}
                             >
-                              {msg.message}
-                              <div
-                                className={`text-[8px] mt-1.5 text-right font-mono ${
-                                  isOwn ? 'text-neutral-200' : 'text-neutral-500'
-                                }`}
-                              >
-                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </div>
+                              {editingId === msg.id ? (
+                                <div className="flex flex-col gap-2 min-w-[200px] text-neutral-950">
+                                  <textarea
+                                    value={editingText}
+                                    onChange={(e) => setEditingText(e.target.value)}
+                                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-neutral-200 focus:outline-none focus:border-yellow-500 resize-none font-semibold"
+                                    rows={2}
+                                    maxLength={500}
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingId(null)}
+                                      className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-750 border border-neutral-750 rounded-lg text-[10px] font-bold text-neutral-400 transition"
+                                    >
+                                      Cancelar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateMessage(msg.id)}
+                                      disabled={!editingText.trim()}
+                                      className="px-2.5 py-1 bg-yellow-500 hover:bg-yellow-600 rounded-lg text-[10px] font-bold text-neutral-950 transition disabled:opacity-50"
+                                    >
+                                      Guardar
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  {msg.message}
+                                  <div
+                                    className={`text-[8px] mt-1.5 text-right font-mono ${
+                                      isOwn ? 'text-neutral-200' : 'text-neutral-500'
+                                    }`}
+                                  >
+                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </>
+                              )}
                             </div>
-                            {isSuperadmin && (
-                              <button
-                                onClick={() => handleDeleteMessage(msg.id)}
-                                className="opacity-0 group-hover:opacity-100 p-1.5 bg-neutral-850 hover:bg-red-500/20 border border-neutral-800 hover:border-red-500/30 text-neutral-500 hover:text-red-400 rounded-lg transition"
-                                title="Eliminar mensaje"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                            
+                            {/* Action Buttons (Edit/Delete) */}
+                            {editingId !== msg.id && (isOwn || isSuperadmin) && (
+                              <div className="flex flex-col gap-1.5">
+                                {isOwn && (
+                                  <button
+                                    onClick={() => {
+                                      setEditingId(msg.id);
+                                      setEditingText(msg.message);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 p-1.5 bg-neutral-850 hover:bg-yellow-500/20 border border-neutral-800 hover:border-yellow-500/30 text-neutral-500 hover:text-yellow-500 rounded-lg transition"
+                                    title="Editar mensaje"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteMessage(msg.id)}
+                                  className="opacity-0 group-hover:opacity-100 p-1.5 bg-neutral-850 hover:bg-red-500/20 border border-neutral-800 hover:border-red-500/30 text-neutral-500 hover:text-red-400 rounded-lg transition"
+                                  title="Eliminar mensaje"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -432,7 +511,7 @@ export default function ChatWidget() {
             </div>
 
             {/* Input Form */}
-            <form onSubmit={handleSendMessage} className="bg-neutral-950 border-t border-neutral-800 p-4 flex gap-3">
+            <form onSubmit={handleSendMessage} className="bg-neutral-950 border-t border-neutral-800 p-4 pb-safe flex gap-3">
               <input
                 type="text"
                 value={inputText}

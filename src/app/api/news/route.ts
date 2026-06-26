@@ -12,10 +12,14 @@ export async function GET(req: NextRequest) {
     // Verify integration with Give Voice to Football API
     let apiConnectionStatus = "Offline / Backup Mode";
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
       const gvtfRes = await fetch('https://givevoicetofootball.github.io/api/', {
         next: { revalidate: 3600 },
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (gvtfRes.ok) {
         apiConnectionStatus = "Conexión Exitosa con Give Voice to Football";
       }

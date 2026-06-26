@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   devIndicators: false,
   compress: true,
   output: process.env.NEXT_BUILD_STANDALONE === '1' ? 'standalone' : undefined,
@@ -15,3 +16,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+

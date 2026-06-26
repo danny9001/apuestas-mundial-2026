@@ -138,7 +138,6 @@ export async function POST(req: NextRequest) {
       }
 
       if (results.length > 0) {
-        await pool.query('SELECT recalculate_leaderboard()');
         logSystem('info', 'PRONOSTICO', `${user.nombre} guardó ${results.length} pronóstico(s) en lote`).catch(() => {});
       }
 
@@ -231,7 +230,6 @@ export async function POST(req: NextRequest) {
       } else {
         logSystem('info', 'PRONOSTICO', `${user.nombre} editó pronóstico`, `${match.local} vs ${match.visitante}: ${oldPred.pred_local}-${oldPred.pred_visitante} → ${scoreLocal}-${scoreVisitante}`).catch(() => {});
       }
-      await pool.query('SELECT recalculate_leaderboard()');
       return NextResponse.json({ success: true, prediction: upd.rows[0], corrected: true });
     }
 
@@ -253,7 +251,6 @@ export async function POST(req: NextRequest) {
     } else {
       logSystem('info', 'PRONOSTICO', `${user.nombre} registró pronóstico`, `${match.local} vs ${match.visitante}: ${scoreLocal}-${scoreVisitante}`).catch(() => {});
     }
-    await pool.query('SELECT recalculate_leaderboard()');
 
     return NextResponse.json({ success: true, prediction: res.rows[0] });
   } catch (error: any) {

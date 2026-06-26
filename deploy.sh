@@ -1,8 +1,12 @@
 #!/bin/bash
 set -e
 
-echo "▶ Building..."
-pnpm build
+echo "▶ Building in temporary directory to avoid downtime..."
+NEXT_DIST_DIR=.next_temp pnpm build
+
+echo "▶ Swapping build directories atomically..."
+rm -rf .next
+mv .next_temp .next
 
 echo "▶ Restarting PM2..."
 pm2 reload elitepass-mundial --update-env

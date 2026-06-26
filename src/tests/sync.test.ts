@@ -16,6 +16,7 @@ describe('sync route authorization', () => {
       NextRequest: class {},
       NextResponse: { json: vi.fn((b, i) => ({ body: b, status: i?.status ?? 200 })) },
     }));
+    process.env.SYNC_SECRET = secret;
     const { createRequest } = await import('../tests/helpers/createRequest');
     const req = createRequest({ method: 'GET' });
     const { GET } = await import('@/app/api/sync/route');

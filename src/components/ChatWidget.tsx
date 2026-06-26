@@ -7,6 +7,7 @@ import { useApp } from '@/contexts/AppContext';
 export default function ChatWidget() {
   const { user } = useApp();
   const [isOpen, setIsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [messages, setMessages] = useState<any[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
@@ -19,6 +20,19 @@ export default function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const presencePollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch initial messages on mount to bootstrap chat state
+  useEffect(() => {
+    if (!user || !user.aprobado) return;
+    fetchInitialMessages();
+  }, [user]);
+
+  // Reset unread count when chat is opened
+  useEffect(() => {
+    if (isOpen) {
+      setUnreadCount(0);
+    }
+  }, [isOpen]);
   const isSuperadmin = user?.tipo === 'superadmin';
   const isModerator =
     user?.tipo === 'superadmin' ||
@@ -152,6 +166,8 @@ export default function ChatWidget() {
             });
             if (isOpen) {
               setTimeout(scrollToBottom, 50);
+            } else {
+              setUnreadCount((prev) => prev + 1);
             }
           }
         }
@@ -297,6 +313,16 @@ export default function ChatWidget() {
 
   return (
     <>
+      {unreadCount > 0 && !isOpen && (
+        <div className="fixed bottom-24 right-20 md:bottom-6 md:right-24 z-40 flex items-center pointer-events-none animate-pulse">
+          <div className="bg-yellow-500 text-neutral-950 text-[10px] font-black px-3 py-1.5 rounded-2xl shadow-[0_8px_24px_rgba(234,179,8,0.3)] border border-yellow-400 flex flex-col items-center">
+            <span>Tienes mensajes pendientes</span>
+            <span className="text-[8px] font-bold opacity-80 mt-0.5">¡Mandá un mensaje!</span>
+          </div>
+          <div className="w-2 h-2 bg-yellow-500 rotate-45 -ml-1 border-t border-r border-yellow-400"></div>
+        </div>
+      )}
+
       {/* Floating Action Button */}
       <button
         onClick={() => setIsOpen(true)}

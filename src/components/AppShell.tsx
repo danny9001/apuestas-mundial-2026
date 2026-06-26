@@ -102,7 +102,6 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
   const navLinks = [
     { href: '/dashboard', label: 'Inicio', icon: <Home className="w-4 h-4" /> },
     { href: '/partidos', label: 'Partidos', icon: <Calendar className="w-4 h-4" /> },
-    { href: '/fixture', label: 'Fixture', icon: <Trophy className="w-4 h-4" /> },
     { href: '/reglas', label: 'Reglas', icon: <BookOpen className="w-4 h-4" /> },
     { href: '/ranking', label: 'Ranking', icon: <BarChart3 className="w-4 h-4" /> },
     { href: '/perfil', label: 'Mi Perfil', icon: <User className="w-4 h-4" /> },
@@ -419,7 +418,6 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
           {[
             { href: '/dashboard', icon: <Home className="w-5 h-5" />, label: 'Inicio' },
             { href: '/partidos', icon: <Calendar className="w-5 h-5" />, label: 'Partidos' },
-            { href: '/fixture', icon: <Trophy className="w-5 h-5" />, label: 'Fixture' },
             { href: '/reglas', icon: <BookOpen className="w-5 h-5" />, label: 'Reglas' },
             { href: '/ranking', icon: <BarChart3 className="w-5 h-5" />, label: 'Ranking' },
             { href: '/perfil', icon: <User className="w-5 h-5" />, label: 'Mi Perfil' },

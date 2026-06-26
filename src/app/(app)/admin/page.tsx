@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  ShieldAlert, Building2, RefreshCw, Users, MessageSquare, Coins, Download, X, Timer, BarChart3
+  ShieldAlert, Building2, RefreshCw, Users, MessageSquare, Coins, Download, X, Timer, BarChart3, Database
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 
@@ -14,19 +14,19 @@ import PaymentsTab from '@/components/admin/PaymentsTab';
 import LogsTab from '@/components/admin/LogsTab';
 import PwaTab from '@/components/admin/PwaTab';
 import StatsTab from '@/components/admin/StatsTab';
+import BackupsTab from '@/components/admin/BackupsTab';
 
 export default function AdminPage() {
   const { user, showToast, appName, appLogo, setAppName, setAppLogo, predictionCloseMinutes, setPredictionCloseMinutes } = useApp();
 
   // Sub-tab selector state
-  const [adminSubTab, setAdminSubTab] = useState<'usuarios' | 'empresa' | 'mensajes' | 'pagos' | 'logs' | 'pwa' | 'stats'>('usuarios');
+  const [adminSubTab, setAdminSubTab] = useState<'usuarios' | 'empresa' | 'mensajes' | 'pagos' | 'logs' | 'pwa' | 'stats' | 'backups'>('usuarios');
 
   // Shared Data States
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
-  const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
   const [syncStatus, setSyncStatus] = useState<any>(null);
 
   // Mail notification config modal states (maintained in page.tsx as it is triggered from header)
@@ -73,20 +73,12 @@ export default function AdminPage() {
     } catch {}
   };
 
-  const fetchAdminNotifications = async () => {
-    try {
-      const res = await fetch(`/api/notifications?admin=true&t=${Date.now()}`);
-      if (res.ok) setAdminNotifications(await res.json());
-    } catch {}
-  };
-
   // Initial load
   useEffect(() => {
     if (!user) return;
     fetchAdminUsers();
     fetchCompanies();
     fetchMatches();
-    fetchAdminNotifications();
     if (user.tipo === 'superadmin') {
       fetchSyncStatus();
       fetchGroups();
@@ -180,6 +172,7 @@ export default function AdminPage() {
               ...(user.tipo === 'superadmin' ? [
                 { key: 'stats', label: 'Estadísticas', icon: <BarChart3 className="w-3.5 h-3.5" /> },
                 { key: 'logs', label: 'Logs 📋', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+                { key: 'backups', label: 'Backups 💾', icon: <Database className="w-3.5 h-3.5" /> },
               ] : []),
             ] as const).map(t => (
               <button
@@ -207,6 +200,7 @@ export default function AdminPage() {
               ...(user.tipo === 'superadmin' ? [
                 { key: 'stats', label: 'Estadísticas', icon: <BarChart3 className="w-3.5 h-3.5" /> },
                 { key: 'logs', label: 'Logs 📋', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+                { key: 'backups', label: 'Backups 💾', icon: <Database className="w-3.5 h-3.5" /> },
               ] : []),
             ] as const).map(t => (
               <button
@@ -289,8 +283,6 @@ export default function AdminPage() {
                 groups={groups}
                 adminUsers={adminUsers}
                 showToast={showToast}
-                adminNotifications={adminNotifications}
-                fetchAdminNotifications={fetchAdminNotifications}
               />
             )}
 
@@ -308,6 +300,13 @@ export default function AdminPage() {
 
             {adminSubTab === 'logs' && user.tipo === 'superadmin' && (
               <LogsTab
+                user={user}
+                showToast={showToast}
+              />
+            )}
+
+            {adminSubTab === 'backups' && user.tipo === 'superadmin' && (
+              <BackupsTab
                 user={user}
                 showToast={showToast}
               />

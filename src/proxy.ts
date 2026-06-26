@@ -56,6 +56,7 @@ const LIMITS: { pattern: RegExp; rps: number; windowMs: number }[] = [
   { pattern: /^\/api\/presence/,        rps: 60,  windowMs: 60_000 },
   // Online users poll: called every 30s
   { pattern: /^\/api\/online-users/,    rps: 60,  windowMs: 60_000 },
+  { pattern: /^\/api\/chat/,            rps: 30,  windowMs: 60_000 },
   { pattern: /^\/api\//,                rps: 60,  windowMs: 60_000 },
 ];
 

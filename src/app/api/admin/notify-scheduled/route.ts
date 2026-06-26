@@ -205,7 +205,13 @@ export async function POST(req: NextRequest) {
 
     const tipo = body.tipo || 'all';
     const force = body.force === true;
-    const results: Record<string, number> = {};
+    const results: Record<string, any> = {};
+
+    if (tipo === 'backup-full') {
+      const { runBackup } = await import('@/lib/backup');
+      const backupRes = await runBackup('full');
+      return NextResponse.json({ success: backupRes.success, backup: backupRes });
+    }
 
     if (tipo === 'all' || tipo === 'matches') {
       results.matches_notified = await notifyUpcomingMatches(force);
@@ -221,6 +227,7 @@ export async function POST(req: NextRequest) {
       results.queued_successes = queueResult.successes;
       results.queued_failures = queueResult.failures;
     }
+
 
     return NextResponse.json({ success: true, ...results });
   } catch (e: any) {

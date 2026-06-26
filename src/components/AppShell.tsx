@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, Calendar, Trophy, BookOpen, BarChart3, User, ShieldAlert,
-  Building2, Bell, BellOff, Mail, Moon, Sun, LogOut, Download, X,
+  Building2, Bell, BellOff, Moon, Sun, LogOut, Download, X,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import AnnouncementPopup from '@/components/AnnouncementPopup';
+import ChatWidget from '@/components/ChatWidget';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -20,10 +21,9 @@ interface AppShellProps {
 export default function AppShell({ children, isInstalled, deferredPrompt, onInstallPWA }: AppShellProps) {
   const pathname = usePathname();
   const {
-    user, appName, appLogo, notifications, unreadCount,
+    user, appName, appLogo,
     pushSubscribed, goalAlert, toastMessage,
-    handleLogout, handleIdentityLogin, handleTogglePush,
-    handleMarkNotificationRead, setGoalAlert,
+    handleLogout, handleIdentityLogin, handleTogglePush, setGoalAlert,
   } = useApp();
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -38,9 +38,6 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
     document.documentElement.classList.toggle('light', theme === 'light');
     localStorage.setItem('theme', theme);
   }, [theme]);
-  const [notifPanelOpen, setNotifPanelOpen] = useState(false);
-  const [showAllNotifs, setShowAllNotifs] = useState(false);
-  const [telegramSubmitting, setTelegramSubmitting] = useState(false);
   const [pwaPromptMode, setPwaPromptMode] = useState<'install' | 'notify' | null>(null);
 
   useEffect(() => {
@@ -113,16 +110,6 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
-  const handleTelegramSubscribe = async () => {
-    setTelegramSubmitting(true);
-    try {
-      const res = await fetch('/api/telegram/subscribe', { method: 'POST' });
-      const d = await res.json();
-      if (d.url) window.open(d.url, '_blank');
-    } catch {}
-    setTelegramSubmitting(false);
-  };
-
   const logoEl = appLogo.startsWith('/') || appLogo.startsWith('http')
     ? <img src={appLogo} className="w-7 h-7 object-contain rounded-md flex-shrink-0" alt="logo" />
     : <span className="w-7 h-7 flex items-center justify-center text-xl flex-shrink-0 leading-none">{appLogo}</span>;
@@ -188,10 +175,6 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
                 <button onClick={handleTogglePush} className={`relative p-1.5 transition flex items-center justify-center flex-shrink-0 ${pushSubscribed ? 'text-yellow-500 hover:text-yellow-400' : 'text-neutral-500 hover:text-neutral-300'}`}>
                   {pushSubscribed ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
                 </button>
-                <button onClick={() => setNotifPanelOpen(true)} className="relative text-neutral-400 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0">
-                  <Mail className="w-4 h-4" />
-                  {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 text-white text-[7px] font-black rounded-full flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
-                </button>
                 <button onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')} className="text-neutral-555 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0">
                   {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                 </button>
@@ -218,6 +201,9 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
 
         {/* Announcement popup — novedades y funcionalidades nuevas */}
         <AnnouncementPopup user={user} />
+
+        {/* Global Chat Widget */}
+        <ChatWidget />
 
         {/* Full-Screen Goal Alert */}
         {goalAlert && (
@@ -414,10 +400,6 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
                 <button onClick={handleTogglePush} className={`p-2 rounded-lg border transition flex items-center justify-center ${pushSubscribed ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20' : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'}`}>
                   {pushSubscribed ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
                 </button>
-                <button onClick={() => setNotifPanelOpen(true)} className="relative bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-yellow-500 p-2 rounded-lg border border-neutral-800 transition flex items-center justify-center">
-                  <Mail className="w-4 h-4" />
-                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
-                </button>
                 <div className="bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 flex items-center gap-1.5 text-xs text-neutral-300">
                   <img src={(user.avatar && user.avatar !== 'null' && user.avatar !== 'undefined') ? user.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }} className={`w-4 h-4 rounded-full object-cover ${(!user.avatar || user.avatar === 'null' || user.avatar === 'undefined' || user.avatar.includes('avatar_5.png') || user.avatar.includes('default.webp')) ? 'bg-white' : 'bg-neutral-900'}`} alt="avatar" />
                   <span className="font-bold max-w-[80px] truncate">{user.nombre.split(' ')[0]}</span>
@@ -461,66 +443,6 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
           )}
         </nav>
 
-        {/* Notification Panel */}
-        {notifPanelOpen && (
-          <div className="fixed inset-0 z-50 flex justify-end">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setNotifPanelOpen(false)} />
-            <div className="relative w-full max-w-sm bg-neutral-950 border-l border-neutral-900 h-full overflow-y-auto flex flex-col shadow-2xl">
-              <div className="flex justify-between items-center p-4 border-b border-neutral-900 sticky top-0 bg-neutral-950 z-10">
-                <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-yellow-500" />
-                  <h3 className="text-sm font-black text-neutral-100 uppercase tracking-wider">Notificaciones</h3>
-                  {unreadCount > 0 && <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
-                </div>
-                <div className="flex items-center gap-3">
-                  {unreadCount > 0 && (
-                    <button onClick={() => handleMarkNotificationRead()} className="text-[10px] text-neutral-500 hover:text-yellow-500 font-bold uppercase transition">
-                      Marcar todo leído
-                    </button>
-                  )}
-                  <button onClick={() => setNotifPanelOpen(false)} className="text-neutral-500 hover:text-neutral-200 transition">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 divide-y divide-neutral-900">
-                {notifications.length === 0 && <div className="p-8 text-center text-neutral-500 text-xs">Sin notificaciones</div>}
-                {(showAllNotifs ? notifications : notifications.slice(0, 5)).map(n => {
-                  const colorMap: Record<string, string> = { info: 'text-neutral-300 border-neutral-700/50 bg-neutral-500/5', warning: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5', success: 'text-green-400 border-green-500/30 bg-green-500/5', error: 'text-red-400 border-red-500/30 bg-red-500/5' };
-                  const cls = colorMap[n.tipo] || colorMap.info;
-                  return (
-                    <div key={n.id} className={`p-4 cursor-pointer hover:bg-neutral-900/50 transition ${!n.leido ? 'border-l-2 border-l-yellow-500' : ''}`}
-                      onClick={() => { if (!n.leido) handleMarkNotificationRead(n.id); }}>
-                      <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border mb-2 ${cls}`}>{n.tipo}</span>
-                      <div className="text-xs font-bold text-neutral-200">{n.titulo}</div>
-                      <div className="text-[11px] text-neutral-500 mt-1 leading-relaxed">{n.contenido}</div>
-                      <div className="text-[9px] text-neutral-600 mt-2">{new Date(n.created_at).toLocaleString('es-BO')}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              {!showAllNotifs && notifications.length > 5 && (
-                <button onClick={() => setShowAllNotifs(true)} className="p-4 text-xs font-black text-yellow-500 text-center uppercase tracking-wider bg-neutral-900/30 hover:bg-neutral-900 transition">
-                  Ver historial completo ({notifications.length})
-                </button>
-              )}
-              {showAllNotifs && (
-                <button onClick={() => setShowAllNotifs(false)} className="p-4 text-xs font-black text-neutral-500 text-center uppercase tracking-wider bg-neutral-900/30 hover:bg-neutral-900 transition">
-                  Mostrar menos
-                </button>
-              )}
-              <div className="p-6 mt-auto bg-blue-900/20 border-t border-blue-900/30">
-                <h4 className="text-sm font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">📱 Alertas por Telegram</h4>
-                <p className="text-[10px] text-blue-300/70 mb-4">Recibe notificaciones instantáneas y el ganador del mundial en Telegram.</p>
-                <button onClick={handleTelegramSubscribe} disabled={telegramSubmitting}
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-3 rounded-xl transition uppercase tracking-wider">
-                  {telegramSubmitting ? 'Conectando...' : 'Suscribirme a Telegram'}
-                </button>
-                {!user?.telefono && <p className="text-[9px] text-red-400 mt-2 text-center">* Requiere celular en tu perfil.</p>}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

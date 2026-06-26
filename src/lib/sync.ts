@@ -1723,6 +1723,14 @@ export async function syncMatches(): Promise<{
     await runKnockoutCascade();
   }
 
+  if (finishedCount > 0) {
+    const { runBackup } = await import('./backup');
+    runBackup('incremental').catch(err => {
+      console.error('[Sync Backup Error] Failed to execute incremental backup post-match:', err);
+    });
+  }
+
+
   // Log sync attempt in DB
   const durationMs = Date.now() - startTime;
   await pool.query(

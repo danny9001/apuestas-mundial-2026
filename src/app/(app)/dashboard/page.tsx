@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Trophy, X, Bell } from 'lucide-react';
+import { Trophy, X } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { getTeamFlag } from '@/lib/constants';
 import MatchCard from '@/components/MatchCard';
@@ -12,7 +12,7 @@ import ScoreCorrectionPanel from '@/components/ScoreCorrectionPanel';
 import OnlineUsers from '@/components/OnlineUsers';
 
 export default function DashboardPage() {
-  const { user, showToast, notifications, lastMatchUpdate } = useApp();
+  const { user, showToast, lastMatchUpdate } = useApp();
   const [matches, setMatches] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -179,9 +179,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats cards */}
+      {/* Stats cards - Desktop/Tablet */}
       {user && (
-        <div className="grid grid-cols-2 xl:grid-cols-4 2xl:grid-cols-4 gap-3 xl:gap-4">
+        <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 2xl:grid-cols-4 gap-3 xl:gap-4">
           {[
             { label: 'Puntos Totales', value: myRank?.puntos_totales ?? 0, sub: 'Acumulados en todos los partidos', color: 'text-yellow-500' },
             { label: 'Posición General', value: myCompanyRank ? `#${myCompanyRank}` : '--', sub: myCompanyRank ? (myRank?.tendencia === 'up' ? '▲ Subiendo' : myRank?.tendencia === 'down' ? '▼ Bajando' : '● Estable') : 'Aún sin clasificar', color: 'text-amber-500' },
@@ -194,6 +194,23 @@ export default function DashboardPage() {
                 <span className={`text-3xl xl:text-4xl font-mono font-black ${s.color}`}>{s.value}</span>
               </div>
               <span className="text-[10px] xl:text-xs text-neutral-500 mt-2">{s.sub}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Stats cards - Mobile Compact */}
+      {user && (
+        <div className="sm:hidden grid grid-cols-4 gap-1 bg-neutral-900/60 border border-neutral-850 p-3 rounded-2xl text-center shadow-md">
+          {[
+            { label: 'Pred', value: predictions.length, color: 'text-neutral-100' },
+            { label: 'Pts', value: myRank?.puntos_totales ?? 0, color: 'text-yellow-500' },
+            { label: 'Aciertos', value: myRank?.exactos ?? predictions.filter(p => p.puntos === 3).length, color: 'text-emerald-500' },
+            { label: 'Posición', value: myCompanyRank ? `#${myCompanyRank}` : '--', color: 'text-amber-500' },
+          ].map(s => (
+            <div key={s.label} className="flex flex-col justify-center py-1">
+              <span className="text-[9px] font-black uppercase tracking-wider text-neutral-500">{s.label}</span>
+              <span className={`text-sm font-mono font-black mt-1 ${s.color}`}>{s.value}</span>
             </div>
           ))}
         </div>
@@ -365,28 +382,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Noticias */}
-      {notifications.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs xl:text-sm font-black text-neutral-400 uppercase tracking-widest flex items-center gap-2">
-            <Bell className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-yellow-500" /> Noticias y Avisos
-          </h3>
-          <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-2 xl:gap-3">
-            {notifications.slice(0, 6).map(n => (
-              <div key={n.id} className="bg-neutral-900/50 border border-neutral-850 rounded-xl p-4 xl:p-5 flex gap-3 items-start">
-                <span className="text-xl flex-shrink-0">
-                  {n.tipo === 'gol' ? '⚽' : n.tipo === 'inicio' ? '🟢' : n.tipo === 'fin' ? '🏁' : n.tipo === 'warning' ? '⚠️' : '📢'}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs xl:text-sm font-bold text-neutral-200 leading-snug">{n.titulo}</p>
-                  <p className="text-[10px] xl:text-xs text-neutral-500 mt-0.5 leading-relaxed line-clamp-2">{n.contenido}</p>
-                  <p className="text-[9px] xl:text-[10px] text-neutral-600 mt-1">{new Date(n.created_at).toLocaleString('es-BO', { timeZone: 'America/La_Paz', dateStyle: 'short', timeStyle: 'short' })}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Match Summary Modal (Bug 6) */}
       {summaryMatch && (

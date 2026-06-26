@@ -22,8 +22,6 @@ interface AppContextValue {
   appName: string;
   appLogo: string;
   predictionCloseMinutes: number;
-  notifications: any[];
-  unreadCount: number;
   pushSubscribed: boolean;
   goalAlert: any | null;
   toastMessage: string | null;
@@ -32,8 +30,6 @@ interface AppContextValue {
   setPushSubscribed: (v: boolean) => void;
   setGoalAlert: (v: any | null) => void;
   showToast: (msg: string) => void;
-  fetchNotifications: () => Promise<void>;
-  handleMarkNotificationRead: (id?: number) => Promise<void>;
   handleLogout: () => Promise<void>;
   handleIdentityLogin: () => void;
   handleTogglePush: () => Promise<void>;
@@ -50,8 +46,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [appName, setAppName] = useState('Mundial 2026');
   const [appLogo, setAppLogo] = useState('🏆');
   const [predictionCloseMinutes, setPredictionCloseMinutes] = useState(15);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [goalAlert, setGoalAlert] = useState<any | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -63,28 +57,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToastMessage(null), 3500);
   }, []);
-
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/notifications?t=${Date.now()}`);
-      if (res.ok) {
-        const data: any[] = await res.json();
-        setNotifications(data);
-        setUnreadCount(data.filter(n => !n.leido).length);
-      }
-    } catch {}
-  }, []);
-
-  const handleMarkNotificationRead = useCallback(async (notificationId?: number) => {
-    try {
-      await fetch('/api/notifications/read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationId }),
-      });
-      await fetchNotifications();
-    } catch {}
-  }, [fetchNotifications]);
 
   const handleLogout = useCallback(async () => {
     await fetch('/api/auth', { method: 'DELETE' });
@@ -185,8 +157,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(sub => {
       setPushSubscribed(!!sub);
     }).catch(() => {});
-    fetchNotifications();
-  }, [user, fetchNotifications]);
+  }, [user]);
 
   // SSE realtime
   useEffect(() => {
@@ -199,9 +170,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem(goalKey, 'true');
           setGoalAlert(payload.data);
           setTimeout(() => setGoalAlert(null), 10000);
-        } else if (payload.type === 'notification') {
-          fetchNotifications();
-          showToast(`🔔 ${payload.data.titulo}`);
         } else if (payload.type === 'match') {
           setLastMatchUpdate(Date.now());
           showToast(`⚽ ${payload.data.local} ${payload.data.goles_local ?? ''} - ${payload.data.goles_visitante ?? ''} ${payload.data.visitante}`);
@@ -210,10 +178,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
     };
-    // Refetch on SSE reconnect so stale state is corrected if an event was missed
     sse.onopen = () => setLastMatchUpdate(Date.now());
     return () => sse.close();
-  }, [fetchNotifications, showToast]);
+  }, [showToast]);
 
   // Fallback polling every 90s — SSE events don't cross PM2 process boundaries,
   // so clients connected to a different worker than the sync process miss updates.
@@ -234,10 +201,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       user, authChecked, appName, appLogo, predictionCloseMinutes,
-      notifications, unreadCount, pushSubscribed,
-      goalAlert, toastMessage, lastMatchUpdate,
+      pushSubscribed, goalAlert, toastMessage, lastMatchUpdate,
       setUser, setPushSubscribed, setGoalAlert, showToast,
-      fetchNotifications, handleMarkNotificationRead,
       handleLogout, handleIdentityLogin, handleTogglePush,
       setAppName, setAppLogo, setPredictionCloseMinutes,
     }}>

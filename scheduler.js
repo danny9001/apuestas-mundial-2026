@@ -195,3 +195,30 @@ function scheduleWeeklyRetention() {
 }
 
 scheduleWeeklyRetention();
+
+// Weekly backup: run full database backup (Mondays at 03:00 AM)
+function scheduleWeeklyBackup() {
+  function msUntilNextMonday3am() {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(3, 0, 0, 0);
+    const day = now.getDay(); // 0=sun, 1=mon
+    const daysUntilMonday = (8 - day) % 7 || 7;
+    target.setDate(now.getDate() + (day === 1 && now < target ? 0 : daysUntilMonday));
+    return target - now;
+  }
+
+  function setNextMonday() {
+    const ms = msUntilNextMonday3am();
+    console.log(`[scheduler] Próximo backup completo programado en ${Math.round(ms / 1000 / 60)} minutos`);
+    setTimeout(() => {
+      callApi('backup-full');
+      setNextMonday();
+    }, ms);
+  }
+
+  setNextMonday();
+}
+
+scheduleWeeklyBackup();
+

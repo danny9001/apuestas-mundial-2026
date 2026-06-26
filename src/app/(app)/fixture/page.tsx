@@ -53,12 +53,14 @@ export default function FixturePage() {
     })();
   }, [lastMatchUpdate]);
 
+  const liveRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (subTab === 'partidos' && matches.length > 0 && todayRef.current) {
-      setTimeout(() => {
-        todayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-    }
+    if (subTab !== 'partidos' || matches.length === 0) return;
+    setTimeout(() => {
+      const target = liveRef.current || todayRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
   }, [subTab, matches.length]);
 
   const handleSavePrediction = async (matchId: number, predLocal: number, predVisitante: number, userId: number) => {
@@ -156,8 +158,8 @@ export default function FixturePage() {
         </div>
       )}
 
-      {/* Sub-tabs - sticky: top-14 en mobile (debajo del header ~56px), top-0 en desktop */}
-      <div className="sticky top-14 md:top-0 z-20 bg-neutral-950 pb-2 pt-1">
+      {/* Sub-tabs — sticky debajo del header mobile */}
+      <div className="sticky top-16 md:top-0 z-20 bg-neutral-950 pb-2 pt-1">
         <div className="flex bg-neutral-900/50 rounded-xl p-1 border border-neutral-850">
           {(['partidos', 'posiciones', 'eliminatoria'] as SubTab[]).map(t => (
             <button key={t} onClick={() => setSubTab(t)}
@@ -186,15 +188,20 @@ export default function FixturePage() {
             )}
             {loading ? <div className="py-20 text-center text-neutral-500">Cargando...</div>
             : matchesByDate.length === 0 ? <div className="py-20 text-center text-neutral-500">Sin partidos para este equipo.</div>
-            : matchesByDate.map(g => (
-              <div key={g.dateStr} className="space-y-4" ref={g.dateStr.includes('(HOY)') ? todayRef : null}>
-                <div className="flex items-center gap-2 border-b border-neutral-850 pb-2">
-                  <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">{g.dateStr}</span>
-                  <span className="text-neutral-500 text-[10px] uppercase font-black tracking-wider">({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})</span>
+            : matchesByDate.map(g => {
+              const hasLive = g.matches.some((m: any) => m.estado === 'live');
+              return (
+                <div key={g.dateStr} className="space-y-4"
+                  ref={hasLive ? liveRef : g.dateStr.includes('(HOY)') ? todayRef : null}>
+                  <div className="flex items-center gap-2 border-b border-neutral-850 pb-2">
+                    <span className="text-yellow-500 font-extrabold text-[10px] font-mono bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 rounded-lg uppercase tracking-wider">{g.dateStr}</span>
+                    <span className="text-neutral-500 text-[10px] uppercase font-black tracking-wider">({g.matches.length} {g.matches.length === 1 ? 'partido' : 'partidos'})</span>
+                    {hasLive && <span className="text-red-500 text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>En vivo</span>}
+                  </div>
+                  <div className={gridClass}>{renderCards(g.matches)}</div>
                 </div>
-                <div className={gridClass}>{renderCards(g.matches)}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         );
       })()}
@@ -212,6 +219,101 @@ export default function FixturePage() {
           });
         return (
           <div className="space-y-4">
+
+            {/* ── Mejor Tercer Lugar (arriba) ── */}
+            <div className="bg-neutral-900/40 border border-neutral-850 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="font-black text-[13px] text-neutral-100 tracking-wide">Mejor Tercer Lugar</div>
+                  <div className="text-[10px] text-neutral-500 mt-0.5">Los 4 mejores clasifican a Ronda de 32</div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-green-500/70 flex-shrink-0"></span>
+                  <span className="text-[10px] text-green-400 font-bold">Clasifican (4)</span>
+                </div>
+              </div>
+              {thirdPlaceTeams.length === 0 ? (
+                <div className="py-10 text-center text-neutral-500 text-[11px]">
+                  Sin datos aún — se actualizará cuando se jueguen partidos de fase de grupos
+                </div>
+              ) : (
+                <>
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr className="text-neutral-500 text-[9px] font-bold uppercase tracking-widest border-b border-neutral-800/60 bg-neutral-950/40">
+                          <th className="px-3 py-2 text-left w-6">#</th>
+                          <th className="px-3 py-2 text-left">Selección</th>
+                          <th className="px-2 py-2 text-center">GRP</th>
+                          <th className="px-2 py-2 text-center">PJ</th><th className="px-2 py-2 text-center">PG</th><th className="px-2 py-2 text-center">PE</th><th className="px-2 py-2 text-center">PP</th>
+                          <th className="px-2 py-2 text-center">GF</th><th className="px-2 py-2 text-center">GC</th>
+                          <th className="px-2 py-2 text-center">DIF</th>
+                          <th className="px-3 py-2 text-center font-black text-neutral-300">PTS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-850">
+                        {thirdPlaceTeams.map((s: any, idx: number) => {
+                          const q = idx < 4;
+                          return (
+                            <tr key={s.team} onClick={() => { setSubTab('partidos'); setFilterTeam(s.team); }}
+                              className={`cursor-pointer transition group ${q ? 'bg-green-950/20 hover:bg-green-900/25' : 'hover:bg-neutral-800/30'}`}>
+                              <td className="px-3 py-2.5 text-center">
+                                {q ? <span className="w-5 h-5 rounded-sm bg-green-500/20 border border-green-500/30 text-green-400 text-[10px] font-black flex items-center justify-center">{idx+1}</span>
+                                   : <span className="text-neutral-600 text-[10px] font-mono">{idx+1}</span>}
+                              </td>
+                              <td className="px-3 py-2.5"><div className="flex items-center gap-2">
+                                <span className="text-[15px]">{getTeamFlag(s.team)}</span>
+                                <span className={`font-bold truncate max-w-[110px] group-hover:text-yellow-400 transition ${q ? 'text-neutral-100' : 'text-neutral-300'}`}>{s.team}</span>
+                              </div></td>
+                              <td className="px-2 py-2.5 text-center"><span className="bg-neutral-800 text-neutral-300 font-black text-[9px] px-1.5 py-0.5 rounded font-mono">{s.grupo}</span></td>
+                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.pj}</td>
+                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.pg}</td>
+                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.pe}</td>
+                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.pp}</td>
+                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.gf}</td>
+                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.gc}</td>
+                              <td className={`px-2 py-2.5 text-center font-mono font-bold text-[11px] ${s.dif > 0 ? 'text-green-400' : s.dif < 0 ? 'text-red-400' : 'text-neutral-500'}`}>{s.dif > 0 ? `+${s.dif}` : s.dif}</td>
+                              <td className="px-3 py-2.5 text-center"><span className={`font-black text-[13px] ${q ? 'text-green-400' : 'text-neutral-200'}`}>{s.pts}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="sm:hidden divide-y divide-neutral-850">
+                    {thirdPlaceTeams.map((s: any, idx: number) => {
+                      const q = idx < 4;
+                      return (
+                        <div key={s.team} onClick={() => { setSubTab('partidos'); setFilterTeam(s.team); }}
+                          className={`px-4 py-3 cursor-pointer transition ${q ? 'bg-green-950/20' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              {q ? <span className="w-5 h-5 rounded-sm bg-green-500/20 border border-green-500/30 text-green-400 text-[10px] font-black flex items-center justify-center flex-shrink-0">{idx+1}</span>
+                                 : <span className="text-neutral-600 text-[10px] font-mono w-5 text-center flex-shrink-0">{idx+1}</span>}
+                              <span className="text-[15px]">{getTeamFlag(s.team)}</span>
+                              <span className={`font-bold text-[12px] truncate max-w-[120px] ${q ? 'text-neutral-100' : 'text-neutral-300'}`}>{s.team}</span>
+                              <span className="bg-neutral-800 text-neutral-400 font-black text-[9px] px-1.5 py-0.5 rounded font-mono flex-shrink-0">{s.grupo}</span>
+                            </div>
+                            <span className={`font-black text-[16px] ${q ? 'text-green-400' : 'text-neutral-200'}`}>{s.pts}</span>
+                          </div>
+                          <div className="mt-2 flex gap-3 text-[10px] font-mono text-neutral-500 pl-7">
+                            <span>PJ <span className="text-neutral-300">{s.pj}</span></span>
+                            <span>PG <span className="text-neutral-300">{s.pg}</span></span>
+                            <span>PE <span className="text-neutral-300">{s.pe}</span></span>
+                            <span>PP <span className="text-neutral-300">{s.pp}</span></span>
+                            <span>GF <span className="text-neutral-300">{s.gf}</span></span>
+                            <span>GC <span className="text-neutral-300">{s.gc}</span></span>
+                            <span className={`font-bold ${s.dif > 0 ? 'text-green-400' : s.dif < 0 ? 'text-red-400' : 'text-neutral-500'}`}>DIF {s.dif > 0 ? `+${s.dif}` : s.dif}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* ── Tablas de Grupos ── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {Object.keys(standings).sort().map(grp => {
                 if (standings[grp].length === 0) return null;
@@ -253,123 +355,6 @@ export default function FixturePage() {
               })}
             </div>
 
-            {/* Mejor Tercer Lugar — estilo Google */}
-            <div className="bg-neutral-900/40 border border-neutral-850 rounded-xl overflow-hidden">
-              {/* Header */}
-              <div className="px-4 py-3 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div className="font-black text-[13px] text-neutral-100 tracking-wide">Mejor Tercer Lugar</div>
-                  <div className="text-[10px] text-neutral-500 mt-0.5">Los 4 mejores clasifican a Ronda de 32</div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-green-500/70 flex-shrink-0"></span>
-                  <span className="text-[10px] text-green-400 font-bold">Clasifican (4)</span>
-                </div>
-              </div>
-
-              {thirdPlaceTeams.length === 0 ? (
-                <div className="py-10 text-center text-neutral-500 text-[11px]">
-                  Sin datos aún — se actualizará cuando se jueguen partidos de fase de grupos
-                </div>
-              ) : (
-                <>
-                  {/* Desktop table */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="text-neutral-500 text-[9px] font-bold uppercase tracking-widest border-b border-neutral-800/60 bg-neutral-950/40">
-                          <th className="px-3 py-2 text-left w-6">#</th>
-                          <th className="px-3 py-2 text-left">Selección</th>
-                          <th className="px-2 py-2 text-center">GRP</th>
-                          <th className="px-2 py-2 text-center">PJ</th>
-                          <th className="px-2 py-2 text-center">PG</th>
-                          <th className="px-2 py-2 text-center">PE</th>
-                          <th className="px-2 py-2 text-center">PP</th>
-                          <th className="px-2 py-2 text-center">GF</th>
-                          <th className="px-2 py-2 text-center">GC</th>
-                          <th className="px-2 py-2 text-center">DIF</th>
-                          <th className="px-3 py-2 text-center font-black text-neutral-300">PTS</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-850">
-                        {thirdPlaceTeams.map((s: any, idx: number) => {
-                          const qualifies = idx < 4;
-                          return (
-                            <tr key={s.team}
-                              onClick={() => { setSubTab('partidos'); setFilterTeam(s.team); }}
-                              className={`cursor-pointer transition group ${qualifies ? 'bg-green-950/20 hover:bg-green-900/25' : 'hover:bg-neutral-800/30'}`}>
-                              <td className="px-3 py-2.5 text-center">
-                                {qualifies
-                                  ? <span className="w-5 h-5 rounded-sm bg-green-500/20 border border-green-500/30 text-green-400 text-[10px] font-black flex items-center justify-center">{idx + 1}</span>
-                                  : <span className="text-neutral-600 text-[10px] font-mono">{idx + 1}</span>
-                                }
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[15px] flex-shrink-0">{getTeamFlag(s.team)}</span>
-                                  <span className={`font-bold truncate max-w-[110px] group-hover:text-yellow-400 transition ${qualifies ? 'text-neutral-100' : 'text-neutral-300'}`}>{s.team}</span>
-                                </div>
-                              </td>
-                              <td className="px-2 py-2.5 text-center">
-                                <span className="bg-neutral-800 text-neutral-300 font-black text-[9px] px-1.5 py-0.5 rounded font-mono">{s.grupo}</span>
-                              </td>
-                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.pj}</td>
-                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.pg}</td>
-                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.pe}</td>
-                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.pp}</td>
-                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.gf}</td>
-                              <td className="px-2 py-2.5 text-center text-neutral-400 font-mono text-[11px]">{s.gc}</td>
-                              <td className={`px-2 py-2.5 text-center font-mono font-bold text-[11px] ${s.dif > 0 ? 'text-green-400' : s.dif < 0 ? 'text-red-400' : 'text-neutral-500'}`}>
-                                {s.dif > 0 ? `+${s.dif}` : s.dif}
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                <span className={`font-black text-[13px] ${qualifies ? 'text-green-400' : 'text-neutral-200'}`}>{s.pts}</span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile cards */}
-                  <div className="sm:hidden divide-y divide-neutral-850">
-                    {thirdPlaceTeams.map((s: any, idx: number) => {
-                      const qualifies = idx < 4;
-                      return (
-                        <div key={s.team}
-                          onClick={() => { setSubTab('partidos'); setFilterTeam(s.team); }}
-                          className={`px-4 py-3 cursor-pointer transition ${qualifies ? 'bg-green-950/20' : ''}`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              {qualifies
-                                ? <span className="w-5 h-5 rounded-sm bg-green-500/20 border border-green-500/30 text-green-400 text-[10px] font-black flex items-center justify-center flex-shrink-0">{idx + 1}</span>
-                                : <span className="text-neutral-600 text-[10px] font-mono w-5 text-center flex-shrink-0">{idx + 1}</span>
-                              }
-                              <span className="text-[15px] flex-shrink-0">{getTeamFlag(s.team)}</span>
-                              <span className={`font-bold text-[12px] truncate max-w-[120px] ${qualifies ? 'text-neutral-100' : 'text-neutral-300'}`}>{s.team}</span>
-                              <span className="bg-neutral-800 text-neutral-400 font-black text-[9px] px-1.5 py-0.5 rounded font-mono flex-shrink-0">{s.grupo}</span>
-                            </div>
-                            <span className={`font-black text-[16px] ${qualifies ? 'text-green-400' : 'text-neutral-200'}`}>{s.pts}</span>
-                          </div>
-                          <div className="mt-2 flex gap-3 text-[10px] font-mono text-neutral-500 pl-7">
-                            <span>PJ <span className="text-neutral-300">{s.pj}</span></span>
-                            <span>PG <span className="text-neutral-300">{s.pg}</span></span>
-                            <span>PE <span className="text-neutral-300">{s.pe}</span></span>
-                            <span>PP <span className="text-neutral-300">{s.pp}</span></span>
-                            <span>GF <span className="text-neutral-300">{s.gf}</span></span>
-                            <span>GC <span className="text-neutral-300">{s.gc}</span></span>
-                            <span className={`font-bold ${s.dif > 0 ? 'text-green-400' : s.dif < 0 ? 'text-red-400' : 'text-neutral-500'}`}>
-                              DIF {s.dif > 0 ? `+${s.dif}` : s.dif}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
           </div>
         );
       })()}

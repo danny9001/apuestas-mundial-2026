@@ -44,3 +44,7 @@ next-env.d.ts
 /logs/
 /public/uploads/
 
+
+# test/debug token scripts (nunca commitear secretos)
+test_token.js
+*token*.test.js

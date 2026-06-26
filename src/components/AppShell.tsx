@@ -428,7 +428,7 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8 xl:px-12 xl:py-10 overflow-y-auto pb-24 md:pb-8">
+        <main className="flex-1 px-4 py-6 md:px-8 md:py-8 xl:px-12 xl:py-10 pb-24 md:pb-8">
           {children}
         </main>
 

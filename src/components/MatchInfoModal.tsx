@@ -173,24 +173,48 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
   const handleSend = async () => {
     if (!newMessage.trim() || sending) return;
     setSending(true);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
     try {
       const res = await fetch(`/api/matches/${match.id}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: newMessage.trim() }),
+        signal: ctrl.signal,
       });
       if (res.ok) {
         const msg = await res.json();
         setMessages(prev => [...prev, msg]);
         setNewMessage('');
         setTimeout(scrollToBottom, 50);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Error al enviar el mensaje');
       }
-    } catch {}
-    setSending(false);
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') alert('Sin conexión. Reintentá el mensaje.');
+    } finally {
+      clearTimeout(timer);
+      setSending(false);
+    }
   };
 
   const handleReaction = async (emoji: string) => {
     if (!user) return;
+    // Optimistic update
+    const prevReaction = myReaction;
+    const prevCounts = { ...reactions };
+    setMyReaction(prev => prev === emoji ? null : emoji);
+    setReactions(prev => {
+      const next = { ...prev };
+      if (prev[emoji] === undefined) next[emoji] = 0;
+      if (myReaction === emoji) { next[emoji] = Math.max(0, (next[emoji] || 0) - 1); }
+      else {
+        if (prevReaction) next[prevReaction] = Math.max(0, (next[prevReaction] || 0) - 1);
+        next[emoji] = (next[emoji] || 0) + 1;
+      }
+      return next;
+    });
     try {
       const res = await fetch(`/api/matches/${match.id}/reactions`, {
         method: 'POST',
@@ -201,8 +225,14 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
         const data = await res.json();
         setReactions(data.counts || {});
         setMyReaction(data.myReaction || null);
+      } else {
+        setReactions(prevCounts);
+        setMyReaction(prevReaction);
       }
-    } catch {}
+    } catch {
+      setReactions(prevCounts);
+      setMyReaction(prevReaction);
+    }
   };
 
   const handleDeleteMessage = async (msgId: number) => {

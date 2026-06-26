@@ -41,6 +41,19 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
   const handleReaction = async (e: React.MouseEvent, emoji: string) => {
     e.stopPropagation();
     if (!user) return;
+    // Optimistic update
+    const prevReaction = myReaction;
+    const prevCounts = { ...reactions };
+    setMyReaction(prev => prev === emoji ? null : emoji);
+    setReactions(prev => {
+      const next = { ...prev };
+      if (myReaction === emoji) { next[emoji] = Math.max(0, (next[emoji] || 0) - 1); }
+      else {
+        if (prevReaction) next[prevReaction] = Math.max(0, (next[prevReaction] || 0) - 1);
+        next[emoji] = (next[emoji] || 0) + 1;
+      }
+      return next;
+    });
     const res = await fetch(`/api/matches/${m.id}/reactions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -50,6 +63,9 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
       const data = await res.json();
       setReactions(data.counts || {});
       setMyReaction(data.myReaction || null);
+    } else {
+      setReactions(prevCounts);
+      setMyReaction(prevReaction);
     }
   };
 
@@ -167,7 +183,15 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
 
       {/* Reactions row — live or 30 min after finish */}
       {chatActive && (
-        <div className="flex flex-wrap gap-1 border-t border-neutral-800/30 pt-2 -mx-1 px-1" onClick={e => e.stopPropagation()}>
+        <div className="border-t border-neutral-800/30 pt-2 -mx-1 px-1 space-y-1.5" onClick={e => e.stopPropagation()}>
+          {m.estado === 'live' && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0"></span>
+              <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Chat en Vivo</span>
+              <span className="text-[9px] text-neutral-600">— tocá el partido para participar</span>
+            </div>
+          )}
+        <div className="flex flex-wrap gap-1">
           {REACTIONS.map(emoji => {
             const count = reactions[emoji] || 0;
             const isMe = myReaction === emoji;
@@ -183,6 +207,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
               </button>
             );
           })}
+        </div>
         </div>
       )}
 

@@ -34,6 +34,16 @@ export async function GET(req: NextRequest) {
         [limit, offset]
       );
       return NextResponse.json({ logs: res.rows });
+    } else if (type === 'payment') {
+      const res = await pool.query(
+        `SELECT id, nivel, categoria, mensaje, detalles, created_at 
+         FROM system_logs 
+         WHERE categoria = 'payment'
+         ORDER BY id DESC 
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      );
+      return NextResponse.json({ logs: res.rows });
     } else if (type === 'audit') {
       const res = await pool.query(
         `SELECT a.id, a.user_id, u.nombre as user_nombre, a.action, a.details, a.created_at

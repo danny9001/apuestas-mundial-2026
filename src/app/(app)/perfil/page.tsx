@@ -382,6 +382,45 @@ export default function PerfilPage() {
       </div>
       </div>
 
+      {/* Privacy and Terms section with liability exemption */}
+      <div className="glass-card border border-neutral-800/80 rounded-2xl p-6 space-y-4">
+        <div className="border-b border-neutral-800 pb-3 flex items-center justify-between">
+          <div>
+            <h3 className="text-xs font-black text-neutral-300 uppercase tracking-wider">Términos, Condiciones y Privacidad</h3>
+            <p className="text-[10px] text-neutral-500 mt-0.5">Exención de responsabilidad y consentimiento de uso</p>
+          </div>
+          <span className="text-2xl">📋</span>
+        </div>
+        
+        <div className="space-y-3 text-[11px] text-neutral-400 leading-relaxed max-h-60 overflow-y-auto pr-2 scrollbar-thin">
+          <p>
+            Al utilizar esta plataforma, usted acepta y se compromete a cumplir de manera automática e incondicional con los presentes Términos y Condiciones, así como con nuestras políticas de privacidad.
+          </p>
+          <div className="space-y-2">
+            <h4 className="font-extrabold uppercase text-[10px] tracking-wider text-neutral-300">1. Exención de Responsabilidad (Disclaimer)</h4>
+            <p>
+              Esta plataforma es un sistema cerrado de entretenimiento y pronósticos deportivos de carácter interno. No gestionamos apuestas con valor monetario real ni somos intermediarios financieros. Bajo ninguna circunstancia la organización, desarrolladores o administradores serán responsables por daños directos, indirectos, incidentales, o derivados del uso del sistema, fallos en la red, o pérdida de acceso al servicio.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-extrabold uppercase text-[10px] tracking-wider text-neutral-300">2. Privacidad de Datos</h4>
+            <p>
+              Los datos proporcionados por los participantes (nombre, email, avatar, teléfono y tincaso) se recopilan con el único propósito de administrar su participación y mantener la tabla de clasificación. Ninguno de estos datos es cedido o comercializado a terceros. De acuerdo a la normativa vigente, usted autoriza el almacenamiento seguro de esta información en nuestras bases de datos para garantizar la integridad y auditoría de la plataforma.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-extrabold uppercase text-[10px] tracking-wider text-neutral-300">3. Moderación y Conducta</h4>
+            <p>
+              El chat global y toda la interacción dentro de la app son monitoreados y auditados de manera permanente por los moderadores (jueces de línea). Nos reservamos el derecho de eliminar mensajes ofensivos, publicidad o cualquier contenido inapropiado que vulnere la sana convivencia de la comunidad. Las acciones de moderación quedan grabadas en un registro de auditoría accesible exclusivamente por el administrador.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-center">
+          ✓ Al continuar usando esta plataforma usted declara que acepta y está de acuerdo con estos términos de uso de forma automática.
+        </div>
+      </div>
+
       {/* Logout */}
       <div className="glass-card border border-neutral-800/40 p-4 rounded-xl md:hidden">
         <button onClick={handleLogout}

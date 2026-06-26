@@ -164,6 +164,9 @@ export async function GET(req: NextRequest) {
       path: '/',
     });
 
+    const { logSystem } = await import('@/lib/mail');
+    logSystem('info', 'ACCESO', `${user.nombre} ingresó a la plataforma vía SSO`, `Email: ${user.email}`).catch(() => {});
+
     return response;
   } catch (err) {
     console.error('identity-callback error:', err);

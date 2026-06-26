@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, Send, X, Users, Trash2, Megaphone, Pencil } from 'lucide-react';
+import { MessageSquare, Send, X, Users, Trash2, Megaphone, Pencil, Download } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 
 export default function ChatWidget() {
@@ -11,6 +11,7 @@ export default function ChatWidget() {
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [showUsersList, setShowUsersList] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -19,6 +20,10 @@ export default function ChatWidget() {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const presencePollingRef = useRef<NodeJS.Timeout | null>(null);
   const isSuperadmin = user?.tipo === 'superadmin';
+  const isModerator =
+    user?.tipo === 'superadmin' ||
+    user?.tipo === 'admin' ||
+    !!user?.is_moderador;
 
   // Scroll to bottom helper
   const scrollToBottom = () => {
@@ -235,6 +240,59 @@ export default function ChatWidget() {
     }
   };
 
+  // Export chat logs as CSV
+  const handleExportChatLogs = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/chat/export?t=${Date.now()}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al exportar los logs');
+      }
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        throw new Error('Formato de datos inválido');
+      }
+
+      // Build CSV
+      const headers = ['ID Mensaje', 'ID Usuario', 'Nombre Usuario', 'Email Usuario', 'Mensaje', 'Es Sistema?', 'Fecha Creación', 'Fecha Eliminación', 'Eliminado Por ID', 'Eliminado Por Nombre'];
+      const csvRows = [headers.join(',')];
+
+      for (const row of data) {
+        const values = [
+          row.id,
+          row.user_id || '',
+          `"${(row.user_nombre || '').replace(/"/g, '""')}"`,
+          `"${(row.user_email || '').replace(/"/g, '""')}"`,
+          `"${(row.message || '').replace(/"/g, '""')}"`,
+          row.is_system ? 'SI' : 'NO',
+          row.created_at ? new Date(row.created_at).toLocaleString() : '',
+          row.deleted_at ? new Date(row.deleted_at).toLocaleString() : '',
+          row.deleted_by_id || '',
+          `"${(row.deleted_by_nombre || '').replace(/"/g, '""')}"`
+        ];
+        csvRows.push(values.join(','));
+      }
+
+      const csvContent = '\uFEFF' + csvRows.join('\n'); // Add UTF-8 BOM for Excel compliance
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `moderacion_chat_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      console.error('Error exporting logs:', err);
+      alert(err.message || 'Error al exportar logs de moderación');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (!user || !user.aprobado) return null;
 
   return (
@@ -428,9 +486,9 @@ export default function ChatWidget() {
                             </div>
                             
                             {/* Action Buttons (Edit/Delete) */}
-                            {editingId !== msg.id && (isOwn || isSuperadmin) && (
+                            {editingId !== msg.id && (isOwn || isModerator) && (
                               <div className="flex flex-col gap-1.5">
-                                {isOwn && (
+                                {(isOwn || isModerator) && (
                                   <button
                                     onClick={() => {
                                       setEditingId(msg.id);

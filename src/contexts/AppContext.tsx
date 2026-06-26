@@ -14,6 +14,7 @@ interface AppUser {
   tincaso?: string;
   companies?: any[];
   arbitro_marcador?: boolean;
+  is_moderador?: boolean;
 }
 
 interface AppContextValue {

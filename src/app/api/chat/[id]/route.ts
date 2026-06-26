@@ -19,6 +19,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
     }
 
+    const isModerator =
+      user.tipo === 'superadmin' ||
+      user.tipo === 'admin' ||
+      !!user.is_moderador;
+
     let query = `
       UPDATE global_messages
       SET deleted_at = NOW(), deleted_by_id = $1
@@ -26,8 +31,8 @@ export async function DELETE(
     `;
     const dbParams = [user.id, id];
 
-    if (user.tipo !== 'superadmin') {
-      // Non-superadmins can only delete their own messages
+    if (!isModerator) {
+      // Non-moderators can only delete their own messages
       query += ` AND user_id = $3`;
       dbParams.push(user.id);
     }
@@ -76,6 +81,11 @@ export async function PUT(
       return NextResponse.json({ error: 'El mensaje no puede exceder los 500 caracteres' }, { status: 400 });
     }
 
+    const isModerator =
+      user.tipo === 'superadmin' ||
+      user.tipo === 'admin' ||
+      !!user.is_moderador;
+
     let query = `
       UPDATE global_messages
       SET message = $1
@@ -83,8 +93,8 @@ export async function PUT(
     `;
     const dbParams = [trimmed, id];
 
-    if (user.tipo !== 'superadmin') {
-      // Non-superadmins can only edit their own messages
+    if (!isModerator) {
+      // Non-moderators can only edit their own messages
       query += ` AND user_id = $3`;
       dbParams.push(user.id);
     }

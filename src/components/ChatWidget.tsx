@@ -436,7 +436,7 @@ export default function ChatWidget() {
                                       setEditingId(msg.id);
                                       setEditingText(msg.message);
                                     }}
-                                    className="opacity-0 group-hover:opacity-100 p-1.5 bg-neutral-850 hover:bg-yellow-500/20 border border-neutral-800 hover:border-yellow-500/30 text-neutral-500 hover:text-yellow-500 rounded-lg transition"
+                                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 bg-neutral-850 hover:bg-yellow-500/20 border border-neutral-800 hover:border-yellow-500/30 text-neutral-500 hover:text-yellow-500 rounded-lg transition"
                                     title="Editar mensaje"
                                   >
                                     <Pencil className="w-3 h-3" />
@@ -444,7 +444,7 @@ export default function ChatWidget() {
                                 )}
                                 <button
                                   onClick={() => handleDeleteMessage(msg.id)}
-                                  className="opacity-0 group-hover:opacity-100 p-1.5 bg-neutral-850 hover:bg-red-500/20 border border-neutral-800 hover:border-red-500/30 text-neutral-500 hover:text-red-400 rounded-lg transition"
+                                  className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 bg-neutral-850 hover:bg-red-500/20 border border-neutral-800 hover:border-red-500/30 text-neutral-500 hover:text-red-400 rounded-lg transition"
                                   title="Eliminar mensaje"
                                 >
                                   <Trash2 className="w-3 h-3" />

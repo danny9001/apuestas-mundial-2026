@@ -156,14 +156,16 @@ export default function FixturePage() {
         </div>
       )}
 
-      {/* Sub-tabs */}
-      <div className="flex bg-neutral-900/50 rounded-xl p-1 mb-4 border border-neutral-850">
-        {(['partidos', 'posiciones', 'eliminatoria'] as SubTab[]).map(t => (
-          <button key={t} onClick={() => setSubTab(t)}
-            className={`flex-1 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition ${subTab === t ? 'bg-neutral-800 text-neutral-100 shadow' : 'text-neutral-500 hover:text-neutral-300'}`}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
+      {/* Sub-tabs - sticky */}
+      <div className="sticky top-0 z-20 bg-neutral-950/95 backdrop-blur-md -mx-4 px-4 md:-mx-8 md:px-8 xl:-mx-12 xl:px-12 pb-2 pt-1">
+        <div className="flex bg-neutral-900/50 rounded-xl p-1 border border-neutral-850">
+          {(['partidos', 'posiciones', 'eliminatoria'] as SubTab[]).map(t => (
+            <button key={t} onClick={() => setSubTab(t)}
+              className={`flex-1 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition ${subTab === t ? 'bg-neutral-800 text-neutral-100 shadow' : 'text-neutral-500 hover:text-neutral-300'}`}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Partidos */}
@@ -198,35 +200,90 @@ export default function FixturePage() {
       })()}
 
       {/* Posiciones */}
-      {subTab === 'posiciones' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {Object.keys(standings).sort().map(grp => {
-            if (standings[grp].length === 0) return null;
-            return (
-              <div key={grp} className="bg-neutral-900/40 border border-neutral-850 rounded-xl overflow-hidden">
+      {subTab === 'posiciones' && (() => {
+        const thirdPlaceTeams = Object.keys(standings)
+          .filter(grp => standings[grp].length >= 3)
+          .map(grp => ({ ...standings[grp][2], grupo: grp }))
+          .sort((a: any, b: any) => {
+            if (b.pts !== a.pts) return b.pts - a.pts;
+            if (b.dif !== a.dif) return b.dif - a.dif;
+            if (b.gf !== a.gf) return b.gf - a.gf;
+            return a.grupo.localeCompare(b.grupo);
+          });
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {Object.keys(standings).sort().map(grp => {
+                if (standings[grp].length === 0) return null;
+                return (
+                  <div key={grp} className="bg-neutral-900/40 border border-neutral-850 rounded-xl overflow-hidden">
+                    <div className="bg-neutral-800/80 px-4 py-2 border-b border-neutral-800 flex justify-between items-center">
+                      <span className="font-black text-[12px] uppercase tracking-widest text-neutral-200">Grupo {grp}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[10px] text-left">
+                        <thead className="text-neutral-500 border-b border-neutral-800/50 bg-neutral-900/20">
+                          <tr>
+                            <th className="px-3 py-2 font-bold">Selección</th>
+                            {['PTS','PJ','PG','PE','PP','GF','GC','DIF'].map(h => (
+                              <th key={h} className="px-1.5 py-2 font-bold text-center">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-850">
+                          {standings[grp].map((s: any, idx: number) => (
+                            <tr key={s.team} className="hover:bg-neutral-800/30 transition cursor-pointer" onClick={() => { setSubTab('partidos'); setFilterTeam(s.team); }}>
+                              <td className="px-3 py-2 flex items-center gap-1.5">
+                                <span className="font-mono text-neutral-600 text-[9px] w-3 flex-shrink-0">{idx + 1}</span>
+                                <span className="text-base flex-shrink-0">{getTeamFlag(s.team)}</span>
+                                <span className="font-bold text-neutral-350 hover:text-yellow-500 transition truncate max-w-[90px]">{s.team}</span>
+                              </td>
+                              <td className="px-1.5 py-2 text-center font-black text-neutral-100">{s.pts}</td>
+                              {[s.pj,s.pg,s.pe,s.pp,s.gf,s.gc].map((v, i) => (
+                                <td key={i} className="px-1.5 py-2 text-center text-neutral-400 font-mono">{v}</td>
+                              ))}
+                              <td className="px-1.5 py-2 text-center text-neutral-400 font-mono">{s.dif > 0 ? `+${s.dif}` : s.dif}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mejor Tercer Lugar */}
+            {thirdPlaceTeams.length > 0 && (
+              <div className="bg-neutral-900/40 border border-neutral-850 rounded-xl overflow-hidden">
                 <div className="bg-neutral-800/80 px-4 py-2 border-b border-neutral-800 flex justify-between items-center">
-                  <span className="font-black text-[12px] uppercase tracking-widest text-neutral-200">Grupo {grp}</span>
+                  <span className="font-black text-[12px] uppercase tracking-widest text-neutral-200">Mejor Tercer Lugar</span>
+                  <span className="text-[10px] text-neutral-500 font-mono">Top 4 avanzan a R32</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px] text-left">
                     <thead className="text-neutral-500 border-b border-neutral-800/50 bg-neutral-900/20">
                       <tr>
                         <th className="px-3 py-2 font-bold">Selección</th>
+                        <th className="px-2 py-2 font-bold text-center">GRP</th>
                         {['PTS','PJ','PG','PE','PP','GF','GC','DIF'].map(h => (
                           <th key={h} className="px-1.5 py-2 font-bold text-center">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-850">
-                      {standings[grp].map((s: any, idx: number) => (
-                        <tr key={s.team} className="hover:bg-neutral-800/30 transition cursor-pointer" onClick={() => { setSubTab('partidos'); setFilterTeam(s.team); }}>
+                      {thirdPlaceTeams.map((s: any, idx: number) => (
+                        <tr key={s.team}
+                          className={`hover:bg-neutral-800/30 transition cursor-pointer ${idx < 4 ? 'border-l-2 border-green-500/40' : ''}`}
+                          onClick={() => { setSubTab('partidos'); setFilterTeam(s.team); }}>
                           <td className="px-3 py-2 flex items-center gap-1.5">
-                            <span className="font-mono text-neutral-600 text-[9px] w-3 flex-shrink-0">{idx + 1}</span>
+                            <span className={`font-mono text-[9px] w-3 flex-shrink-0 ${idx < 4 ? 'text-green-500' : 'text-neutral-600'}`}>{idx + 1}</span>
                             <span className="text-base flex-shrink-0">{getTeamFlag(s.team)}</span>
-                            <span className="font-bold text-neutral-350 hover:text-yellow-500 transition truncate max-w-[90px]">{s.team}</span>
+                            <span className="font-bold text-neutral-350 hover:text-yellow-500 transition truncate max-w-[80px]">{s.team}</span>
                           </td>
+                          <td className="px-2 py-2 text-center font-black text-neutral-400 font-mono">{s.grupo}</td>
                           <td className="px-1.5 py-2 text-center font-black text-neutral-100">{s.pts}</td>
-                          {[s.pj,s.pg,s.pe,s.pp,s.gf,s.gc].map((v, i) => (
+                          {[s.pj,s.pg,s.pe,s.pp,s.gf,s.gc].map((v: number, i: number) => (
                             <td key={i} className="px-1.5 py-2 text-center text-neutral-400 font-mono">{v}</td>
                           ))}
                           <td className="px-1.5 py-2 text-center text-neutral-400 font-mono">{s.dif > 0 ? `+${s.dif}` : s.dif}</td>
@@ -235,11 +292,15 @@ export default function FixturePage() {
                     </tbody>
                   </table>
                 </div>
+                <div className="px-4 py-2 border-t border-neutral-850 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-sm bg-green-500/60 flex-shrink-0"></span>
+                  <span className="text-[9px] text-neutral-500">Los 4 mejores terceros clasifican a Ronda de 32</span>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
 
       {/* Eliminatoria */}
       {subTab === 'eliminatoria' && (

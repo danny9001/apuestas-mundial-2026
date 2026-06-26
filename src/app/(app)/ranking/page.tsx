@@ -17,9 +17,8 @@ export default function RankingPage() {
   const [tinkasoStats, setTinkasoStats] = useState<any[]>([]);
   const [tinkasoLoading, setTinkasoLoading] = useState(false);
 
-  const fetchTinkasoStats = async () => {
+  const loadTinkasoData = async () => {
     setTinkasoLoading(true);
-    setTinkasoStatsModal(true);
     try {
       const res = await fetch(`/api/tincaso/stats?t=${Date.now()}`);
       if (res.ok) {
@@ -31,6 +30,11 @@ export default function RankingPage() {
     } finally {
       setTinkasoLoading(false);
     }
+  };
+
+  const fetchTinkasoStats = async () => {
+    setTinkasoStatsModal(true);
+    await loadTinkasoData();
   };
 
   useEffect(() => {
@@ -46,8 +50,8 @@ export default function RankingPage() {
       } catch {}
       setLoading(false);
     })();
-    // Pre-load Tinkaso stats on mount for desktop
-    fetchTinkasoStats();
+    // Pre-load Tinkaso stats silently (desktop panel, no modal)
+    loadTinkasoData();
   }, []);
 
   const availableCompanies = !user ? [] : user.tipo === 'superadmin' ? companies : (user.companies || []);

@@ -115,8 +115,8 @@ export default function PartidosPage() {
         )}
       </div>
 
-      {/* Fase filter */}
-      <div className="space-y-3">
+      {/* Fase filter - sticky */}
+      <div className="sticky top-0 z-20 bg-neutral-950/95 backdrop-blur-md -mx-4 px-4 md:-mx-8 md:px-8 xl:-mx-12 xl:px-12 pt-1 pb-2 space-y-2">
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
           {[{ v: 'ALL', l: 'Todos' }, { v: 'Fase de Grupos', l: 'Grupos' }, { v: 'Ronda de 32', l: 'R32' },
             { v: 'Octavos de Final', l: 'Octavos' }, { v: 'Cuartos de Final', l: 'Cuartos' },

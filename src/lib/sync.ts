@@ -1548,10 +1548,13 @@ export async function syncGroupStandings(): Promise<void> {
     if (!data.standings || !Array.isArray(data.standings)) return;
 
     for (const standing of data.standings) {
-      if (standing.stage !== 'GROUP_STAGE') continue;
+      // API returns type="TOTAL" with group="Group A", "Group B", etc.
+      if (standing.type !== 'TOTAL') continue;
 
-      const grupo = (standing.group as string)?.replace('GROUP_', '') || '';
-      if (!grupo || grupo.length !== 1) continue;
+      // "Group A" → "A", "Group B" → "B", etc.
+      const raw = (standing.group as string) || '';
+      const grupo = raw.replace(/^Group\s+/i, '').trim();
+      if (!grupo || grupo.length !== 1 || !/[A-L]/.test(grupo)) continue;
 
       for (const entry of (standing.table || [])) {
         const rawName: string = entry.team?.name || entry.team?.shortName || '';
@@ -1801,8 +1804,10 @@ export async function syncMatches(): Promise<{
   // Fire ONE push notification per match using the final confirmed score
   await flushPendingNotifications(pendingGoalNotifs);
 
+  // Sync official standings every cycle (uses official tiebreakers from football-data.org)
+  await syncGroupStandings();
+
   if (updatedCount > 0) {
-    await syncGroupStandings();
     await runKnockoutCascade();
   }
 

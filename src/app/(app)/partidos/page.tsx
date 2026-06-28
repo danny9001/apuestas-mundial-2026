@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Trophy } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { getStandings, getMatchesByDate } from '@/lib/match-utils';
+
 import { getTeamFlag, formatPlaceholderText } from '@/lib/constants';
 import MatchCard from '@/components/MatchCard';
 import BetModal from '@/components/BetModal';
@@ -201,6 +202,17 @@ export default function PartidosPage() {
   const [tincasoSubmitting, setTincasoSubmitting] = useState(false);
   const [tincasoModalOpen, setTincasoModalOpen] = useState(false);
   const [filterTeam, setFilterTeam] = useState('');
+  const [dbStandings, setDbStandings] = useState<Record<string, any[]>>({});
+
+  const fetchStandings = async () => {
+    try {
+      const sRes = await fetch(`/api/standings?t=${Date.now()}`);
+      if (sRes.ok) {
+        const data = await sRes.json();
+        if (Object.keys(data).length > 0) setDbStandings(data);
+      }
+    } catch {}
+  };
 
   useEffect(() => {
     (async () => {
@@ -217,6 +229,7 @@ export default function PartidosPage() {
         if (user?.tincaso) setTincasoSelection(user.tincaso);
       } catch {}
       setLoading(false);
+      await fetchStandings();
     })();
   }, [user]);
 
@@ -227,6 +240,7 @@ export default function PartidosPage() {
         const mRes = await fetch(`/api/matches?t=${Date.now()}`);
         if (mRes.ok) setMatches(await mRes.json());
       } catch {}
+      await fetchStandings();
     })();
   }, [lastMatchUpdate]);
 
@@ -271,7 +285,9 @@ export default function PartidosPage() {
     setTincasoSubmitting(false);
   };
 
-  const standings = getStandings(matches);
+  // Use official standings from DB (synced from football-data.org); fall back to local calc if unavailable
+  const localStandings = getStandings(matches);
+  const standings = Object.keys(dbStandings).length > 0 ? dbStandings : localStandings;
 
   const uniqueTeams = Array.from(new Set(matches.flatMap(m => [m.local, m.visitante])))
     .filter(t => t && !/\d/.test(t) && !/Ganador|Perdedor|definir/i.test(t)).sort();

@@ -285,6 +285,25 @@ CREATE TABLE IF NOT EXISTS invitations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 6b. Group standings (synced from official API — official tiebreakers)
+CREATE TABLE IF NOT EXISTS group_standings (
+  id SERIAL PRIMARY KEY,
+  grupo VARCHAR(10) NOT NULL,
+  posicion INTEGER NOT NULL,
+  team VARCHAR(100) NOT NULL,
+  pts INTEGER DEFAULT 0,
+  pj INTEGER DEFAULT 0,
+  pg INTEGER DEFAULT 0,
+  pe INTEGER DEFAULT 0,
+  pp INTEGER DEFAULT 0,
+  gf INTEGER DEFAULT 0,
+  gc INTEGER DEFAULT 0,
+  dif INTEGER DEFAULT 0,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(grupo, team)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS group_standings_grupo_posicion ON group_standings(grupo, posicion);
+
 -- 6. FUNCTION TO RECALCULATE LEADERBOARD
 CREATE OR REPLACE FUNCTION recalculate_leaderboard() 
 RETURNS void AS $$

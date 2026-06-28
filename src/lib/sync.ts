@@ -1500,6 +1500,88 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
   };
 }
 
+async function ensureGroupStandingsTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS group_standings (
+      id SERIAL PRIMARY KEY,
+      grupo VARCHAR(10) NOT NULL,
+      posicion INTEGER NOT NULL,
+      team VARCHAR(100) NOT NULL,
+      pts INTEGER DEFAULT 0,
+      pj INTEGER DEFAULT 0,
+      pg INTEGER DEFAULT 0,
+      pe INTEGER DEFAULT 0,
+      pp INTEGER DEFAULT 0,
+      gf INTEGER DEFAULT 0,
+      gc INTEGER DEFAULT 0,
+      dif INTEGER DEFAULT 0,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(grupo, team)
+    )
+  `).catch(() => {});
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS group_standings_grupo_posicion ON group_standings(grupo, posicion)
+  `).catch(() => {});
+}
+
+export async function syncGroupStandings(): Promise<void> {
+  const apiKey = process.env.FOOTBALL_API_KEY;
+  const apiBase = process.env.FOOTBALL_API_BASE || 'https://api.football-data.org/v4';
+  const wcId = process.env.FOOTBALL_WC_ID || '2000';
+
+  if (!apiKey) return;
+
+  try {
+    await ensureGroupStandingsTable();
+
+    const response = await fetchWithRetry(`${apiBase}/competitions/${wcId}/standings`, {
+      cache: 'no-store',
+      headers: { 'X-Auth-Token': apiKey }
+    });
+
+    if (!response.ok) {
+      console.error(`syncGroupStandings: API returned ${response.status}`);
+      return;
+    }
+
+    const data = await response.json();
+    if (!data.standings || !Array.isArray(data.standings)) return;
+
+    for (const standing of data.standings) {
+      if (standing.stage !== 'GROUP_STAGE') continue;
+
+      const grupo = (standing.group as string)?.replace('GROUP_', '') || '';
+      if (!grupo || grupo.length !== 1) continue;
+
+      for (const entry of (standing.table || [])) {
+        const rawName: string = entry.team?.name || entry.team?.shortName || '';
+        const teamName = teamNameMapping[rawName] || rawName;
+        if (!teamName) continue;
+
+        await pool.query(`
+          INSERT INTO group_standings (grupo, posicion, team, pts, pj, pg, pe, pp, gf, gc, dif, updated_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, CURRENT_TIMESTAMP)
+          ON CONFLICT (grupo, team) DO UPDATE SET
+            posicion = EXCLUDED.posicion,
+            pts = EXCLUDED.pts, pj = EXCLUDED.pj, pg = EXCLUDED.pg,
+            pe = EXCLUDED.pe, pp = EXCLUDED.pp,
+            gf = EXCLUDED.gf, gc = EXCLUDED.gc, dif = EXCLUDED.dif,
+            updated_at = CURRENT_TIMESTAMP
+        `, [
+          grupo, entry.position, teamName,
+          entry.points ?? 0, entry.playedGames ?? 0,
+          entry.won ?? 0, entry.draw ?? 0, entry.lost ?? 0,
+          entry.goalsFor ?? 0, entry.goalsAgainst ?? 0, entry.goalDifference ?? 0
+        ]);
+      }
+    }
+
+    logSystem('info', 'SYNC', 'Group standings sincronizadas desde football-data.org', '').catch(() => {});
+  } catch (err: any) {
+    console.error('syncGroupStandings error:', err);
+  }
+}
+
 async function reconcileDowngrades(observed: Map<number, DowngradeEntry>): Promise<void> {
   for (const [matchId, entry] of observed) {
     const isFullConsensus = !entry.conflicted && entry.agreed > 0 && entry.agreed === entry.total && entry.total >= 2;
@@ -1720,6 +1802,7 @@ export async function syncMatches(): Promise<{
   await flushPendingNotifications(pendingGoalNotifs);
 
   if (updatedCount > 0) {
+    await syncGroupStandings();
     await runKnockoutCascade();
   }
 
@@ -1814,56 +1897,51 @@ async function sendUpcomingReminders() {
 
 async function runKnockoutCascade() {
   try {
-    // 1. Get all matches for "Fase de Grupos"
-    const res = await pool.query("SELECT * FROM matches WHERE fase = 'Fase de Grupos'");
-    const matches = res.rows;
-    
+    await ensureGroupStandingsTable();
+
+    // 1. Build group standings: prefer official DB standings, fall back to local calculation
     const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-    const completedGroups: string[] = [];
-    
-    for (const g of groups) {
-      const groupMatches = matches.filter(m => m.grupo === g);
-      if (groupMatches.length > 0 && groupMatches.every(m => m.estado === 'finished')) {
-        completedGroups.push(g);
+    const groupStandings: { [group: string]: string[] } = {};
+
+    const dbStandingsRes = await pool.query(
+      'SELECT grupo, posicion, team FROM group_standings ORDER BY grupo, posicion ASC'
+    ).catch(() => ({ rows: [] as any[] }));
+
+    if (dbStandingsRes.rows.length > 0) {
+      // Use official standings from DB (synced from football-data.org)
+      for (const row of dbStandingsRes.rows) {
+        if (!groupStandings[row.grupo]) groupStandings[row.grupo] = [];
+        groupStandings[row.grupo][row.posicion - 1] = row.team;
       }
-    }
-    
-    // 2. For each completed group, compute standings
-    const groupStandings: { [group: string]: string[] } = {}; 
-    for (const g of completedGroups) {
-      const groupMatches = matches.filter(m => m.grupo === g);
-      const teamsMap: { [team: string]: { pts: number, gd: number, gf: number } } = {};
-      
-      groupMatches.forEach(m => {
-        if (!teamsMap[m.local]) teamsMap[m.local] = { pts: 0, gd: 0, gf: 0 };
-        if (!teamsMap[m.visitante]) teamsMap[m.visitante] = { pts: 0, gd: 0, gf: 0 };
-        
-        const gl = m.goles_local;
-        const gv = m.goles_visitante;
-        teamsMap[m.local].gf += gl;
-        teamsMap[m.visitante].gf += gv;
-        teamsMap[m.local].gd += (gl - gv);
-        teamsMap[m.visitante].gd += (gv - gl);
-        
-        if (gl > gv) {
-          teamsMap[m.local].pts += 3;
-        } else if (gl < gv) {
-          teamsMap[m.visitante].pts += 3;
-        } else {
-          teamsMap[m.local].pts += 1;
-          teamsMap[m.visitante].pts += 1;
-        }
+    } else {
+      // Fallback: compute from raw match goals
+      const res = await pool.query("SELECT * FROM matches WHERE fase = 'Fase de Grupos'");
+      const matches = res.rows;
+      const completedGroups = groups.filter(g => {
+        const gm = matches.filter(m => m.grupo === g);
+        return gm.length > 0 && gm.every(m => m.estado === 'finished');
       });
-      
-      const sortedTeams = Object.keys(teamsMap).sort((a, b) => {
-        const ta = teamsMap[a];
-        const tb = teamsMap[b];
-        if (tb.pts !== ta.pts) return tb.pts - ta.pts;
-        if (tb.gd !== ta.gd) return tb.gd - ta.gd;
-        if (tb.gf !== ta.gf) return tb.gf - ta.gf;
-        return a.localeCompare(b);
-      });
-      groupStandings[g] = sortedTeams;
+      for (const g of completedGroups) {
+        const groupMatches = matches.filter(m => m.grupo === g);
+        const teamsMap: { [team: string]: { pts: number; gd: number; gf: number } } = {};
+        groupMatches.forEach(m => {
+          if (!teamsMap[m.local]) teamsMap[m.local] = { pts: 0, gd: 0, gf: 0 };
+          if (!teamsMap[m.visitante]) teamsMap[m.visitante] = { pts: 0, gd: 0, gf: 0 };
+          const gl = m.goles_local, gv = m.goles_visitante;
+          teamsMap[m.local].gf += gl; teamsMap[m.visitante].gf += gv;
+          teamsMap[m.local].gd += (gl - gv); teamsMap[m.visitante].gd += (gv - gl);
+          if (gl > gv) { teamsMap[m.local].pts += 3; }
+          else if (gl < gv) { teamsMap[m.visitante].pts += 3; }
+          else { teamsMap[m.local].pts += 1; teamsMap[m.visitante].pts += 1; }
+        });
+        groupStandings[g] = Object.keys(teamsMap).sort((a, b) => {
+          const ta = teamsMap[a], tb = teamsMap[b];
+          if (tb.pts !== ta.pts) return tb.pts - ta.pts;
+          if (tb.gd !== ta.gd) return tb.gd - ta.gd;
+          if (tb.gf !== ta.gf) return tb.gf - ta.gf;
+          return a.localeCompare(b);
+        });
+      }
     }
     
     // 3. Update placeholders in subsequent stages

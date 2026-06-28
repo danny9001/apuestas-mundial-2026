@@ -3,6 +3,60 @@
 import { getTeamFlag } from '@/lib/constants';
 import { useApp } from '@/contexts/AppContext';
 
+function EventIcon({ tipo }: { tipo: string }) {
+  if (tipo === 'gol') return <span className="text-[11px]">⚽</span>;
+  if (tipo === 'gol_penal') return <span className="text-[11px]">⚽P</span>;
+  if (tipo === 'tarjeta_amarilla') return <span className="text-[11px]">🟨</span>;
+  if (tipo === 'tarjeta_roja') return <span className="text-[11px]">🟥</span>;
+  if (tipo === 'sustitucion') return <span className="text-[11px]">🔄</span>;
+  return null;
+}
+
+function MatchEvents({ match }: { match: any }) {
+  const eventos: any[] = Array.isArray(match.stats?.eventos) ? match.stats.eventos : [];
+  const penalesLocal = match.stats?.penales_local;
+  const penalesVisitante = match.stats?.penales_visitante;
+  const ganador = match.stats?.ganador;
+
+  if (eventos.length === 0 && !ganador) return null;
+
+  const localEvents = eventos.filter(e => e.equipo === match.local);
+  const visitanteEvents = eventos.filter(e => e.equipo === match.visitante);
+
+  return (
+    <div className="mt-2 pt-2 border-t border-neutral-800/40 space-y-1">
+      {ganador && (
+        <div className="text-center text-[9px] font-black uppercase tracking-widest text-blue-400 pb-1">
+          🎯 {ganador} avanza
+          {penalesLocal != null && penalesVisitante != null
+            ? ` (${penalesLocal}–${penalesVisitante} en penales)`
+            : ' en penales'}
+        </div>
+      )}
+      <div className="flex justify-between gap-2 text-[9px] text-neutral-400">
+        <div className="flex flex-col gap-0.5 flex-1">
+          {localEvents.map((e, i) => (
+            <span key={i} className="flex items-center gap-1 truncate">
+              <EventIcon tipo={e.tipo} />
+              {e.minuto && <span className="text-neutral-500 font-mono">{e.minuto}'</span>}
+              <span className="truncate font-medium text-neutral-300">{e.jugador || match.local}</span>
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-col gap-0.5 flex-1 items-end">
+          {visitanteEvents.map((e, i) => (
+            <span key={i} className="flex items-center gap-1 truncate justify-end">
+              <span className="truncate font-medium text-neutral-300">{e.jugador || match.visitante}</span>
+              {e.minuto && <span className="text-neutral-500 font-mono">{e.minuto}'</span>}
+              <EventIcon tipo={e.tipo} />
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface MatchCardProps {
   match: any;
   prediction?: { pred_local: number; pred_visitante: number; puntos?: number | null } | null;
@@ -87,6 +141,22 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
             )}
           </div>
         </div>
+
+        {/* Compact events strip */}
+        {m.estado !== 'upcoming' && (Array.isArray(m.stats?.eventos) && m.stats.eventos.length > 0 || m.stats?.ganador) && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1.5 border-t border-neutral-800/30 mt-1.5 text-[8px] text-neutral-500" onClick={e => e.stopPropagation()}>
+            {m.stats?.ganador && (
+              <span className="text-blue-400 font-black">🎯 {m.stats.ganador}{m.stats.penales_local != null ? ` (${m.stats.penales_local}–${m.stats.penales_visitante}P)` : ''}</span>
+            )}
+            {(m.stats?.eventos || []).map((e: any, i: number) => (
+              <span key={i} className="flex items-center gap-0.5">
+                <EventIcon tipo={e.tipo} />
+                {e.minuto && <span className="font-mono">{e.minuto}'</span>}
+                {e.jugador && <span className="text-neutral-400">{e.jugador}</span>}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -126,6 +196,13 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
           {m.estado !== 'upcoming' && <span className={`font-black font-mono text-neutral-100 ${m.estado === 'live' ? 'text-xl text-red-500' : 'text-base'}`}>{m.goles_visitante}</span>}
         </div>
       </div>
+
+      {/* Events timeline (live / finished) */}
+      {m.estado !== 'upcoming' && (
+        <div onClick={e => e.stopPropagation()}>
+          <MatchEvents match={m} />
+        </div>
+      )}
 
       <div className="flex justify-between items-center border-t border-neutral-800/40 pt-3 text-xs" onClick={e => e.stopPropagation()}>
         {myPred ? (

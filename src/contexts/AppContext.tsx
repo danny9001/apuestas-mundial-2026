@@ -25,11 +25,13 @@ interface AppContextValue {
   predictionCloseMinutes: number;
   pushSubscribed: boolean;
   goalAlert: any | null;
+  cardAlert: any | null;
   toastMessage: string | null;
   lastMatchUpdate: number;
   setUser: (u: AppUser | null) => void;
   setPushSubscribed: (v: boolean) => void;
   setGoalAlert: (v: any | null) => void;
+  setCardAlert: (v: any | null) => void;
   showToast: (msg: string) => void;
   handleLogout: () => Promise<void>;
   handleIdentityLogin: () => void;
@@ -49,6 +51,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [predictionCloseMinutes, setPredictionCloseMinutes] = useState(15);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [goalAlert, setGoalAlert] = useState<any | null>(null);
+  const [cardAlert, setCardAlert] = useState<any | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [lastMatchUpdate, setLastMatchUpdate] = useState<number>(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -171,9 +174,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem(goalKey, 'true');
           setGoalAlert(payload.data);
           setTimeout(() => setGoalAlert(null), 10000);
+        } else if (payload.type === 'card') {
+          setCardAlert(payload.data);
+          setTimeout(() => setCardAlert(null), 8000);
         } else if (payload.type === 'match') {
           setLastMatchUpdate(Date.now());
-          showToast(`⚽ ${payload.data.local} ${payload.data.goles_local ?? ''} - ${payload.data.goles_visitante ?? ''} ${payload.data.visitante}`);
         } else if (payload.type === 'leaderboard') {
           showToast('¡La clasificación general ha cambiado!');
         }
@@ -202,8 +207,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       user, authChecked, appName, appLogo, predictionCloseMinutes,
-      pushSubscribed, goalAlert, toastMessage, lastMatchUpdate,
-      setUser, setPushSubscribed, setGoalAlert, showToast,
+      pushSubscribed, goalAlert, cardAlert, toastMessage, lastMatchUpdate,
+      setUser, setPushSubscribed, setGoalAlert, setCardAlert, showToast,
       handleLogout, handleIdentityLogin, handleTogglePush,
       setAppName, setAppLogo, setPredictionCloseMinutes,
     }}>

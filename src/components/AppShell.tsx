@@ -22,8 +22,8 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
   const pathname = usePathname();
   const {
     user, appName, appLogo,
-    pushSubscribed, goalAlert, toastMessage,
-    handleLogout, handleIdentityLogin, handleTogglePush, setGoalAlert,
+    pushSubscribed, goalAlert, cardAlert, toastMessage,
+    handleLogout, handleIdentityLogin, handleTogglePush, setGoalAlert, setCardAlert,
   } = useApp();
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -300,6 +300,11 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
 
               {/* Bottom Card Info: Who vs Who & Score */}
               <div className="w-full bg-neutral-950/90 border-t border-neutral-900 py-5 sm:py-6 text-center z-10 flex flex-col items-center justify-center">
+                {goalAlert.jugador && (
+                  <div className="text-xs sm:text-sm font-black text-yellow-400 uppercase tracking-wide mb-1 px-4">
+                    {goalAlert.jugador}{goalAlert.minuto ? ` — ${goalAlert.minuto}'` : ''}
+                  </div>
+                )}
                 <div className="text-[10px] sm:text-xs font-black text-neutral-300 uppercase tracking-widest px-4 truncate max-w-full">
                   {goalAlert.local} <span className="text-yellow-500 mx-1">VS</span> {goalAlert.visitante}
                 </div>
@@ -308,6 +313,36 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
                 </div>
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* Card Alert (tarjeta amarilla / roja) */}
+        {cardAlert && !goalAlert && (
+          <div className="fixed top-20 right-4 z-50 animate-fade-in-up pointer-events-auto">
+            <div
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl text-sm font-bold backdrop-blur-sm cursor-pointer
+                ${cardAlert.tipo === 'tarjeta_roja'
+                  ? 'bg-red-950/90 border-red-500/50 text-red-200'
+                  : 'bg-yellow-950/90 border-yellow-500/40 text-yellow-200'}`}
+              onClick={() => setCardAlert(null)}
+            >
+              <span className="text-2xl select-none leading-none">
+                {cardAlert.tipo === 'tarjeta_roja' ? '🟥' : '🟨'}
+              </span>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-70">
+                  {cardAlert.tipo === 'tarjeta_roja' ? 'Tarjeta Roja' : 'Tarjeta Amarilla'}
+                </span>
+                <span className="text-sm font-black leading-tight">
+                  {cardAlert.jugador || cardAlert.equipo}
+                  {cardAlert.minuto ? ` — ${cardAlert.minuto}'` : ''}
+                </span>
+                <span className="text-[10px] opacity-60 font-normal">{cardAlert.local} vs {cardAlert.visitante}</span>
+              </div>
+              <button className="ml-1 text-neutral-400 hover:text-white transition text-xs" onClick={() => setCardAlert(null)}>
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         )}

@@ -337,9 +337,14 @@ BEGIN
   SET puntos = CASE
     -- If upcoming, reset to 0
     WHEN m.estado = 'upcoming' THEN 0
-    -- Exact match (3 points)
+    -- Exact score at 90' (3 points)
     WHEN p.pred_local = m.goles_local AND p.pred_visitante = m.goles_visitante THEN 3
-    -- Correct winner/draw (1 point)
+    -- Penalty shootout: correctly predicted the winner (1 point)
+    WHEN (m.stats->>'ganador') IS NOT NULL AND (m.stats->>'ganador') <> '' AND (
+      (p.pred_local > p.pred_visitante AND m.stats->>'ganador' = m.local) OR
+      (p.pred_local < p.pred_visitante AND m.stats->>'ganador' = m.visitante)
+    ) THEN 1
+    -- Regular result: correct winner or draw (1 point)
     WHEN (p.pred_local > p.pred_visitante AND m.goles_local > m.goles_visitante) OR
          (p.pred_local < p.pred_visitante AND m.goles_local < m.goles_visitante) OR
          (p.pred_local = p.pred_visitante AND m.goles_local = m.goles_visitante) THEN 1

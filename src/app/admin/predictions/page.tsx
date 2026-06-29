@@ -41,7 +41,7 @@ export default function AdminPredictionsPage() {
   const [filterCompany, setFilterCompany] = useState<string>('all');
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterParticipa, setFilterParticipa] = useState<string>('all');
-  const [predDateFilter, setPredDateFilter] = useState<string>('');
+  const [predDateFilter, setPredDateFilter] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [preds, setPreds] = useState<PredRow[]>([]);
@@ -546,6 +546,22 @@ export default function AdminPredictionsPage() {
                   placeholder="🔍 Buscar partido, fecha (YYYY-MM-DD) o fase..."
                   className="w-full sm:w-64 bg-neutral-950 border border-neutral-800 text-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50"
                 />
+                <button
+                  onClick={() => setPredDateFilter(new Date().toISOString().slice(0, 10))}
+                  title="Ir a hoy"
+                  className="flex-shrink-0 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-yellow-500/30 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 transition"
+                >
+                  Hoy
+                </button>
+                {predDateFilter && (
+                  <button
+                    onClick={() => setPredDateFilter('')}
+                    title="Ver todos"
+                    className="flex-shrink-0 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-neutral-700 text-neutral-400 bg-neutral-900 hover:bg-neutral-800 transition"
+                  >
+                    ×
+                  </button>
+                )}
                 {filteredPreds.length > 0 && !loading && (
                   <button
                     onClick={exportSelectedUserToExcel}

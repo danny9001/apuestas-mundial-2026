@@ -54,6 +54,9 @@ export default function CompaniesTab({
   syncStatus,
   fetchSyncStatus,
 }: CompaniesTabProps) {
+  // Marcadores en Vivo filter
+  const [liveMatchesToday, setLiveMatchesToday] = useState(true);
+
   // App settings state
   const [editAppName, setEditAppName] = useState('');
   const [editLogoType, setEditLogoType] = useState<'emoji' | 'file'>('emoji');
@@ -809,9 +812,37 @@ export default function CompaniesTab({
       {/* Marcadores en Vivo (superadmin) */}
       {user.tipo === 'superadmin' && (
         <div className="space-y-4">
-          <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2">Marcadores en Vivo</h3>
+          <div className="flex items-center justify-between border-b border-neutral-800 pb-2 gap-3 flex-wrap">
+            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Marcadores en Vivo</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setLiveMatchesToday(true)}
+                className={`text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border transition ${liveMatchesToday ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600'}`}
+              >
+                🔴 Hoy
+              </button>
+              <button
+                onClick={() => setLiveMatchesToday(false)}
+                className={`text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border transition ${!liveMatchesToday ? 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400' : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600'}`}
+              >
+                Ver todos
+              </button>
+            </div>
+          </div>
+          {(() => {
+            const today = new Date().toISOString().slice(0, 10);
+            const visibleMatches = liveMatchesToday
+              ? matches.filter(m => m.fecha && m.fecha.slice(0, 10) === today)
+              : matches;
+            return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {matches.map(m => (
+            {visibleMatches.length === 0 && (
+              <p className="text-xs text-neutral-500 col-span-2 py-4 text-center">
+                No hay partidos programados para hoy.{' '}
+                <button onClick={() => setLiveMatchesToday(false)} className="text-yellow-500 underline">Ver todos</button>
+              </p>
+            )}
+            {visibleMatches.map(m => (
               <div key={m.id} className="bg-neutral-900 border border-neutral-800 p-5 rounded-2xl flex justify-between items-center text-xs shadow-md">
                 <div className="flex flex-col gap-1 w-[60%]">
                   <div className="flex items-center gap-2 text-sm text-neutral-200 font-black">
@@ -859,6 +890,8 @@ export default function CompaniesTab({
               </div>
             ))}
           </div>
+            );
+          })()}
         </div>
       )}
 

@@ -830,9 +830,9 @@ export default function CompaniesTab({
             </div>
           </div>
           {(() => {
-            const today = new Date().toISOString().slice(0, 10);
+            const today = new Date().toLocaleDateString('en-CA');
             const visibleMatches = liveMatchesToday
-              ? matches.filter(m => m.fecha && m.fecha.slice(0, 10) === today)
+              ? matches.filter(m => m.fecha && new Date(m.fecha).toLocaleDateString('en-CA') === today)
               : matches;
             return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

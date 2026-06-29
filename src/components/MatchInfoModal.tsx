@@ -163,36 +163,66 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
         </div>
 
         {/* Match Matchup Row */}
-        <div className="bg-neutral-950/40 border border-neutral-900 rounded-xl p-4 sm:p-5 flex items-center justify-center gap-2 sm:gap-6 shadow-inner w-full">
-          {/* Local */}
-          <div className="flex flex-col items-center justify-center flex-1 min-w-0 text-center">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl sm:text-3xl shadow-inner select-none flex-shrink-0">
-              {getTeamFlag(match.local)}
+        <div className="bg-neutral-950/40 border border-neutral-900 rounded-xl p-4 sm:p-5 flex flex-col items-center gap-3 shadow-inner w-full">
+          {/* Teams + Score row */}
+          <div className="flex items-center justify-center gap-2 sm:gap-6 w-full">
+            {/* Local */}
+            <div className="flex flex-col items-center justify-center flex-1 min-w-0 text-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl sm:text-3xl shadow-inner select-none flex-shrink-0">
+                {getTeamFlag(match.local)}
+              </div>
+              <span className="text-[10px] sm:text-xs font-black text-neutral-100 uppercase mt-1.5 w-full block truncate tracking-wider leading-tight">
+                {match.local}
+              </span>
             </div>
-            <span className="text-[10px] sm:text-xs font-black text-neutral-100 uppercase mt-1.5 w-full block truncate tracking-wider leading-tight">
-              {match.local}
-            </span>
+
+            {/* VS / Score */}
+            <div className="flex flex-col items-center justify-center flex-shrink-0 px-2 min-w-[60px] sm:min-w-[80px]">
+              <span className="bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded font-mono text-xs sm:text-sm font-black text-neutral-300">
+                {match.estado !== 'upcoming' ? `${match.goles_local} - ${match.goles_visitante}` : 'VS'}
+              </span>
+              <span className="text-[8px] sm:text-[9px] text-neutral-500 uppercase tracking-widest mt-2 font-mono whitespace-nowrap">
+                {match.estado === 'live'
+                  ? 'En Vivo'
+                  : match.estado === 'finished'
+                    ? (match.stats?.ganador ? 'AET' : 'Finalizado')
+                    : 'Próximamente'}
+              </span>
+            </div>
+
+            {/* Visitante */}
+            <div className="flex flex-col items-center justify-center flex-1 min-w-0 text-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl sm:text-3xl shadow-inner select-none flex-shrink-0">
+                {getTeamFlag(match.visitante)}
+              </div>
+              <span className="text-[10px] sm:text-xs font-black text-neutral-100 uppercase mt-1.5 w-full block truncate tracking-wider leading-tight">
+                {match.visitante}
+              </span>
+            </div>
           </div>
 
-          {/* VS / Score */}
-          <div className="flex flex-col items-center justify-center flex-shrink-0 px-2 min-w-[60px] sm:min-w-[80px]">
-            <span className="bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded font-mono text-xs sm:text-sm font-black text-neutral-300">
-              {match.estado !== 'upcoming' ? `${match.goles_local} - ${match.goles_visitante}` : 'VS'}
-            </span>
-            <span className="text-[8px] sm:text-[9px] text-neutral-500 uppercase tracking-widest mt-2 font-mono whitespace-nowrap">
-              {match.estado === 'live' ? 'En Vivo' : match.estado === 'finished' ? 'Finalizado' : 'Próximamente'}
-            </span>
-          </div>
-
-          {/* Visitante */}
-          <div className="flex flex-col items-center justify-center flex-1 min-w-0 text-center">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-2xl sm:text-3xl shadow-inner select-none flex-shrink-0">
-              {getTeamFlag(match.visitante)}
+          {/* Extra time + Penalty strip */}
+          {match.stats?.ganador && (
+            <div className="w-full border-t border-blue-500/20 pt-3 flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 text-[8px] text-neutral-500 uppercase tracking-widest font-mono">
+                <span>🕐 Alargue</span>
+                <span className="text-neutral-700">·</span>
+                <span>⚽ Penales</span>
+              </div>
+              {match.stats.penales_local != null && (
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-[9px] text-neutral-400 font-black truncate max-w-[72px] text-right">{match.local}</span>
+                  <span className="bg-blue-500/10 border border-blue-500/30 px-3 py-1 rounded font-mono text-sm font-black text-blue-300">
+                    {match.stats.penales_local} – {match.stats.penales_visitante}
+                  </span>
+                  <span className="text-[9px] text-neutral-400 font-black truncate max-w-[72px] text-left">{match.visitante}</span>
+                </div>
+              )}
+              <span className="text-[9px] text-blue-400 font-black uppercase tracking-wider">
+                🎯 {match.stats.ganador} avanza
+              </span>
             </div>
-            <span className="text-[10px] sm:text-xs font-black text-neutral-100 uppercase mt-1.5 w-full block truncate tracking-wider leading-tight">
-              {match.visitante}
-            </span>
-          </div>
+          )}
         </div>
 
         {/* Quick Bet / Prediction Info */}

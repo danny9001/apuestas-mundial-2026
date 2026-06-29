@@ -96,13 +96,24 @@ export async function sendPushToAdmins(payload: PushPayload): Promise<void> {
 
 export async function sendPushToAllActive(payload: PushPayload): Promise<void> {
   try {
-    const users = await pool.query(
+    // Users with web push subscriptions get both push + Telegram
+    const pushUsers = await pool.query(
       `SELECT DISTINCT ps.user_id
        FROM push_subscriptions ps
        JOIN users u ON u.id = ps.user_id
        WHERE u.activo = true`
     );
-    await Promise.all(users.rows.map((row) => sendPushNotification(row.user_id, payload)));
+    await Promise.all(pushUsers.rows.map((row) => sendPushNotification(row.user_id, payload)));
+
+    // Users with only phone (Telegram) but no push subscription
+    const telegramOnlyUsers = await pool.query(
+      `SELECT id FROM users
+       WHERE activo = true
+         AND telefono IS NOT NULL AND telefono != ''
+         AND id NOT IN (SELECT DISTINCT user_id FROM push_subscriptions)`
+    );
+    const formattedMsg = `${payload.title}\n\n${payload.body}`;
+    await Promise.all(telegramOnlyUsers.rows.map((row) => sendTelegramNotification(row.id, formattedMsg)));
   } catch (error) {
     console.error('sendPushToAllActive failed:', error);
   }

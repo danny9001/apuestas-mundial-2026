@@ -1,6 +1,7 @@
 'use client';
 
-import { X, MapPin, Sparkles, Newspaper, Calendar } from 'lucide-react';
+import { X, MapPin, Sparkles, Newspaper, Calendar, TrendingUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { getTeamFlag } from '@/lib/constants';
 import { useApp } from '@/contexts/AppContext';
 
@@ -107,8 +108,27 @@ const STADIUM_MAPPING: Record<string, string> = {
   'Tarija': 'Estadio IV Centenario, Tarija'
 };
 
+interface BetStats {
+  total: number;
+  isClosed: boolean;
+  trend: { local: number; empate: number; visitante: number } | null;
+  topScores: { pred_local: number; pred_visitante: number; count: number; pct: number }[];
+}
+
 export default function MatchInfoModal({ match, prediction, onBet, onClose }: MatchInfoModalProps) {
   const { predictionCloseMinutes } = useApp();
+  const [betStats, setBetStats] = useState<BetStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  useEffect(() => {
+    if (!match?.id) return;
+    setLoadingStats(true);
+    fetch(`/api/matches/prediction-stats?matchId=${match.id}`)
+      .then(r => r.json())
+      .then(data => setBetStats(data))
+      .catch(() => {})
+      .finally(() => setLoadingStats(false));
+  }, [match?.id]);
 
   const localTrivia = TEAM_TRIVIA[match.local] || {
     trivia: `${match.local} busca hacer historia en esta edición de la Copa del Mundo y consolidarse como una potencia de su confederación.`,
@@ -215,6 +235,87 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
           }
           return null;
         })()}
+
+        {/* Tendencia de Apuestas */}
+        {(loadingStats || (betStats && betStats.total > 0)) && (
+          <div className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-5 space-y-4">
+            <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center justify-between border-b border-neutral-850 pb-2">
+              <span className="flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-yellow-500" />
+                <span>Tendencia de Apuestas</span>
+              </span>
+              {betStats && (
+                <span className="text-neutral-600 font-mono text-[9px]">{betStats.total} pronósticos</span>
+              )}
+            </div>
+
+            {loadingStats && (
+              <div className="h-8 flex items-center justify-center">
+                <span className="text-[10px] text-neutral-600 animate-pulse">Cargando...</span>
+              </div>
+            )}
+
+            {betStats && betStats.trend && (
+              <div className="space-y-2.5">
+                {/* Win/Draw/Lose bars */}
+                {[
+                  { label: match.local, key: 'local' as const, color: 'bg-yellow-500', textColor: 'text-yellow-400' },
+                  { label: 'Empate', key: 'empate' as const, color: 'bg-neutral-500', textColor: 'text-neutral-400' },
+                  { label: match.visitante, key: 'visitante' as const, color: 'bg-blue-500', textColor: 'text-blue-400' },
+                ].map(({ label, key, color, textColor }) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className={`text-[9px] font-black uppercase w-20 truncate flex-shrink-0 ${textColor}`}>
+                      {label}
+                    </span>
+                    <div className="flex-1 h-2 bg-neutral-950 rounded-full overflow-hidden border border-neutral-800">
+                      <div
+                        className={`h-full ${color} rounded-full transition-all duration-700`}
+                        style={{ width: `${betStats.trend![key]}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-black font-mono text-neutral-300 w-9 text-right flex-shrink-0">
+                      {betStats.trend![key]}%
+                    </span>
+                  </div>
+                ))}
+
+                {/* Top scores — only shown when betting is closed */}
+                {betStats.isClosed && betStats.topScores.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-neutral-850 space-y-1.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-neutral-500 block mb-2">
+                      Scores más apostados
+                    </span>
+                    {betStats.topScores.map((s, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="font-mono font-black text-[11px] text-neutral-200 w-8 flex-shrink-0 text-center">
+                          {s.pred_local}-{s.pred_visitante}
+                        </span>
+                        <div className="flex-1 h-1.5 bg-neutral-950 rounded-full overflow-hidden border border-neutral-800">
+                          <div
+                            className="h-full bg-yellow-500/60 rounded-full transition-all duration-700"
+                            style={{ width: `${s.pct}%` }}
+                          />
+                        </div>
+                        <span className="text-[9px] font-mono text-neutral-500 w-8 text-right flex-shrink-0">
+                          {s.pct}%
+                        </span>
+                        <span className="text-[9px] text-neutral-600 w-10 text-right flex-shrink-0">
+                          {s.count} usu.
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!betStats.isClosed && (
+                  <p className="text-[9px] text-neutral-600 italic mt-1">
+                    Los scores exactos se revelan cuando cierran las apuestas.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Info sections */}
         <>

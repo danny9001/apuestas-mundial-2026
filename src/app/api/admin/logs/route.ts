@@ -36,10 +36,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ logs: res.rows });
     } else if (type === 'payment') {
       const res = await pool.query(
-        `SELECT id, nivel, categoria, mensaje, detalles, created_at 
-         FROM system_logs 
-         WHERE categoria = 'payment'
-         ORDER BY id DESC 
+        `SELECT up.id, u.nombre, u.email, up.monto, up.fecha, up.comprobante_url, up.notas, up.created_at
+         FROM user_payments up
+         JOIN users u ON up.user_id = u.id
+         ORDER BY up.created_at DESC
          LIMIT $1 OFFSET $2`,
         [limit, offset]
       );

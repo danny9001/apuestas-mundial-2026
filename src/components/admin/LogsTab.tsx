@@ -211,25 +211,27 @@ export default function LogsTab({
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-neutral-950 text-neutral-400 border-b border-neutral-850 uppercase tracking-wider font-black text-[10px]">
-                    <th className="p-3">Nivel</th>
-                    <th className="p-3">Categoría</th>
-                    <th className="p-3">Detalle del Registro</th>
-                    <th className="p-3">Valores</th>
+                    <th className="p-3">Usuario</th>
+                    <th className="p-3">Email</th>
+                    <th className="p-3 text-right">Monto</th>
+                    <th className="p-3">Comprobante</th>
+                    <th className="p-3">Notas</th>
                     <th className="p-3 text-right">Fecha</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-850">
                   {logs.map((log: any) => (
                     <tr key={log.id} className="hover:bg-neutral-900/20 transition-colors">
+                      <td className="p-3 font-bold text-neutral-200">{log.nombre}</td>
+                      <td className="p-3 text-neutral-400 font-mono text-[10px]">{log.email}</td>
+                      <td className="p-3 text-right font-black text-green-400 font-mono">Bs. {parseFloat(log.monto).toLocaleString('es-BO')}</td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border bg-green-500/10 border-green-500/20 text-green-400">
-                          {log.nivel.toUpperCase()}
-                        </span>
+                        {log.comprobante_url
+                          ? <a href={log.comprobante_url} target="_blank" rel="noopener noreferrer" className="text-yellow-500 hover:text-yellow-400 underline text-[10px] font-bold">Ver</a>
+                          : <span className="text-neutral-600">—</span>}
                       </td>
-                      <td className="p-3 text-neutral-300 font-mono">{log.categoria}</td>
-                      <td className="p-3 font-medium text-neutral-200">{log.mensaje}</td>
-                      <td className="p-3 text-neutral-400 font-mono text-[10px]" title={log.detalles}>{log.detalles || '-'}</td>
-                      <td className="p-3 text-right text-neutral-500 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</td>
+                      <td className="p-3 text-neutral-400 text-[10px]">{log.notas || '—'}</td>
+                      <td className="p-3 text-right text-neutral-500 font-mono">{new Date(log.fecha).toLocaleString('es-BO')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -289,17 +291,20 @@ export default function LogsTab({
               </div>
             ))}
 
-             {logsType === 'payment' && logs.map((log: any) => (
+            {logsType === 'payment' && logs.map((log: any) => (
               <div key={log.id} className="p-3 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border bg-green-500/10 border-green-500/20 text-green-400">
-                    {log.nivel.toUpperCase()}
-                  </span>
-                  <span className="text-[10px] font-bold text-neutral-400 font-mono">{log.categoria}</span>
+                  <span className="text-[11px] font-bold text-neutral-200">{log.nombre}</span>
+                  <span className="text-sm font-black text-green-400 font-mono">Bs. {parseFloat(log.monto).toLocaleString('es-BO')}</span>
                 </div>
-                <p className="text-[11px] font-medium text-neutral-200">{log.mensaje}</p>
-                {log.detalles && <p className="text-[10px] text-neutral-500 font-mono">{log.detalles}</p>}
-                <p className="text-[9px] text-neutral-600 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
+                <p className="text-[10px] text-neutral-400 font-mono">{log.email}</p>
+                {log.notas && <p className="text-[10px] text-neutral-300">{log.notas}</p>}
+                {log.comprobante_url && (
+                  <a href={log.comprobante_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-yellow-500 hover:text-yellow-400 underline font-bold">
+                    Ver comprobante
+                  </a>
+                )}
+                <p className="text-[9px] text-neutral-600 font-mono">{new Date(log.fecha).toLocaleString('es-BO')}</p>
               </div>
             ))}
 

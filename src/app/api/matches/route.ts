@@ -70,7 +70,8 @@ export async function POST(req: NextRequest) {
       fase,
       grupo,
       transmision_enlaces,
-      stats
+      stats,
+      penales_habilitados
     } = body;
 
     const scoreLocal = goles_local !== undefined && goles_local !== null ? validateScore(goles_local) : undefined;
@@ -94,8 +95,13 @@ export async function POST(req: NextRequest) {
       }
       const prevMatch = checkRes.rows[0];
 
+      // penales_habilitados only changeable by superadmin
+      const penalesHabilitadosValue = user.tipo === 'superadmin' && penales_habilitados !== undefined
+        ? penales_habilitados
+        : null;
+
       const updateQuery = `
-        UPDATE matches 
+        UPDATE matches
         SET fecha = COALESCE($1, fecha),
             local = COALESCE($2, local),
             visitante = COALESCE($3, visitante),
@@ -108,18 +114,20 @@ export async function POST(req: NextRequest) {
             grupo = COALESCE($10, grupo),
             transmision_enlaces = COALESCE($11, transmision_enlaces),
             stats = COALESCE($12, stats),
+            penales_habilitados = COALESCE($14, penales_habilitados),
             updated_at = CURRENT_TIMESTAMP
         WHERE id = $13
         RETURNING *
       `;
-      
+
       matchResult = await pool.query(updateQuery, [
         fecha, local, visitante, logo_local, logo_visitante, estado,
         scoreLocal !== undefined && scoreLocal !== null ? scoreLocal : null,
         scoreVisitante !== undefined && scoreVisitante !== null ? scoreVisitante : null,
         fase, grupo, transmision_enlaces,
         stats ? (typeof stats === 'string' ? stats : JSON.stringify(stats)) : null,
-        id
+        id,
+        penalesHabilitadosValue
       ]);
 
       const updatedMatch = matchResult.rows[0];
@@ -137,11 +145,13 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // If transition to finished, live, or score changed, run the leaderboard points recalculator
+      // If transition to finished, live, score changed, or penalty scoring toggled → recalculate
+      const penalesToggled = penalesHabilitadosValue !== null;
       if (
         (estado === 'finished' && prevMatch.estado !== 'finished') ||
         (estado === 'live' && prevMatch.estado !== 'live') ||
-        (scoreChanged && (updatedMatch.estado === 'finished' || updatedMatch.estado === 'live'))
+        (scoreChanged && (updatedMatch.estado === 'finished' || updatedMatch.estado === 'live')) ||
+        (penalesToggled && updatedMatch.estado === 'finished')
       ) {
         await pool.query('SELECT recalculate_leaderboard()');
         broadcastUpdate('leaderboard', { updated: true });
@@ -149,7 +159,8 @@ export async function POST(req: NextRequest) {
 
       // Broadcast general match update
       broadcastUpdate('match', updatedMatch);
-      logSystem('info', 'PARTIDO', `${user.nombre} editó partido ${updatedMatch.local} vs ${updatedMatch.visitante}`, `Estado: ${updatedMatch.estado} | Marcador: ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}`).catch(() => {});
+      const penalesLog = penalesToggled ? ` | Penales: ${updatedMatch.penales_habilitados ? 'ON' : 'OFF'}` : '';
+      logSystem('info', 'PARTIDO', `${user.nombre} editó partido ${updatedMatch.local} vs ${updatedMatch.visitante}`, `Estado: ${updatedMatch.estado} | Marcador: ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}${penalesLog}`).catch(() => {});
 
     } else {
       // CREATE MATCH

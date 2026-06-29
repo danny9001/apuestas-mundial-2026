@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS matches (
   estadio VARCHAR(255),
   transmision_enlaces TEXT DEFAULT '',
   stats JSONB DEFAULT '{}',
+  penales_habilitados BOOLEAN DEFAULT false,
   last_synced_at TIMESTAMP WITH TIME ZONE,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -339,8 +340,8 @@ BEGIN
     WHEN m.estado = 'upcoming' THEN 0
     -- Exact score at 90' (3 points)
     WHEN p.pred_local = m.goles_local AND p.pred_visitante = m.goles_visitante THEN 3
-    -- Penalty shootout: correctly predicted the winner (1 point)
-    WHEN (m.stats->>'ganador') IS NOT NULL AND (m.stats->>'ganador') <> '' AND (
+    -- Penalty shootout: only counts when superadmin enables it
+    WHEN m.penales_habilitados = true AND (m.stats->>'ganador') IS NOT NULL AND (m.stats->>'ganador') <> '' AND (
       (p.pred_local > p.pred_visitante AND m.stats->>'ganador' = m.local) OR
       (p.pred_local < p.pred_visitante AND m.stats->>'ganador' = m.visitante)
     ) THEN 1

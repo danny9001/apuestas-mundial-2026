@@ -42,6 +42,8 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
   const [penalesVisitante, setPenalesVisitante] = useState<number>(match.stats?.penales_visitante ?? 0);
   const [ganador, setGanador] = useState<string>(match.stats?.ganador ?? '');
   const [savingPenales, setSavingPenales] = useState(false);
+  const [penalesHabilitados, setPenalesHabilitados] = useState<boolean>(match.penales_habilitados ?? false);
+  const [savingSwitch, setSavingSwitch] = useState(false);
 
   if (!isEditable(match)) return null;
 
@@ -171,6 +173,28 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
       showToast('Error de red');
     } finally {
       setSavingPenales(false);
+    }
+  };
+
+  const handleTogglePenalesSwitch = async (newValue: boolean) => {
+    setSavingSwitch(true);
+    try {
+      const res = await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: match.id, penales_habilitados: newValue }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPenalesHabilitados(newValue);
+        onCorrected?.(data.match);
+      } else {
+        showToast(`Error: ${data.error}`);
+      }
+    } catch {
+      showToast('Error de red');
+    } finally {
+      setSavingSwitch(false);
     }
   };
 
@@ -323,6 +347,22 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
       {/* ── Penales (knockout only, solo superadmin) ── */}
       {isSuperAdmin && isKnockout && (
         <div className="border-t border-yellow-500/10 pt-2.5">
+
+          {/* Switch: ¿Contar penales para puntos? */}
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">
+              ⚡ Penales cuentan para puntos
+            </span>
+            <button
+              onClick={() => !savingSwitch && handleTogglePenalesSwitch(!penalesHabilitados)}
+              disabled={savingSwitch}
+              className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${penalesHabilitados ? 'bg-blue-500' : 'bg-neutral-700'}`}
+              title={penalesHabilitados ? 'Desactivar scoring de penales' : 'Activar scoring de penales'}
+            >
+              <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${penalesHabilitados ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+
           {hasExistingPenales ? (
             /* Already registered — show summary + option to edit */
             <div className="space-y-1.5">

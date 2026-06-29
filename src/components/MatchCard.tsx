@@ -31,6 +31,7 @@ function MatchEvents({ match }: { match: any }) {
           {penalesLocal != null && penalesVisitante != null
             ? ` (${penalesLocal}–${penalesVisitante} en penales)`
             : ' en penales'}
+          {match.penales_habilitados && <span className="ml-1 text-yellow-400">⚡</span>}
         </div>
       )}
       <div className="flex justify-between gap-2 text-[9px] text-neutral-400">
@@ -146,7 +147,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
         {m.estado !== 'upcoming' && (Array.isArray(m.stats?.eventos) && m.stats.eventos.length > 0 || m.stats?.ganador) && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1.5 border-t border-neutral-800/30 mt-1.5 text-[8px] text-neutral-500" onClick={e => e.stopPropagation()}>
             {m.stats?.ganador && (
-              <span className="text-blue-400 font-black">🎯 {m.stats.ganador}{m.stats.penales_local != null ? ` (${m.stats.penales_local}–${m.stats.penales_visitante}P)` : ''}</span>
+              <span className="text-blue-400 font-black">🎯 {m.stats.ganador}{m.stats.penales_local != null ? ` (${m.stats.penales_local}–${m.stats.penales_visitante}P)` : ''}{m.penales_habilitados ? ' ⚡' : ''}</span>
             )}
             {(m.stats?.eventos || []).map((e: any, i: number) => (
               <span key={i} className="flex items-center gap-0.5">

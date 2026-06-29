@@ -16,7 +16,7 @@ async function insertNotification(titulo: string, contenido: string, tipo: strin
 
   // Copy notification into global chat as a system message
   try {
-    let chatMessage = contenido ? `📣 **${titulo}**\n${contenido}` : `📣 **${titulo}**`;
+    let chatMessage = contenido ? `📣 ${titulo}\n\n${contenido}` : `📣 ${titulo}`;
     if (chatMessage.length > 500) {
       chatMessage = chatMessage.substring(0, 497) + '...';
     }

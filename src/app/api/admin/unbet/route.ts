@@ -143,9 +143,9 @@ export async function POST(req: NextRequest) {
       const closeRes2 = await pool.query("SELECT value FROM settings WHERE key = 'prediction_close_minutes'");
       const closeMinutes2 = closeRes2.rows.length > 0 ? parseInt(closeRes2.rows[0].value, 10) || 15 : 15;
 
-      const names = usersList.map((u: any) => u.nombre).join(', ');
+      const namesBullets = usersList.map((u: any) => `• ${u.nombre}`).join('\n');
       const titulo = `🚫 Sin Pronóstico: ${local} vs ${visitante}`;
-      const contenido = `Los siguientes participantes aún no guardaron su pronóstico para el partido ${local} vs ${visitante}:\n${names}\n\n¡Apúrense, cierra ${closeMinutes2} minutos antes del pitazo inicial!`;
+      const contenido = `Los siguientes participantes aún no guardaron su pronóstico para el partido ${local} vs ${visitante}:\n\n${namesBullets}\n\n⏰ ¡Apúrense! Las apuestas cierran ${closeMinutes2} minutos antes del pitazo.`;
 
       // Insert notification
       const res = await pool.query(
@@ -153,13 +153,13 @@ export async function POST(req: NextRequest) {
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, titulo, tipo, target_type, target_id`,
         [titulo, contenido, 'warning', 'all', null, sessionUser.id]
       );
-      
+
       const { broadcastUpdate } = await import('@/lib/realtime');
       broadcastUpdate('notification', res.rows[0]);
 
       // Copy notification into global chat as a system message
       try {
-        let chatMessage = contenido ? `📣 **${titulo}**\n${contenido}` : `📣 **${titulo}**`;
+        let chatMessage = `${titulo}\n\n${namesBullets}\n\n⏰ Cierra ${closeMinutes2} min antes del pitazo.`;
         if (chatMessage.length > 500) {
           chatMessage = chatMessage.substring(0, 497) + '...';
         }

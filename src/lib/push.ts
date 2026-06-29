@@ -51,7 +51,7 @@ export async function sendTelegramNotification(userId: number, text: string): Pr
 
 export async function sendPushNotification(userId: number, payload: PushPayload): Promise<void> {
   // Send via Telegram first in parallel (non-blocking)
-  const formattedMsg = `<b>${payload.title}</b>\n\n${payload.body}`;
+  const formattedMsg = `${payload.title}\n\n${payload.body}`;
   void sendTelegramNotification(userId, formattedMsg);
 
   if (!initWebPush()) return;

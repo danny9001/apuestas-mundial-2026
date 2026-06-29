@@ -16,6 +16,7 @@ export default function RankingPage() {
   const [tinkasoStatsModal, setTinkasoStatsModal] = useState(false);
   const [tinkasoStats, setTinkasoStats] = useState<any[]>([]);
   const [tinkasoLoading, setTinkasoLoading] = useState(false);
+  const [winnersData, setWinnersData] = useState<{ champion: string | null; tinkasoWinners: any[] } | null>(null);
 
   const loadTinkasoData = async () => {
     setTinkasoLoading(true);
@@ -41,12 +42,14 @@ export default function RankingPage() {
     (async () => {
       setLoading(true);
       try {
-        const [lRes, cRes] = await Promise.all([
+        const [lRes, cRes, wRes] = await Promise.all([
           fetch(`/api/leaderboard?t=${Date.now()}`),
           fetch(`/api/companies?t=${Date.now()}`),
+          fetch(`/api/winners?t=${Date.now()}`),
         ]);
         if (lRes.ok) setLeaderboard(await lRes.json());
         if (cRes.ok) setCompanies(await cRes.json());
+        if (wRes.ok) setWinnersData(await wRes.json());
       } catch {}
       setLoading(false);
     })();
@@ -195,6 +198,55 @@ export default function RankingPage() {
           </div>
         )}
       </div>
+
+      {/* ── Panel Campeón Mundial ── */}
+      {rankingFilter === 'participantes' && winnersData?.champion && (
+        <div className="rounded-2xl border border-yellow-500/40 bg-gradient-to-br from-yellow-500/10 via-amber-500/5 to-transparent p-5 space-y-4 shadow-[0_0_30px_rgba(255,209,101,0.08)]">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🏆</span>
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-yellow-500">Campeón Mundial 2026</div>
+              <div className="text-xl font-black text-neutral-100 flex items-center gap-2">
+                {getTeamFlag(winnersData.champion)} {winnersData.champion}
+              </div>
+            </div>
+          </div>
+
+          {winnersData.tinkasoWinners.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-[9px] font-black uppercase tracking-widest text-neutral-400">
+                Acertaron el Tinkaso ({winnersData.tinkasoWinners.length} jugador{winnersData.tinkasoWinners.length !== 1 ? 'es' : ''}) — +5 pts bonus
+              </div>
+              <div className="space-y-1.5">
+                {winnersData.tinkasoWinners.map((w: any) => (
+                  <div key={w.id} className="flex items-center justify-between bg-yellow-500/5 border border-yellow-500/15 rounded-xl px-3 py-2">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={(w.avatar && w.avatar !== 'null' && w.avatar !== 'undefined') ? w.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp'}
+                        onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }}
+                        className="w-8 h-8 rounded-full border border-yellow-500/30 object-cover"
+                        alt="avatar"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-neutral-100">{w.nombre}</div>
+                        <div className="text-[9px] text-neutral-500 font-mono">#{w.posicion} · {w.exactos} exactos</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-black text-yellow-500 font-mono">{w.puntos_totales} pts</div>
+                      <div className="text-[9px] text-green-400 font-black">✅ +5 bonus</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {winnersData.tinkasoWinners.length === 0 && (
+            <p className="text-xs text-neutral-500 text-center py-2">Ningún participante acertó el Tinkaso.</p>
+          )}
+        </div>
+      )}
 
       {/* Full ranking table */}
       <div className="glass-card border border-neutral-800/40 rounded-xl overflow-hidden mt-6 shadow-2xl">

@@ -8,6 +8,7 @@ interface ScoreCorrectionPanelProps {
   match: any;
   onCorrected?: (updated: any) => void;
   showToast: (msg: string) => void;
+  isSuperAdmin?: boolean;
 }
 
 const GRACE_MS = 15 * 60 * 1000;
@@ -23,7 +24,7 @@ function isEditable(match: any): boolean {
 
 type EventForm = { jugador: string; minuto: string } | null;
 
-export default function ScoreCorrectionPanel({ match, onCorrected, showToast }: ScoreCorrectionPanelProps) {
+export default function ScoreCorrectionPanel({ match, onCorrected, showToast, isSuperAdmin = false }: ScoreCorrectionPanelProps) {
   // ── Score correction ──
   const [local, setLocal] = useState<number>(match.goles_local ?? 0);
   const [visitante, setVisitante] = useState<number>(match.goles_visitante ?? 0);
@@ -243,8 +244,8 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast }: 
         )}
       </div>
 
-      {/* ── Eventos del Partido ── */}
-      <div className="border-t border-yellow-500/10 pt-2.5">
+      {/* ── Eventos del Partido (solo superadmin) ── */}
+      {isSuperAdmin && <div className="border-t border-yellow-500/10 pt-2.5">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Registrar Evento</span>
           {eventos.length > 0 && (
@@ -317,10 +318,10 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast }: 
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
-      {/* ── Penales (knockout only) ── */}
-      {isKnockout && (
+      {/* ── Penales (knockout only, solo superadmin) ── */}
+      {isSuperAdmin && isKnockout && (
         <div className="border-t border-yellow-500/10 pt-2.5">
           {hasExistingPenales ? (
             /* Already registered — show summary + option to edit */

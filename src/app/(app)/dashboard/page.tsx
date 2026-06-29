@@ -279,6 +279,7 @@ export default function DashboardPage() {
                     match={m}
                     showToast={showToast}
                     onCorrected={updated => setMatches(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                    isSuperAdmin={user?.tipo === 'superadmin'}
                   />
                 )}
               </div>
@@ -303,6 +304,7 @@ export default function DashboardPage() {
                   match={m}
                   showToast={showToast}
                   onCorrected={updated => setMatches(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                  isSuperAdmin={user?.tipo === 'superadmin'}
                 />
               </div>
             ))}

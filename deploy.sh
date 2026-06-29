@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# Load environment variables if .env.local exists
+if [ -f .env.local ]; then
+  export $(grep -v '^#' .env.local | xargs)
+fi
+
 echo "▶ Building in temporary directory to avoid downtime..."
 NEXT_DIST_DIR=.next_temp pnpm build
 

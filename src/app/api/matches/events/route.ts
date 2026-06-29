@@ -14,10 +14,9 @@ export async function POST(req: NextRequest) {
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-    const isAdmin = user.tipo === 'admin' || user.tipo === 'superadmin';
-    const isArbitro = !!(user as any).arbitro_marcador;
-    if (!isAdmin && !isArbitro) {
-      return NextResponse.json({ error: 'Sin permisos para registrar eventos' }, { status: 403 });
+    const isSuperAdmin = user.tipo === 'superadmin';
+    if (!isSuperAdmin) {
+      return NextResponse.json({ error: 'Solo el super administrador puede registrar eventos' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -161,9 +160,8 @@ export async function DELETE(req: NextRequest) {
   try {
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    const isAdmin = user.tipo === 'admin' || user.tipo === 'superadmin';
-    const isArbitro = !!(user as any).arbitro_marcador;
-    if (!isAdmin && !isArbitro) return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+    const isSuperAdmin = user.tipo === 'superadmin';
+    if (!isSuperAdmin) return NextResponse.json({ error: 'Solo el super administrador puede modificar eventos' }, { status: 403 });
 
     const body = await req.json();
     const { matchId, eventIndex } = body;

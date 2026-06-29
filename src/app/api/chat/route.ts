@@ -15,6 +15,43 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const since = searchParams.get('since');
+    const adminHistory = searchParams.get('admin_history') === 'true';
+
+    // Admin history: returns system messages sent by this admin (or all if superadmin)
+    if (adminHistory) {
+      const isAdmin = user.tipo === 'admin' || user.tipo === 'superadmin';
+      if (!isAdmin) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+
+      const historyQuery = user.tipo === 'superadmin'
+        ? `SELECT gm.id, gm.message, gm.is_system, gm.target_type, gm.target_id, gm.created_at, gm.user_id,
+                  u.nombre as user_nombre,
+                  CASE gm.target_type
+                    WHEN 'company' THEN (SELECT nombre FROM companies WHERE id = gm.target_id)
+                    WHEN 'group'   THEN (SELECT nombre FROM groups   WHERE id = gm.target_id)
+                    WHEN 'user'    THEN (SELECT nombre FROM users    WHERE id = gm.target_id)
+                    ELSE NULL
+                  END as target_nombre
+           FROM global_messages gm
+           LEFT JOIN users u ON gm.user_id = u.id
+           WHERE gm.is_system = TRUE AND gm.deleted_at IS NULL
+           ORDER BY gm.created_at DESC LIMIT 50`
+        : `SELECT gm.id, gm.message, gm.is_system, gm.target_type, gm.target_id, gm.created_at, gm.user_id,
+                  u.nombre as user_nombre,
+                  CASE gm.target_type
+                    WHEN 'company' THEN (SELECT nombre FROM companies WHERE id = gm.target_id)
+                    WHEN 'group'   THEN (SELECT nombre FROM groups   WHERE id = gm.target_id)
+                    WHEN 'user'    THEN (SELECT nombre FROM users    WHERE id = gm.target_id)
+                    ELSE NULL
+                  END as target_nombre
+           FROM global_messages gm
+           LEFT JOIN users u ON gm.user_id = u.id
+           WHERE gm.is_system = TRUE AND gm.deleted_at IS NULL AND gm.user_id = $1
+           ORDER BY gm.created_at DESC LIMIT 50`;
+      const hRes = await pool.query(historyQuery, user.tipo === 'superadmin' ? [] : [user.id]);
+      const response = NextResponse.json(hRes.rows);
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
+    }
 
     let query = `
       SELECT gm.*, u.nombre as user_nombre, u.avatar as user_avatar, u.tipo as user_tipo
@@ -44,7 +81,7 @@ export async function GET(req: NextRequest) {
     }
 
     const res = await pool.query(query, params);
-    
+
     // If not since, we queried DESC to get the last 100, now reverse to return chronologically ASC
     const rows = since ? res.rows : res.rows.reverse();
 

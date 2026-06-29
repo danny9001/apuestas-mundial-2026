@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  MessageSquare, Bell, Send, X, AlertTriangle
+  MessageSquare, Bell, Send, X, AlertTriangle, Trash2, Pencil, RefreshCw
 } from 'lucide-react';
 
 interface NotificationsTabProps {
@@ -28,9 +28,35 @@ export default function NotificationsTab({
   const [notifTargetId, setNotifTargetId] = useState<number | null>(null);
   const [notifSubmitting, setNotifSubmitting] = useState(false);
 
+  // Historial de mensajes enviados
+  const [sentMessages, setSentMessages] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const [unbetMatches, setUnbetMatches] = useState<any[]>([]);
   const [loadingUnbet, setLoadingUnbet] = useState(false);
   const [showUnbetModal, setShowUnbetModal] = useState(false);
+
+  const fetchSentMessages = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/chat?admin_history=true&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSentMessages(data);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSentMessages();
+  }, [fetchSentMessages]);
 
   const fetchUnbetUsers = async () => {
     setLoadingUnbet(true);
@@ -107,6 +133,7 @@ export default function NotificationsTab({
         setNotifContenido('');
         setNotifTargetType(user?.tipo === 'superadmin' ? 'all' : 'company');
         setNotifTargetId(null);
+        fetchSentMessages();
       } else {
         const d = await res.json();
         showToast(d.error || 'Error al enviar aviso');
@@ -214,6 +241,138 @@ export default function NotificationsTab({
           </div>
         </div>
       )}
+
+      {/* ── Historial de Mensajes Enviados ── */}
+      <div className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-3">
+        <div className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-3.5 h-3.5 text-neutral-400" />
+            Mensajes Enviados
+          </div>
+          <button
+            type="button"
+            onClick={fetchSentMessages}
+            disabled={loadingHistory}
+            className="text-neutral-500 hover:text-neutral-300 transition disabled:opacity-40"
+            title="Actualizar"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingHistory ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {loadingHistory ? (
+          <div className="text-[10px] text-neutral-500 py-4 text-center">Cargando...</div>
+        ) : sentMessages.length === 0 ? (
+          <div className="text-[10px] text-neutral-500 py-4 text-center">No hay mensajes enviados</div>
+        ) : (
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+            {sentMessages.map((msg: any) => (
+              <div key={msg.id} className="bg-neutral-950/60 border border-neutral-850 rounded-xl p-3 space-y-1.5">
+                {editingId === msg.id ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editingText}
+                      onChange={e => setEditingText(e.target.value)}
+                      rows={3}
+                      className="w-full input-stitch px-3 py-2 text-xs resize-none"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => { setEditingId(null); setEditingText(''); }}
+                        className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-neutral-700/50 bg-neutral-800/50 text-neutral-400 hover:bg-neutral-700/50 transition"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingEdit}
+                        onClick={async () => {
+                          setSavingEdit(true);
+                          try {
+                            const r = await fetch(`/api/chat/${msg.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ message: editingText }),
+                            });
+                            if (r.ok) {
+                              showToast('✅ Mensaje actualizado');
+                              setEditingId(null);
+                              setEditingText('');
+                              fetchSentMessages();
+                            } else {
+                              const d = await r.json();
+                              showToast(d.error || 'Error al actualizar');
+                            }
+                          } catch {
+                            showToast('Error de red');
+                          } finally {
+                            setSavingEdit(false);
+                          }
+                        }}
+                        className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-neutral-950 transition disabled:opacity-50"
+                      >
+                        {savingEdit ? 'Guardando...' : 'Guardar'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-[11px] text-neutral-200 whitespace-pre-wrap break-words">{msg.message}</div>
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {msg.target_type && msg.target_type !== 'all' && (
+                          <span className="text-[9px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                            {msg.target_type === 'company' ? '🏢' : msg.target_type === 'group' ? '👥' : '👤'} {msg.target_nombre || msg.target_id}
+                          </span>
+                        )}
+                        {msg.target_type === 'all' && (
+                          <span className="text-[9px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">🌐 Todos</span>
+                        )}
+                        <span className="text-[9px] text-neutral-600 font-mono">
+                          {new Date(msg.created_at).toLocaleString('es-BO')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => { setEditingId(msg.id); setEditingText(msg.message); }}
+                          className="text-neutral-500 hover:text-yellow-400 transition"
+                          title="Editar"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!confirm('¿Eliminar este mensaje?')) return;
+                            try {
+                              const r = await fetch(`/api/chat/${msg.id}`, { method: 'DELETE' });
+                              if (r.ok) {
+                                showToast('Mensaje eliminado');
+                                fetchSentMessages();
+                              } else {
+                                const d = await r.json();
+                                showToast(d.error || 'Error al eliminar');
+                              }
+                            } catch {
+                              showToast('Error de red');
+                            }
+                          }}
+                          className="text-neutral-500 hover:text-red-400 transition"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── MODAL: Usuarios Sin Apuesta (Próx. 12h) ── */}
       {showUnbetModal && (

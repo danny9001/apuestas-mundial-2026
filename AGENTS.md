@@ -32,17 +32,14 @@ git -C /home/soporte/skill-elite-pass-knowledge pull origin main   # si hay camb
 **Siempre ejecutar AL FINALIZAR cualquier tarea:**
 ```bash
 # openspec: subir cambios (proposal.md, design.md, tasks.md, specs actualizados)
-git add -A && git commit -m "Sync: <descripción>" && git push origin main
+git -C /home/soporte/openspec add -A && git -C /home/soporte/openspec commit -m "Sync: <descripción>" && git -C /home/soporte/openspec push origin main
 
 # skills: subir si se modificó alguna skill
-cd /home/soporte/skill-elite-pass-knowledge && git add -A && git commit -m "Sync: <descripción>" && git push origin main
-
-# Sincronizar VM00
-sshpass -p 'Password2012' ssh -p 5001 soporte@10.0.0.4 '
-  git -C ~/openspec pull origin main
-  git -C ~/skill-elite-pass-knowledge pull origin main
-'
+git -C /home/soporte/skill-elite-pass-knowledge add -A && git -C /home/soporte/skill-elite-pass-knowledge commit -m "Sync: <descripción>" && git -C /home/soporte/skill-elite-pass-knowledge push origin main
 ```
+
+> **Sin SSH cruzado.** Cada Claude hace git solo en el servidor donde se ejecuta. El otro servidor hace `git pull` localmente cuando le toque.
+
 
 Repos y rutas (idénticos en VM02 y VM00):
 | Repo | GitHub | Ruta local |

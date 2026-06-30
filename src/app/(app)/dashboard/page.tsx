@@ -135,7 +135,7 @@ export default function DashboardPage() {
 
   const GRACE_MS = 15 * 60 * 1000;
   const canEditMatches = !!(user && ((user as any).arbitro_marcador || user.tipo === 'admin' || user.tipo === 'superadmin'));
-  const todayMatches = matches.filter(m => isTodayBolivia(m.fecha)).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+  const todayMatches = matches.filter(m => m.estado === 'live' || isTodayBolivia(m.fecha)).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
   const countdownMatch = matches.filter(m => m.estado === 'upcoming' && new Date(m.fecha).getTime() > Date.now()).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
 
   return (

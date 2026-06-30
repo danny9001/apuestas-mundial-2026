@@ -1004,8 +1004,10 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
       const scoreHome = parseInt(homeCompetitor.score) >= 0 ? parseInt(homeCompetitor.score) : 0;
       const scoreAway = parseInt(awayCompetitor.score) >= 0 ? parseInt(awayCompetitor.score) : 0;
 
-      const penalesHome = homeCompetitor.shootoutScore !== undefined ? parseInt(homeCompetitor.shootoutScore) : null;
-      const penalesAway = awayCompetitor.shootoutScore !== undefined ? parseInt(awayCompetitor.shootoutScore) : null;
+      const penalesHomeRaw = homeCompetitor.shootoutScore !== undefined ? parseInt(homeCompetitor.shootoutScore) : null;
+      const penalesAwayRaw = awayCompetitor.shootoutScore !== undefined ? parseInt(awayCompetitor.shootoutScore) : null;
+      const penalesHome = penalesHomeRaw !== null && !isNaN(penalesHomeRaw) ? penalesHomeRaw : null;
+      const penalesAway = penalesAwayRaw !== null && !isNaN(penalesAwayRaw) ? penalesAwayRaw : null;
 
       const golesLocal = isLInverted ? scoreAway : scoreHome;
       const golesVisitante = isLInverted ? scoreHome : scoreAway;
@@ -1177,12 +1179,10 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
           stats.penales_local = penalesLocal;
           stats.penales_visitante = penalesVisitante;
           if (comp.status?.type?.detail?.toLowerCase().includes('shootout') || estado === 'finished') {
-            const winnerId = comp.winner === true ? homeCompetitor.team?.id : (comp.winner === false ? awayCompetitor.team?.id : null);
-            if (winnerId) {
-              const isHomeWinner = winnerId === homeCompetitor.team?.id;
-              stats.ganador = isLInverted 
-                ? (isHomeWinner ? localMatch.visitante : localMatch.local)
-                : (isHomeWinner ? localMatch.local : localMatch.visitante);
+            if (homeCompetitor.winner === true) {
+              stats.ganador = isLInverted ? localMatch.visitante : localMatch.local;
+            } else if (awayCompetitor.winner === true) {
+              stats.ganador = isLInverted ? localMatch.local : localMatch.visitante;
             }
           }
         }
@@ -1437,16 +1437,15 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
         localMatch.logo_visitante = logoVisitante;
       }
 
-      let golesLocal = score?.fullTime?.home !== null ? score.fullTime.home : 0;
-      let golesVisitante = score?.fullTime?.away !== null ? score.fullTime.away : 0;
+      let golesLocal = score?.fullTime?.home ?? 0;
+      let golesVisitante = score?.fullTime?.away ?? 0;
 
       let penalesLocal = null;
       let penalesVisitante = null;
 
       if (score?.duration === 'PENALTY_SHOOTOUT' || (score?.penalties?.home !== null && score?.penalties?.home !== undefined)) {
-        // Use extra time score if available, otherwise fullTime (excluding penalties)
-        const regularLocal = score?.extraTime?.home !== null && score?.extraTime?.home !== undefined ? score.extraTime.home : (score?.fullTime?.home !== null ? score.fullTime.home : 1);
-        const regularVisitante = score?.extraTime?.away !== null && score?.extraTime?.away !== undefined ? score.extraTime.away : (score?.fullTime?.away !== null ? score.fullTime.away : 1);
+        const regularLocal = score?.extraTime?.home ?? score?.fullTime?.home ?? 1;
+        const regularVisitante = score?.extraTime?.away ?? score?.fullTime?.away ?? 1;
         
         penalesLocal = score?.penalties?.home !== undefined ? score.penalties.home : null;
         penalesVisitante = score?.penalties?.away !== undefined ? score.penalties.away : null;
@@ -1488,7 +1487,7 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
       if (!isDowngrade && scoreChanged && await isAnnulledScore(localMatch.id, finalGolesLocal, finalGolesVisitante)) continue;
 
       if (stateChanged || scoreChanged) {
-        const stats = apiMatch.stats || {};
+        const stats = localMatch.stats ? { ...localMatch.stats } : {};
         if (estado === 'finished') {
           stats.finished_at = stats.finished_at || new Date().toISOString();
         }

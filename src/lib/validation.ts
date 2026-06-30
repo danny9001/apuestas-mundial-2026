@@ -3,16 +3,15 @@
  * All user-supplied strings pass through here before DB writes or responses.
  */
 
-// bcrypt rounds — 10 balances security and latency (especially for pure JS bcryptjs)
-export const BCRYPT_ROUNDS = 10;
+// bcrypt rounds — 12 gives ~250ms/hash, balancing security vs latency (policy minimum)
+export const BCRYPT_ROUNDS = 12;
 
 // Maximum avatar upload size (5 MB)
 export const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
-// Dummy bcrypt hash used for constant-time comparison when user doesn't exist
-// (prevents user-enumeration via timing)
+// Dummy bcrypt hash — must match BCRYPT_ROUNDS cost factor to prevent user-enumeration via timing
 export const DUMMY_BCRYPT_HASH =
-  '$2a$10$DxP3ehUZuiJJ7yOG9g.A1O3p2m.P53lD2f7tV28KnyWq6mB02q02i';
+  '$2a$12$LfZMhBGxJHHtIpMJrxvBZuaVQvKT/7X8EKA3XZF9jKkWyU8IlxVNu';
 
 /**
  * RFC-5321 simplified email check.

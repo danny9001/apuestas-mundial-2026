@@ -88,12 +88,16 @@ export async function POST(req: NextRequest) {
 
     if (id) {
       if (body.open_for_arbitros) {
+        if (user.tipo !== 'superadmin') {
+          return NextResponse.json({ error: 'Solo el superadmin puede abrir un partido para corrección' }, { status: 403 });
+        }
         const getStatsRes = await pool.query('SELECT stats FROM matches WHERE id = $1', [id]);
         if (getStatsRes.rows.length === 0) {
           return NextResponse.json({ error: 'Partido no encontrado' }, { status: 404 });
         }
         const currentStats = getStatsRes.rows[0].stats || {};
         currentStats.finished_at = new Date().toISOString(); // Reset finished_at to now
+        delete currentStats.manual_control; // Clear freeze so sync can resume after correction window
         
         const updateRes = await pool.query(
           `UPDATE matches 
@@ -128,8 +132,10 @@ export async function POST(req: NextRequest) {
       if (estado === 'finished') {
         finalStats.finished_at = finalStats.finished_at || new Date().toISOString();
       }
-      // Set manual_control to true since an admin/superadmin is saving it
-      finalStats.manual_control = true;
+      // Only freeze sync when score/estado is being manually overridden
+      if (scoreLocal !== undefined || scoreVisitante !== undefined || estado !== undefined) {
+        finalStats.manual_control = true;
+      }
 
       const updateQuery = `
         UPDATE matches

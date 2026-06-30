@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
     if (typeof goles_local !== 'number' || typeof goles_visitante !== 'number') {
       return NextResponse.json({ error: 'Scores inválidos' }, { status: 400 });
     }
-    if (goles_local < 0 || goles_visitante < 0) {
-      return NextResponse.json({ error: 'El score no puede ser negativo' }, { status: 400 });
+    if (goles_local < 0 || goles_visitante < 0 || goles_local > 99 || goles_visitante > 99) {
+      return NextResponse.json({ error: 'El score debe estar entre 0 y 99' }, { status: 400 });
     }
 
     const matchRes = await pool.query('SELECT * FROM matches WHERE id = $1', [matchId]);
@@ -61,7 +61,9 @@ export async function POST(req: NextRequest) {
     if (noChange) return NextResponse.json({ error: 'El score ya tiene ese valor' }, { status: 400 });
 
     const currentStats = match.stats || {};
-    currentStats.manual_control = true;
+    if (match.estado === 'finished') {
+      currentStats.manual_control = true;
+    }
     if (match.estado === 'finished' && !currentStats.finished_at) {
       currentStats.finished_at = new Date().toISOString();
     }

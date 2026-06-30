@@ -115,6 +115,74 @@ const stageMapping: Record<string, string> = {
   'FINAL': 'Final'
 };
 
+
+// --- M5 Refactor: Shared sync helpers to avoid duplicated goal/finish logic ---
+
+type LocalMatchSnap = { id: number; local: string; visitante: string; estado: string; goles_local: number | null; goles_visitante: number | null };
+type UpdatedMatchSnap = { id: number; local: string; visitante: string; goles_local: number; goles_visitante: number };
+
+function recordScoreChange(
+  localMatch: LocalMatchSnap,
+  updatedMatch: UpdatedMatchSnap,
+  sourceName: string,
+  estado: string
+): void {
+  broadcastUpdate('goal', { matchId: updatedMatch.id, local: updatedMatch.local, visitante: updatedMatch.visitante, goles_local: updatedMatch.goles_local, goles_visitante: updatedMatch.goles_visitante });
+  logSystem('info', 'SYNC', `[${sourceName}] Gol detectado: ${updatedMatch.local} vs ${updatedMatch.visitante}`, `${localMatch.goles_local ?? 0}-${localMatch.goles_visitante ?? 0} → ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}`).catch(() => {});
+  pool.query(`INSERT INTO score_change_log (match_id, source, old_goles_local, old_goles_visitante, new_goles_local, new_goles_visitante, estado) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [localMatch.id, sourceName, localMatch.goles_local ?? 0, localMatch.goles_visitante ?? 0, updatedMatch.goles_local, updatedMatch.goles_visitante, estado]).catch(() => {});
+}
+
+async function routeGoalNotification(
+  localMatch: LocalMatchSnap,
+  updatedMatch: UpdatedMatchSnap,
+  pendingGoalNotifs: Map<number, PendingGoalNotif> | undefined
+): Promise<void> {
+  if (pendingGoalNotifs) {
+    const existing = pendingGoalNotifs.get(updatedMatch.id);
+    pendingGoalNotifs.set(updatedMatch.id, {
+      matchId: updatedMatch.id, local: updatedMatch.local, visitante: updatedMatch.visitante,
+      golesLocal: updatedMatch.goles_local, golesVisitante: updatedMatch.goles_visitante,
+      baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
+      baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
+      isFinished: existing?.isFinished ?? false,
+    });
+  } else {
+    const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
+    if (await markNotifSent(updatedMatch.id, goalKey)) {
+      const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0) ? updatedMatch.local : updatedMatch.visitante;
+      await pool.query(`INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at) VALUES ($1,$2,'success','all',NOW() + INTERVAL '3 hours')`,
+        [`🥅 ¡GOL de ${scoringTeam}!`, `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`]);
+      broadcastUpdate('notification', { auto: true });
+      void sendPushToAllActive({ title: `🥅 ¡GOL de ${scoringTeam}!`, body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`, url: '/fixture' });
+    }
+  }
+}
+
+async function routeFinishNotification(
+  localMatch: LocalMatchSnap,
+  updatedMatch: UpdatedMatchSnap,
+  pendingGoalNotifs: Map<number, PendingGoalNotif> | undefined
+): Promise<void> {
+  if (pendingGoalNotifs) {
+    const existing = pendingGoalNotifs.get(updatedMatch.id);
+    pendingGoalNotifs.set(updatedMatch.id, {
+      matchId: updatedMatch.id, local: updatedMatch.local, visitante: updatedMatch.visitante,
+      golesLocal: updatedMatch.goles_local, golesVisitante: updatedMatch.goles_visitante,
+      baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
+      baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
+      isFinished: true,
+    });
+  } else {
+    if (await markNotifSent(updatedMatch.id, 'finished')) {
+      await pool.query(`INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at) VALUES ($1,$2,'info','all',NOW() + INTERVAL '24 hours')`,
+        [`🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`, `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`]);
+      broadcastUpdate('notification', { auto: true });
+      void sendPushToAllActive({ title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`, body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`, url: '/ranking' });
+    }
+  }
+}
+
 export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalNotif>, pendingDowngrades?: Map<number, DowngradeEntry>): Promise<{
   updated: number;
   goals_detected: number;
@@ -327,56 +395,8 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
 
         if (estado === 'live' && scoreChanged) {
           goalsDetected++;
-          broadcastUpdate('goal', {
-            matchId: updatedMatch.id,
-            local: updatedMatch.local,
-            visitante: updatedMatch.visitante,
-            goles_local: updatedMatch.goles_local,
-            goles_visitante: updatedMatch.goles_visitante
-          });
-
-          logSystem('info', 'SYNC',
-            `[365Scores] Gol detectado: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
-            `${localMatch.goles_local ?? 0}-${localMatch.goles_visitante ?? 0} → ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}`
-          ).catch(() => {});
-          pool.query(
-            `INSERT INTO score_change_log (match_id, source, old_goles_local, old_goles_visitante, new_goles_local, new_goles_visitante, estado) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-            [localMatch.id, '365Scores', localMatch.goles_local ?? 0, localMatch.goles_visitante ?? 0, updatedMatch.goles_local, updatedMatch.goles_visitante, estado]
-          ).catch(() => {});
-
-          if (pendingGoalNotifs) {
-            const existing = pendingGoalNotifs.get(updatedMatch.id);
-            pendingGoalNotifs.set(updatedMatch.id, {
-              matchId: updatedMatch.id,
-              local: updatedMatch.local,
-              visitante: updatedMatch.visitante,
-              golesLocal: updatedMatch.goles_local,
-              golesVisitante: updatedMatch.goles_visitante,
-              baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-              baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-              isFinished: existing?.isFinished ?? false,
-            });
-          } else {
-            const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-            if (await markNotifSent(updatedMatch.id, goalKey)) {
-              const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
-                ? updatedMatch.local : updatedMatch.visitante;
-              await pool.query(
-                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                 VALUES ($1, $2, 'success', 'all', NOW() + INTERVAL '3 hours')`,
-                [
-                  `🥅 ¡GOL de ${scoringTeam}!`,
-                  `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`
-                ]
-              );
-              broadcastUpdate('notification', { auto: true });
-              void sendPushToAllActive({
-                title: `🥅 ¡GOL de ${scoringTeam}!`,
-                body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                url: '/fixture'
-              });
-            }
-          }
+          recordScoreChange(localMatch, updatedMatch, '365Scores', estado);
+          await routeGoalNotification(localMatch, updatedMatch, pendingGoalNotifs);
         }
 
         if (
@@ -388,37 +408,7 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
             finishedCount++;
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
-            if (pendingGoalNotifs) {
-              const existing = pendingGoalNotifs.get(updatedMatch.id);
-              pendingGoalNotifs.set(updatedMatch.id, {
-                matchId: updatedMatch.id,
-                local: updatedMatch.local,
-                visitante: updatedMatch.visitante,
-                golesLocal: updatedMatch.goles_local,
-                golesVisitante: updatedMatch.goles_visitante,
-                baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-                baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-                isFinished: true,
-              });
-            } else {
-              const finKey = `finished`;
-              if (await markNotifSent(updatedMatch.id, finKey)) {
-                await pool.query(
-                  `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                   VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
-                  [
-                    `🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                    `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`
-                  ]
-                );
-                broadcastUpdate('notification', { auto: true });
-                void sendPushToAllActive({
-                  title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                  body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`,
-                  url: '/ranking'
-                });
-              }
-            }
+            await routeFinishNotification(localMatch, updatedMatch, pendingGoalNotifs);
           } else {
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
@@ -595,53 +585,15 @@ export async function syncApiFixture(pendingGoalNotifs?: Map<number, PendingGoal
 
           if (estado === 'live' && scoreChanged) {
             goalsDetected++;
-            broadcastUpdate('goal', { matchId: updatedMatch.id, local: updatedMatch.local, visitante: updatedMatch.visitante, goles_local: updatedMatch.goles_local, goles_visitante: updatedMatch.goles_visitante });
-            logSystem('info', 'SYNC', `[ApiFixture] Gol detectado: ${updatedMatch.local} vs ${updatedMatch.visitante}`, `${localMatch.goles_local ?? 0}-${localMatch.goles_visitante ?? 0} → ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}`).catch(() => {});
-            pool.query(`INSERT INTO score_change_log (match_id, source, old_goles_local, old_goles_visitante, new_goles_local, new_goles_visitante, estado) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-              [localMatch.id, 'ApiFixture', localMatch.goles_local ?? 0, localMatch.goles_visitante ?? 0, updatedMatch.goles_local, updatedMatch.goles_visitante, estado]).catch(() => {});
-
-            if (pendingGoalNotifs) {
-              const existing = pendingGoalNotifs.get(updatedMatch.id);
-              pendingGoalNotifs.set(updatedMatch.id, {
-                matchId: updatedMatch.id, local: updatedMatch.local, visitante: updatedMatch.visitante,
-                golesLocal: updatedMatch.goles_local, golesVisitante: updatedMatch.goles_visitante,
-                baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-                baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-                isFinished: existing?.isFinished ?? false,
-              });
-            } else {
-              const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-              if (await markNotifSent(updatedMatch.id, goalKey)) {
-                const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0) ? updatedMatch.local : updatedMatch.visitante;
-                await pool.query(`INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at) VALUES ($1,$2,'success','all',NOW() + INTERVAL '3 hours')`,
-                  [`🥅 ¡GOL de ${scoringTeam}!`, `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`]);
-                broadcastUpdate('notification', { auto: true });
-                void sendPushToAllActive({ title: `🥅 ¡GOL de ${scoringTeam}!`, body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`, url: '/fixture' });
-              }
-            }
+            recordScoreChange(localMatch, updatedMatch, 'ApiFixture', estado);
+            await routeGoalNotification(localMatch, updatedMatch, pendingGoalNotifs);
           }
 
           if (estado === 'finished' && localMatch.estado !== 'finished') {
             finishedCount++;
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
-            if (pendingGoalNotifs) {
-              const existing = pendingGoalNotifs.get(updatedMatch.id);
-              pendingGoalNotifs.set(updatedMatch.id, {
-                matchId: updatedMatch.id, local: updatedMatch.local, visitante: updatedMatch.visitante,
-                golesLocal: updatedMatch.goles_local, golesVisitante: updatedMatch.goles_visitante,
-                baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-                baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-                isFinished: true,
-              });
-            } else {
-              if (await markNotifSent(updatedMatch.id, 'finished')) {
-                await pool.query(`INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at) VALUES ($1,$2,'info','all',NOW() + INTERVAL '24 hours')`,
-                  [`🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`, `¡Partido terminado! La tabla de clasificación ha sido actualizada.`]);
-                broadcastUpdate('notification', { auto: true });
-                void sendPushToAllActive({ title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`, body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`, url: '/ranking' });
-              }
-            }
+            await routeFinishNotification(localMatch, updatedMatch, pendingGoalNotifs);
           } else if (scoreChanged && (estado === 'finished' || estado === 'live')) {
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
@@ -801,56 +753,8 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
         // Goal detection
         if (estado === 'live' && scoreChanged) {
           goalsDetected++;
-          broadcastUpdate('goal', {
-            matchId: updatedMatch.id,
-            local: updatedMatch.local,
-            visitante: updatedMatch.visitante,
-            goles_local: updatedMatch.goles_local,
-            goles_visitante: updatedMatch.goles_visitante
-          });
-
-          logSystem('info', 'SYNC',
-            `[FixtureDownload] Gol detectado: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
-            `${localMatch.goles_local ?? 0}-${localMatch.goles_visitante ?? 0} → ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}`
-          ).catch(() => {});
-          pool.query(
-            `INSERT INTO score_change_log (match_id, source, old_goles_local, old_goles_visitante, new_goles_local, new_goles_visitante, estado) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-            [localMatch.id, 'FixtureDownload', localMatch.goles_local ?? 0, localMatch.goles_visitante ?? 0, updatedMatch.goles_local, updatedMatch.goles_visitante, estado]
-          ).catch(() => {});
-
-          if (pendingGoalNotifs) {
-            const existing = pendingGoalNotifs.get(updatedMatch.id);
-            pendingGoalNotifs.set(updatedMatch.id, {
-              matchId: updatedMatch.id,
-              local: updatedMatch.local,
-              visitante: updatedMatch.visitante,
-              golesLocal: updatedMatch.goles_local,
-              golesVisitante: updatedMatch.goles_visitante,
-              baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-              baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-              isFinished: existing?.isFinished ?? false,
-            });
-          } else {
-            const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-            if (await markNotifSent(updatedMatch.id, goalKey)) {
-              const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
-                ? updatedMatch.local : updatedMatch.visitante;
-              await pool.query(
-                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                 VALUES ($1, $2, 'success', 'all', NOW() + INTERVAL '3 hours')`,
-                [
-                  `🥅 ¡GOL de ${scoringTeam}!`,
-                  `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`
-                ]
-              );
-              broadcastUpdate('notification', { auto: true });
-              void sendPushToAllActive({
-                title: `🥅 ¡GOL de ${scoringTeam}!`,
-                body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                url: '/fixture'
-              });
-            }
-          }
+          recordScoreChange(localMatch, updatedMatch, 'FixtureDownload', estado);
+          await routeGoalNotification(localMatch, updatedMatch, pendingGoalNotifs);
         }
 
         // Leaderboard recalculations
@@ -863,37 +767,7 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
             finishedCount++;
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
-            if (pendingGoalNotifs) {
-              const existing = pendingGoalNotifs.get(updatedMatch.id);
-              pendingGoalNotifs.set(updatedMatch.id, {
-                matchId: updatedMatch.id,
-                local: updatedMatch.local,
-                visitante: updatedMatch.visitante,
-                golesLocal: updatedMatch.goles_local,
-                golesVisitante: updatedMatch.goles_visitante,
-                baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-                baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-                isFinished: true,
-              });
-            } else {
-              const finKey = `finished`;
-              if (await markNotifSent(updatedMatch.id, finKey)) {
-                await pool.query(
-                  `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                   VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
-                  [
-                    `🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                    `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`
-                  ]
-                );
-                broadcastUpdate('notification', { auto: true });
-                void sendPushToAllActive({
-                  title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                  body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`,
-                  url: '/ranking'
-                });
-              }
-            }
+            await routeFinishNotification(localMatch, updatedMatch, pendingGoalNotifs);
           } else {
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
@@ -1222,56 +1096,8 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
 
         if (estado === 'live' && scoreChanged) {
           goalsDetected++;
-          broadcastUpdate('goal', {
-            matchId: updatedMatch.id,
-            local: updatedMatch.local,
-            visitante: updatedMatch.visitante,
-            goles_local: updatedMatch.goles_local,
-            goles_visitante: updatedMatch.goles_visitante
-          });
-
-          logSystem('info', 'SYNC',
-            `[ESPN] Gol detectado: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
-            `${localMatch.goles_local ?? 0}-${localMatch.goles_visitante ?? 0} → ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}`
-          ).catch(() => {});
-          pool.query(
-            `INSERT INTO score_change_log (match_id, source, old_goles_local, old_goles_visitante, new_goles_local, new_goles_visitante, estado) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-            [localMatch.id, 'ESPN', localMatch.goles_local ?? 0, localMatch.goles_visitante ?? 0, updatedMatch.goles_local, updatedMatch.goles_visitante, estado]
-          ).catch(() => {});
-
-          if (pendingGoalNotifs) {
-            const existing = pendingGoalNotifs.get(updatedMatch.id);
-            pendingGoalNotifs.set(updatedMatch.id, {
-              matchId: updatedMatch.id,
-              local: updatedMatch.local,
-              visitante: updatedMatch.visitante,
-              golesLocal: updatedMatch.goles_local,
-              golesVisitante: updatedMatch.goles_visitante,
-              baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-              baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-              isFinished: existing?.isFinished ?? false,
-            });
-          } else {
-            const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-            if (await markNotifSent(updatedMatch.id, goalKey)) {
-              const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
-                ? updatedMatch.local : updatedMatch.visitante;
-              await pool.query(
-                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                 VALUES ($1, $2, 'success', 'all', NOW() + INTERVAL '3 hours')`,
-                [
-                  `🥅 ¡GOL de ${scoringTeam}!`,
-                  `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`
-                ]
-              );
-              broadcastUpdate('notification', { auto: true });
-              void sendPushToAllActive({
-                title: `🥅 ¡GOL de ${scoringTeam}!`,
-                body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                url: '/fixture'
-              });
-            }
-          }
+          recordScoreChange(localMatch, updatedMatch, 'ESPN', estado);
+          await routeGoalNotification(localMatch, updatedMatch, pendingGoalNotifs);
         }
 
         if (
@@ -1283,37 +1109,7 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
             finishedCount++;
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
-            if (pendingGoalNotifs) {
-              const existing = pendingGoalNotifs.get(updatedMatch.id);
-              pendingGoalNotifs.set(updatedMatch.id, {
-                matchId: updatedMatch.id,
-                local: updatedMatch.local,
-                visitante: updatedMatch.visitante,
-                golesLocal: updatedMatch.goles_local,
-                golesVisitante: updatedMatch.goles_visitante,
-                baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-                baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-                isFinished: true,
-              });
-            } else {
-              const finKey = `finished`;
-              if (await markNotifSent(updatedMatch.id, finKey)) {
-                await pool.query(
-                  `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                   VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
-                  [
-                    `🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                    `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`
-                  ]
-                );
-                broadcastUpdate('notification', { auto: true });
-                void sendPushToAllActive({
-                  title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                  body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`,
-                  url: '/ranking'
-                });
-              }
-            }
+            await routeFinishNotification(localMatch, updatedMatch, pendingGoalNotifs);
           } else {
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
@@ -1545,56 +1341,8 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
 
         if (estado === 'live' && scoreChanged) {
           goalsDetected++;
-          broadcastUpdate('goal', {
-            matchId: updatedMatch.id,
-            local: updatedMatch.local,
-            visitante: updatedMatch.visitante,
-            goles_local: updatedMatch.goles_local,
-            goles_visitante: updatedMatch.goles_visitante
-          });
-
-          logSystem('info', 'SYNC',
-            `[FootballData] Gol detectado: ${updatedMatch.local} vs ${updatedMatch.visitante}`,
-            `${localMatch.goles_local ?? 0}-${localMatch.goles_visitante ?? 0} → ${updatedMatch.goles_local}-${updatedMatch.goles_visitante}`
-          ).catch(() => {});
-          pool.query(
-            `INSERT INTO score_change_log (match_id, source, old_goles_local, old_goles_visitante, new_goles_local, new_goles_visitante, estado) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-            [localMatch.id, 'FootballData', localMatch.goles_local ?? 0, localMatch.goles_visitante ?? 0, updatedMatch.goles_local, updatedMatch.goles_visitante, estado]
-          ).catch(() => {});
-
-          if (pendingGoalNotifs) {
-            const existing = pendingGoalNotifs.get(updatedMatch.id);
-            pendingGoalNotifs.set(updatedMatch.id, {
-              matchId: updatedMatch.id,
-              local: updatedMatch.local,
-              visitante: updatedMatch.visitante,
-              golesLocal: updatedMatch.goles_local,
-              golesVisitante: updatedMatch.goles_visitante,
-              baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-              baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-              isFinished: existing?.isFinished ?? false,
-            });
-          } else {
-            const goalKey = `goal_${updatedMatch.goles_local}_${updatedMatch.goles_visitante}`;
-            if (await markNotifSent(updatedMatch.id, goalKey)) {
-              const scoringTeam = updatedMatch.goles_local > (localMatch.goles_local || 0)
-                ? updatedMatch.local : updatedMatch.visitante;
-              await pool.query(
-                `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                 VALUES ($1, $2, 'success', 'all', NOW() + INTERVAL '3 hours')`,
-                [
-                  `🥅 ¡GOL de ${scoringTeam}!`,
-                  `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`
-                ]
-              );
-              broadcastUpdate('notification', { auto: true });
-              void sendPushToAllActive({
-                title: `🥅 ¡GOL de ${scoringTeam}!`,
-                body: `${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                url: '/fixture'
-              });
-            }
-          }
+          recordScoreChange(localMatch, updatedMatch, 'FootballData', estado);
+          await routeGoalNotification(localMatch, updatedMatch, pendingGoalNotifs);
         }
 
         if (
@@ -1606,37 +1354,7 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
             finishedCount++;
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });
-            if (pendingGoalNotifs) {
-              const existing = pendingGoalNotifs.get(updatedMatch.id);
-              pendingGoalNotifs.set(updatedMatch.id, {
-                matchId: updatedMatch.id,
-                local: updatedMatch.local,
-                visitante: updatedMatch.visitante,
-                golesLocal: updatedMatch.goles_local,
-                golesVisitante: updatedMatch.goles_visitante,
-                baselineGolesLocal: existing?.baselineGolesLocal ?? (localMatch.goles_local || 0),
-                baselineGolesVisitante: existing?.baselineGolesVisitante ?? (localMatch.goles_visitante || 0),
-                isFinished: true,
-              });
-            } else {
-              const finKey = `finished`;
-              if (await markNotifSent(updatedMatch.id, finKey)) {
-                await pool.query(
-                  `INSERT INTO notifications (titulo, contenido, tipo, target_type, expires_at)
-                   VALUES ($1, $2, 'info', 'all', NOW() + INTERVAL '24 hours')`,
-                  [
-                    `🏁 Resultado: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                    `¡Partido terminado! La tabla de clasificación ha sido actualizada. Consulta tu posición en Ranking.`
-                  ]
-                );
-                broadcastUpdate('notification', { auto: true });
-                void sendPushToAllActive({
-                  title: `🏁 Resultado final: ${updatedMatch.local} ${updatedMatch.goles_local} - ${updatedMatch.goles_visitante} ${updatedMatch.visitante}`,
-                  body: `¡Partido terminado! La tabla de clasificación ha sido actualizada.`,
-                  url: '/ranking'
-                });
-              }
-            }
+            await routeFinishNotification(localMatch, updatedMatch, pendingGoalNotifs);
           } else {
             await pool.query('SELECT recalculate_leaderboard()');
             broadcastUpdate('leaderboard', { updated: true });

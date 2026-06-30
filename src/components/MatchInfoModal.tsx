@@ -178,8 +178,20 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
 
             {/* VS / Score */}
             <div className="flex flex-col items-center justify-center flex-shrink-0 px-2 min-w-[60px] sm:min-w-[80px]">
-              <span className="bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded font-mono text-xs sm:text-sm font-black text-neutral-300">
-                {match.estado !== 'upcoming' ? `${match.goles_local} - ${match.goles_visitante}` : 'VS'}
+              <span className="bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded font-mono text-xs sm:text-sm font-black text-neutral-350 flex items-center justify-center">
+                {match.estado !== 'upcoming' ? (
+                  match.stats?.penales_local != null && match.stats?.penales_visitante != null ? (
+                    <span className="flex items-center justify-center">
+                      <span>{match.goles_local}</span>
+                      <span className="text-blue-400 text-[10px] sm:text-xs">({match.stats.penales_local})</span>
+                      <span className="text-neutral-500 mx-1">-</span>
+                      <span className="text-blue-400 text-[10px] sm:text-xs">({match.stats.penales_visitante})</span>
+                      <span>{match.goles_visitante}</span>
+                    </span>
+                  ) : (
+                    `${match.goles_local} - ${match.goles_visitante}`
+                  )
+                ) : 'VS'}
               </span>
               <span className="text-[8px] sm:text-[9px] text-neutral-500 uppercase tracking-widest mt-2 font-mono whitespace-nowrap">
                 {match.estado === 'live'

@@ -1900,11 +1900,11 @@ async function sendUpcomingReminders() {
   }
 }
 
-async function runKnockoutCascade() {
+export async function runKnockoutCascade() {
   try {
     await ensureGroupStandingsTable();
 
-    // 1. Build group standings: prefer official DB standings, fall back to local calculation
+    // 1. Build group standings
     const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
     const groupStandings: { [group: string]: string[] } = {};
 
@@ -1913,7 +1913,6 @@ async function runKnockoutCascade() {
     ).catch(() => ({ rows: [] as any[] }));
 
     if (dbStandingsRes.rows.length > 0) {
-      // Use official standings from DB (synced from football-data.org)
       for (const row of dbStandingsRes.rows) {
         if (!groupStandings[row.grupo]) groupStandings[row.grupo] = [];
         groupStandings[row.grupo][row.posicion - 1] = row.team;
@@ -1948,167 +1947,172 @@ async function runKnockoutCascade() {
         });
       }
     }
-    
-    // 3. Update placeholders in subsequent stages
-    const knockoutRes = await pool.query("SELECT * FROM matches WHERE fase != 'Fase de Grupos' AND estado = 'upcoming'");
-    
-    for (const match of knockoutRes.rows) {
-      let updatedLocal = match.local;
-      let updatedVisitante = match.visitante;
-      let changed = false;
-      
-      // Check local placeholder (e.g. '1A')
-      const matchLocalPlaceholder = match.local.match(/^([1-3])([A-L])$/);
+
+    // Helper to get winner
+    const getWinner = (m: any) => {
+      if (!m || m.estado !== 'finished') return null;
+      if (m.goles_local > m.goles_visitante) return m.local;
+      if (m.goles_local < m.goles_visitante) return m.visitante;
+      return m.stats?.ganador || m.visitante;
+    };
+
+    // Helper to get loser
+    const getLoser = (m: any) => {
+      if (!m || m.estado !== 'finished') return null;
+      if (m.goles_local < m.goles_visitante) return m.local;
+      if (m.goles_local > m.goles_visitante) return m.visitante;
+      if (m.stats?.ganador === m.local) return m.visitante;
+      return m.local;
+    };
+
+    // Helper to update match teams in DB if changed
+    const updateMatchTeams = async (matchId: number, local: string, visitante: string) => {
+      const res = await pool.query('SELECT local, visitante FROM matches WHERE id = $1', [matchId]);
+      if (res.rows.length === 0) return;
+      const current = res.rows[0];
+      if (current.local !== local || current.visitante !== visitante) {
+        const logoLocal = `/uploads/flags/${local.toLowerCase().replace(/ /g, '_')}.png`;
+        const logoVisitante = `/uploads/flags/${visitante.toLowerCase().replace(/ /g, '_')}.png`;
+        const updateRes = await pool.query(
+          `UPDATE matches 
+           SET local = $1, visitante = $2, logo_local = $3, logo_visitante = $4, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $5 RETURNING *`,
+          [local, visitante, logoLocal, logoVisitante, matchId]
+        );
+        broadcastUpdate('match', updateRes.rows[0]);
+      }
+    };
+
+    // 2. Propagate Group Standings to Ronda de 32
+    const r32Matches = await pool.query("SELECT * FROM matches WHERE fase = 'Ronda de 32' ORDER BY fecha ASC, id ASC");
+    const r32Placeholders = [
+      { local: '1A', visitante: '3C/D/E' },
+      { local: '1B', visitante: '3A/C/D' },
+      { local: '1C', visitante: '3B/F/G' },
+      { local: '1D', visitante: '3A/B/H' },
+      { local: '1E', visitante: '3D/F/I' },
+      { local: '1F', visitante: '3E/G/J' },
+      { local: '1G', visitante: '3F/H/K' },
+      { local: '1H', visitante: '3G/I/L' },
+      { local: '2A', visitante: '2B' },
+      { local: '2C', visitante: '2D' },
+      { local: '2E', visitante: '2F' },
+      { local: '2G', visitante: '2H' },
+      { local: '2I', visitante: '2J' },
+      { local: '2K', visitante: '2L' },
+      { local: '1I', visitante: '3J/K/L' },
+      { local: '1J', visitante: '2K' }
+    ];
+
+    for (let i = 0; i < r32Matches.rows.length; i++) {
+      const match = r32Matches.rows[i];
+      const template = r32Placeholders[i];
+      if (!template) continue;
+
+      let local = match.local;
+      let visitante = match.visitante;
+
+      const matchLocalPlaceholder = template.local.match(/^([1-3])([A-L])$/);
       if (matchLocalPlaceholder) {
-        const pos = parseInt(matchLocalPlaceholder[1]) - 1; 
+        const pos = parseInt(matchLocalPlaceholder[1]) - 1;
         const grp = matchLocalPlaceholder[2];
         if (groupStandings[grp] && groupStandings[grp][pos]) {
-          updatedLocal = groupStandings[grp][pos];
-          changed = true;
+          local = groupStandings[grp][pos];
         }
       }
-      
-      // Check visitante placeholder (e.g. '2B')
-      const matchVisitantePlaceholder = match.visitante.match(/^([1-3])([A-L])$/);
+
+      const matchVisitantePlaceholder = template.visitante.match(/^([1-3])([A-L])$/);
       if (matchVisitantePlaceholder) {
         const pos = parseInt(matchVisitantePlaceholder[1]) - 1;
         const grp = matchVisitantePlaceholder[2];
         if (groupStandings[grp] && groupStandings[grp][pos]) {
-          updatedVisitante = groupStandings[grp][pos];
-          changed = true;
+          visitante = groupStandings[grp][pos];
         }
-      }
-
-      // Check best 3rd places (e.g. '3C/D/E')
-      if (match.local.startsWith('3') && match.local.includes('/')) {
-        const grps = match.local.replace('3', '').split('/');
+      } else if (template.visitante.startsWith('3') && template.visitante.includes('/')) {
+        const grps = template.visitante.replace('3', '').split('/');
         for (const grp of grps) {
           if (groupStandings[grp] && groupStandings[grp][2]) {
-            updatedLocal = groupStandings[grp][2];
-            changed = true;
+            visitante = groupStandings[grp][2];
             break;
           }
         }
       }
-      if (match.visitante.startsWith('3') && match.visitante.includes('/')) {
-        const grps = match.visitante.replace('3', '').split('/');
-        for (const grp of grps) {
-          if (groupStandings[grp] && groupStandings[grp][2]) {
-            updatedVisitante = groupStandings[grp][2];
-            changed = true;
-            break;
-          }
-        }
-      }
-      
-      // Check 'Ganador R32-X'
-      const localR32Match = match.local.match(/^Ganador R32-(\d+)$/);
-      if (localR32Match) {
-        const idx = parseInt(localR32Match[1]) - 1;
-        const r32MatchesDb = await pool.query("SELECT * FROM matches WHERE fase = 'Ronda de 32' ORDER BY fecha ASC, id ASC");
-        const r32M = r32MatchesDb.rows[idx];
-        if (r32M && r32M.estado === 'finished') {
-          updatedLocal = r32M.goles_local > r32M.goles_visitante ? r32M.local : r32M.visitante;
-          changed = true;
-        }
-      }
-      const visitanteR32Match = match.visitante.match(/^Ganador R32-(\d+)$/);
-      if (visitanteR32Match) {
-        const idx = parseInt(visitanteR32Match[1]) - 1;
-        const r32MatchesDb = await pool.query("SELECT * FROM matches WHERE fase = 'Ronda de 32' ORDER BY fecha ASC, id ASC");
-        const r32M = r32MatchesDb.rows[idx];
-        if (r32M && r32M.estado === 'finished') {
-          updatedVisitante = r32M.goles_local > r32M.goles_visitante ? r32M.local : r32M.visitante;
-          changed = true;
-        }
-      }
 
-      // Check 'Ganador Octavos-X'
-      const localOctavosMatch = match.local.match(/^Ganador Octavos-(\d+)$/);
-      if (localOctavosMatch) {
-        const idx = parseInt(localOctavosMatch[1]) - 1;
-        const octMatchesDb = await pool.query("SELECT * FROM matches WHERE fase = 'Octavos de Final' ORDER BY fecha ASC, id ASC");
-        const octM = octMatchesDb.rows[idx];
-        if (octM && octM.estado === 'finished') {
-          updatedLocal = octM.goles_local > octM.goles_visitante ? octM.local : octM.visitante;
-          changed = true;
-        }
-      }
-      const visitanteOctavosMatch = match.visitante.match(/^Ganador Octavos-(\d+)$/);
-      if (visitanteOctavosMatch) {
-        const idx = parseInt(visitanteOctavosMatch[1]) - 1;
-        const octMatchesDb = await pool.query("SELECT * FROM matches WHERE fase = 'Octavos de Final' ORDER BY fecha ASC, id ASC");
-        const octM = octMatchesDb.rows[idx];
-        if (octM && octM.estado === 'finished') {
-          updatedVisitante = octM.goles_local > octM.goles_visitante ? octM.local : octM.visitante;
-          changed = true;
-        }
-      }
-
-      // Check 'Ganador Semifinal-X'
-      const localSemisMatch = match.local.match(/^Ganador Semifinal-(\d+)$/);
-      if (localSemisMatch) {
-        const idx = parseInt(localSemisMatch[1]) - 1;
-        const semiMatchesDb = await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC");
-        const semiM = semiMatchesDb.rows[idx];
-        if (semiM && semiM.estado === 'finished') {
-          updatedLocal = semiM.goles_local > semiM.goles_visitante ? semiM.local : semiM.visitante;
-          changed = true;
-        }
-      }
-      const visitanteSemisMatch = match.visitante.match(/^Ganador Semifinal-(\d+)$/);
-      if (visitanteSemisMatch) {
-        const idx = parseInt(visitanteSemisMatch[1]) - 1;
-        const semiMatchesDb = await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC");
-        const semiM = semiMatchesDb.rows[idx];
-        if (semiM && semiM.estado === 'finished') {
-          updatedVisitante = semiM.goles_local > semiM.goles_visitante ? semiM.local : semiM.visitante;
-          changed = true;
-        }
-      }
-
-      // Check 'Perdedor Semifinal-X'
-      const localSemisPerdedor = match.local.match(/^Perdedor Semifinal-(\d+)$/);
-      if (localSemisPerdedor) {
-        const idx = parseInt(localSemisPerdedor[1]) - 1;
-        const semiMatchesDb = await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC");
-        const semiM = semiMatchesDb.rows[idx];
-        if (semiM && semiM.estado === 'finished') {
-          updatedLocal = semiM.goles_local < semiM.goles_visitante ? semiM.local : semiM.visitante;
-          changed = true;
-        }
-      }
-      const visitanteSemisPerdedor = match.visitante.match(/^Perdedor Semifinal-(\d+)$/);
-      if (visitanteSemisPerdedor) {
-        const idx = parseInt(visitanteSemisPerdedor[1]) - 1;
-        const semiMatchesDb = await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC");
-        const semiM = semiMatchesDb.rows[idx];
-        if (semiM && semiM.estado === 'finished') {
-          updatedVisitante = semiM.goles_local < semiM.goles_visitante ? semiM.local : semiM.visitante;
-          changed = true;
-        }
-      }
-      
-      if (changed) {
-        const logoLocal = `/uploads/flags/${updatedLocal.toLowerCase().replace(/ /g, '_')}.png`;
-        const logoVisitante = `/uploads/flags/${updatedVisitante.toLowerCase().replace(/ /g, '_')}.png`;
-        
-        await pool.query(
-          `UPDATE matches 
-           SET local = $1, 
-               visitante = $2, 
-               logo_local = $3, 
-               logo_visitante = $4, 
-               updated_at = CURRENT_TIMESTAMP 
-           WHERE id = $5`,
-          [updatedLocal, updatedVisitante, logoLocal, logoVisitante, match.id]
-        );
-        
-        // Broadcast single match update
-        const finalMatchRes = await pool.query("SELECT * FROM matches WHERE id = $1", [match.id]);
-        broadcastUpdate('match', finalMatchRes.rows[0]);
-      }
+      await updateMatchTeams(match.id, local, visitante);
     }
+
+    const r32MatchesUpdated = await pool.query("SELECT * FROM matches WHERE fase = 'Ronda de 32' ORDER BY fecha ASC, id ASC");
+
+    // 3. Propagate Ronda de 32 to Octavos de Final
+    const octMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Octavos de Final' ORDER BY fecha ASC, id ASC");
+    for (let i = 0; i < octMatches.rows.length; i++) {
+      const match = octMatches.rows[i];
+      const r32Local = r32MatchesUpdated.rows[2 * i];
+      const r32Visitante = r32MatchesUpdated.rows[2 * i + 1];
+
+      const local = getWinner(r32Local) || match.local;
+      const visitante = getWinner(r32Visitante) || match.visitante;
+
+      await updateMatchTeams(match.id, local, visitante);
+    }
+
+    const octMatchesUpdated = await pool.query("SELECT * FROM matches WHERE fase = 'Octavos de Final' ORDER BY fecha ASC, id ASC");
+
+    // 4. Propagate Octavos to Cuartos de Final
+    const cuartosMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Cuartos de Final' ORDER BY fecha ASC, id ASC");
+    for (let i = 0; i < cuartosMatches.rows.length; i++) {
+      const match = cuartosMatches.rows[i];
+      const octLocal = octMatchesUpdated.rows[2 * i];
+      const octVisitante = octMatchesUpdated.rows[2 * i + 1];
+
+      const local = getWinner(octLocal) || match.local;
+      const visitante = getWinner(octVisitante) || match.visitante;
+
+      await updateMatchTeams(match.id, local, visitante);
+    }
+
+    const cuartosMatchesUpdated = await pool.query("SELECT * FROM matches WHERE fase = 'Cuartos de Final' ORDER BY fecha ASC, id ASC");
+
+    // 5. Propagate Cuartos to Semifinal
+    const semiMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC");
+    for (let i = 0; i < semiMatches.rows.length; i++) {
+      const match = semiMatches.rows[i];
+      const cuartosLocal = cuartosMatchesUpdated.rows[2 * i];
+      const cuartosVisitante = cuartosMatchesUpdated.rows[2 * i + 1];
+
+      const local = getWinner(cuartosLocal) || match.local;
+      const visitante = getWinner(cuartosVisitante) || match.visitante;
+
+      await updateMatchTeams(match.id, local, visitante);
+    }
+
+    const semiMatchesUpdated = await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC");
+
+    // 6. Propagate Semis to Final and Tercer Puesto
+    const finalMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Final' ORDER BY fecha ASC, id ASC");
+    if (finalMatches.rows.length > 0) {
+      const match = finalMatches.rows[0];
+      const semi1 = semiMatchesUpdated.rows[0];
+      const semi2 = semiMatchesUpdated.rows[1];
+
+      const local = getWinner(semi1) || match.local;
+      const visitante = getWinner(semi2) || match.visitante;
+
+      await updateMatchTeams(match.id, local, visitante);
+    }
+
+    const tercerPuestoMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Tercer Puesto' ORDER BY fecha ASC, id ASC");
+    if (tercerPuestoMatches.rows.length > 0) {
+      const match = tercerPuestoMatches.rows[0];
+      const semi1 = semiMatchesUpdated.rows[0];
+      const semi2 = semiMatchesUpdated.rows[1];
+
+      const local = getLoser(semi1) || match.local;
+      const visitante = getLoser(semi2) || match.visitante;
+
+      await updateMatchTeams(match.id, local, visitante);
+    }
+
   } catch (error) {
     console.error('Error running knockout cascade calculation:', error);
   }

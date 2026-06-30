@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         const match = matchMap.get(matchId);
         if (!match) { errors.push({ matchId, error: 'Partido no encontrado' }); continue; }
         const closeTime = new Date(new Date(match.fecha).getTime() - closeMs);
-        if (match.estado !== 'upcoming' || now >= closeTime) {
+        if (user.tipo !== 'superadmin' && (match.estado !== 'upcoming' || now >= closeTime)) {
           errors.push({ matchId, error: `Apuestas cerradas (cierran ${closeMinutes} minutos antes del partido)` }); continue;
         }
         if (existingSet.has(matchId)) {
@@ -155,15 +155,14 @@ export async function POST(req: NextRequest) {
     }
 
     let targetUserId = user.id;
-    // Bypass only when superadmin edits ANOTHER user's prediction — own predictions follow normal time rules
-    let isSuperAdminBypass = false;
+    // Superadmin bypasses time restriction always (own or other user's prediction)
+    let isSuperAdminBypass = user.tipo === 'superadmin';
 
     if (userId !== undefined && parseInt(userId) !== user.id) {
       if (user.tipo !== 'superadmin') {
         return NextResponse.json({ error: 'No autorizado para editar predicciones de otros usuarios' }, { status: 403 });
       }
       targetUserId = parseInt(userId);
-      isSuperAdminBypass = true;
     }
 
     const now = new Date();

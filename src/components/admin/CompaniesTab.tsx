@@ -598,7 +598,7 @@ export default function CompaniesTab({
                         </button>
                       )}
                       <button onClick={() => setExpandedCompanyModos(expandedCompanyModos === c.id ? null : c.id)}
-                        className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${expandedCompanyModos === c.id ? 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10' : 'text-neutral-400 border-neutral-700 hover:border-neutral-500'}`}>
+                        className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${expandedCompanyModos === c.id ? 'text-cyan-500 border-cyan-500/40 bg-cyan-500/10' : 'text-neutral-400 border-neutral-700 hover:border-neutral-500'}`}>
                         🎯 Modos
                       </button>
                       <button onClick={() => handleDeleteCompany(c.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border border-red-500/20 hover:border-red-500/40 transition flex items-center gap-1.5">
@@ -768,7 +768,7 @@ export default function CompaniesTab({
                         {invCopied === inv.id ? '✅ Copiado' : '📋 Copiar'}
                       </button>
                     )}
-                    <button onClick={() => handleDeleteInvitation(inv.id)} className="p-1 text-neutral-600 hover:text-red-400 transition shrink-0">✕</button>
+                    <button onClick={() => handleDeleteInvitation(inv.id)} className="p-1 text-neutral-500 hover:text-red-400 transition shrink-0">✕</button>
                   </div>
                 );
               })}
@@ -1013,7 +1013,7 @@ export default function CompaniesTab({
                 <input type="number" min="0" value={adminGolesLocal} onChange={e => setAdminGolesLocal(Math.max(0, parseInt(e.target.value) || 0))}
                   className="w-16 bg-neutral-900 border border-neutral-800 text-center py-2 text-yellow-500 font-mono font-black text-lg rounded-lg outline-none mt-2" />
               </div>
-              <span className="text-2xl text-neutral-700 font-extrabold font-mono">:</span>
+              <span className="text-2xl text-neutral-500 font-extrabold font-mono">:</span>
               <div className="flex flex-col items-center gap-2 w-1/3">
                 <span className="text-3xl">{getTeamFlag(adminMatchModal.visitante)}</span>
                 <span className="text-xs font-bold text-neutral-200 uppercase truncate w-full text-center">{adminMatchModal.visitante}</span>
@@ -1279,7 +1279,7 @@ export default function CompaniesTab({
               
               <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
                 {adminStatsEvents.length === 0 ? (
-                  <p className="text-[10px] text-neutral-600 italic text-center py-2">Sin incidencias registradas</p>
+                  <p className="text-[10px] text-neutral-500 italic text-center py-2">Sin incidencias registradas</p>
                 ) : (
                   adminStatsEvents.map((ev, idx) => (
                     <div key={idx} className="flex items-center justify-between bg-neutral-950 p-2 rounded-lg border border-neutral-850 text-[11px]">

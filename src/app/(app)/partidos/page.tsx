@@ -389,7 +389,7 @@ export default function PartidosPage() {
           {!loading && todayMatches.length === 0 && (
             <div className="py-16 text-center">
               <p className="text-neutral-400 text-sm font-bold">No hay partidos hoy</p>
-              <p className="text-neutral-600 text-xs mt-1">Revisa la pestaña Fixture para ver los próximos partidos</p>
+              <p className="text-neutral-500 text-xs mt-1">Revisa la pestaña Fixture para ver los próximos partidos</p>
             </div>
           )}
 
@@ -493,7 +493,7 @@ export default function PartidosPage() {
           {thirdPlaceTeams.length === 0 ? (
             <div className="py-16 text-center">
               <p className="text-neutral-500 text-sm">Sin datos aún</p>
-              <p className="text-neutral-600 text-xs mt-1">Se actualizará al jugarse partidos de fase de grupos</p>
+              <p className="text-neutral-500 text-xs mt-1">Se actualizará al jugarse partidos de fase de grupos</p>
             </div>
           ) : (
             <>
@@ -521,7 +521,7 @@ export default function PartidosPage() {
                           className={`cursor-pointer transition group ${q ? 'hover:bg-green-900/15' : 'hover:bg-neutral-800/20'}`}>
                           <td className="px-3 py-2.5 text-center">
                             {q ? <span className="w-5 h-5 rounded-sm bg-green-500/20 border border-green-500/30 text-green-400 text-[9px] font-black flex items-center justify-center mx-auto">{idx + 1}</span>
-                               : <span className="text-neutral-600 text-[9px] font-mono">{idx + 1}</span>}
+                               : <span className="text-neutral-500 text-[9px] font-mono">{idx + 1}</span>}
                           </td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-2">
@@ -553,11 +553,11 @@ export default function PartidosPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {q ? <span className="w-5 h-5 rounded-sm bg-green-500/20 border border-green-500/30 text-green-400 text-[9px] font-black flex items-center justify-center flex-shrink-0">{idx + 1}</span>
-                             : <span className="text-neutral-600 text-[9px] font-mono w-5 text-center flex-shrink-0">{idx + 1}</span>}
+                             : <span className="text-neutral-500 text-[9px] font-mono w-5 text-center flex-shrink-0">{idx + 1}</span>}
                           <span className="text-base">{getTeamFlag(s.team)}</span>
                           <div>
                             <div className={`font-bold text-[11px] ${q ? 'text-neutral-100' : 'text-neutral-400'}`}>{s.team}</div>
-                            <div className="text-[9px] text-neutral-600">{getGroupStatus(s.grupo, matches)}</div>
+                            <div className="text-[9px] text-neutral-500">{getGroupStatus(s.grupo, matches)}</div>
                           </div>
                           <span className="bg-neutral-800 text-neutral-400 font-black text-[9px] px-1.5 py-0.5 rounded font-mono flex-shrink-0">{s.grupo}</span>
                         </div>
@@ -606,7 +606,7 @@ export default function PartidosPage() {
                   <div className="hidden sm:block">
                     <table className="w-full text-[10px]">
                       <thead>
-                        <tr className="text-neutral-600 text-[9px] font-bold uppercase border-b border-neutral-800/50">
+                        <tr className="text-neutral-500 text-[9px] font-bold uppercase border-b border-neutral-800/50">
                           <th className="px-2 py-1.5 text-left">Equipo</th>
                           <th className="px-1.5 py-1.5 text-center w-7">PJ</th>
                           <th className="px-1.5 py-1.5 text-center w-7">DIF</th>
@@ -623,7 +623,7 @@ export default function PartidosPage() {
                               <td className="px-2 py-2">
                                 <div className="flex items-center gap-1.5">
                                   <span className={`w-1 h-4 rounded-full flex-shrink-0 ${bar}`} />
-                                  <span className="text-neutral-600 text-[9px] font-mono w-3 flex-shrink-0">{idx + 1}</span>
+                                  <span className="text-neutral-500 text-[9px] font-mono w-3 flex-shrink-0">{idx + 1}</span>
                                   <span className="text-sm flex-shrink-0">{getTeamFlag(s.team)}</span>
                                   <span className="font-bold text-neutral-200 truncate max-w-[80px] hover:text-yellow-400 transition">{s.team}</span>
                                 </div>
@@ -647,7 +647,7 @@ export default function PartidosPage() {
                           onClick={() => { setSubTab('fixture'); setFilterTeam(s.team); }}
                           className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-neutral-800/20 transition">
                           <span className={`w-1 h-5 rounded-full flex-shrink-0 ${bar}`} />
-                          <span className="text-neutral-600 text-[9px] font-mono w-3 flex-shrink-0">{idx + 1}</span>
+                          <span className="text-neutral-500 text-[9px] font-mono w-3 flex-shrink-0">{idx + 1}</span>
                           <span className="text-sm flex-shrink-0">{getTeamFlag(s.team)}</span>
                           <span className="font-bold text-[11px] text-neutral-200 flex-1 truncate">{s.team}</span>
                           <div className="flex items-center gap-2 text-[10px] font-mono flex-shrink-0">
@@ -688,13 +688,13 @@ export default function PartidosPage() {
                   >
                     <div className={`text-[10px] font-black uppercase tracking-widest text-center mb-4 pb-2 border-b ${isFinal ? 'text-yellow-500 border-yellow-500/30' : 'text-neutral-400 border-neutral-850'}`}>
                       {KNOCKOUT_LABELS[fase] ?? fase}
-                      {fm.length > 0 && <span className="ml-1 text-neutral-600 font-normal">({fm.length})</span>}
+                      {fm.length > 0 && <span className="ml-1 text-neutral-500 font-normal">({fm.length})</span>}
                     </div>
 
                     <div className="flex flex-col gap-4 flex-grow justify-around min-h-[440px]">
                       {fm.length === 0 ? (
                         <div className="flex items-center justify-center flex-grow py-8 bg-neutral-900/10 border border-dashed border-neutral-850 rounded-lg">
-                          <span className="text-[9px] text-neutral-600 font-mono">Pendiente</span>
+                          <span className="text-[9px] text-neutral-500 font-mono">Pendiente</span>
                         </div>
                       ) : (
                         fm.map((m) => (

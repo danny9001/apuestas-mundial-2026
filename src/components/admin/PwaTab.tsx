@@ -96,7 +96,7 @@ export default function PwaTab({
                           <span>{u.nombre}</span>
                         </td>
                         <td className="p-3 text-neutral-400 font-mono">{u.email}</td>
-                        <td className="p-3 text-neutral-300">{companyNames || <span className="text-neutral-600">-</span>}</td>
+                        <td className="p-3 text-neutral-300">{companyNames || <span className="text-neutral-500">-</span>}</td>
                         <td className="p-3">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${u.pwa_installed ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-neutral-800 border-neutral-750 text-neutral-400'}`}>
                             {u.pwa_installed ? '📱 PWA Instalada' : '🌐 Navegador'}
@@ -127,7 +127,7 @@ export default function PwaTab({
                       <p className="text-[10px] text-neutral-500 font-mono truncate">{u.email}</p>
                       <div className="flex items-center justify-between mt-0.5">
                         <span className="text-[10px] text-neutral-500">{companyNames || '-'}</span>
-                        <span className="text-[9px] text-neutral-600 font-mono">{u.pwa_updated_at ? new Date(u.pwa_updated_at).toLocaleDateString('es-BO') : '-'}</span>
+                        <span className="text-[9px] text-neutral-500 font-mono">{u.pwa_updated_at ? new Date(u.pwa_updated_at).toLocaleDateString('es-BO') : '-'}</span>
                       </div>
                     </div>
                   </div>

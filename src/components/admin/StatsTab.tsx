@@ -138,7 +138,7 @@ export default function StatsTab({ user }: StatsTabProps) {
               { icon: <Users className="w-4 h-4" />, label: 'Usuarios Activos', value: data.overview.totalUsers, color: 'text-yellow-500' },
               { icon: <Target className="w-4 h-4" />, label: 'Pronósticos Total', value: data.overview.totalPredictions, color: 'text-green-400' },
               { icon: <Trophy className="w-4 h-4" />, label: 'Partidos Finalizados', value: data.overview.finishedMatches, color: 'text-blue-400' },
-              { icon: <Activity className="w-4 h-4" />, label: 'Eventos (período)', value: data.overview.totalEvents, color: 'text-purple-400' },
+              { icon: <Activity className="w-4 h-4" />, label: 'Eventos (período)', value: data.overview.totalEvents, color: 'text-purple-500' },
               { icon: <TrendingUp className="w-4 h-4" />, label: 'Ingresos Hoy', value: data.overview.todayLogins, color: 'text-orange-400' },
             ].map(s => (
               <div key={s.label} className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-4 flex flex-col items-center gap-1">
@@ -199,7 +199,7 @@ export default function StatsTab({ user }: StatsTabProps) {
             <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
               <h4 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider">Eventos por Categoría</h4>
               {data.byCategory.length === 0 ? (
-                <p className="text-neutral-600 text-xs text-center py-8">Sin datos</p>
+                <p className="text-neutral-500 text-xs text-center py-8">Sin datos</p>
               ) : (
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   <div style={{ width: 160, height: 160, flexShrink: 0 }}>
@@ -248,7 +248,7 @@ export default function StatsTab({ user }: StatsTabProps) {
             <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
               <h4 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider">Nuevos Usuarios por Día</h4>
               {data.newUsers.length === 0 ? (
-                <p className="text-neutral-600 text-xs text-center py-8">Sin nuevos usuarios en este período</p>
+                <p className="text-neutral-500 text-xs text-center py-8">Sin nuevos usuarios en este período</p>
               ) : (
                 <div style={{ width: '100%', height: 180 }}>
                   <ResponsiveContainer width="100%" height="100%">
@@ -269,7 +269,7 @@ export default function StatsTab({ user }: StatsTabProps) {
           <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
             <h4 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider">Pronósticos por Partido (Top 15)</h4>
             {data.predictionsPerMatch.length === 0 ? (
-              <p className="text-neutral-600 text-xs text-center py-8">Sin datos</p>
+              <p className="text-neutral-500 text-xs text-center py-8">Sin datos</p>
             ) : (
               <div className="space-y-1.5">
                 {data.predictionsPerMatch.map((m: any, i: number) => {
@@ -278,12 +278,12 @@ export default function StatsTab({ user }: StatsTabProps) {
                   const stateColor = m.estado === 'live' ? 'text-red-400' : m.estado === 'finished' ? 'text-green-400' : 'text-neutral-500';
                   return (
                     <div key={i} className="flex items-center gap-2">
-                      <span className="text-[9px] font-bold text-neutral-600 w-4 text-right">{i + 1}</span>
+                      <span className="text-[9px] font-bold text-neutral-500 w-4 text-right">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className="text-[10px] font-bold text-neutral-200 truncate">{m.local} vs {m.visitante}</span>
                           {m.score && <span className={`text-[9px] font-mono font-bold ${stateColor}`}>{m.score}</span>}
-                          <span className="text-[9px] text-neutral-600 truncate hidden sm:inline">{m.fase}</span>
+                          <span className="text-[9px] text-neutral-500 truncate hidden sm:inline">{m.fase}</span>
                         </div>
                         <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                           <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -301,7 +301,7 @@ export default function StatsTab({ user }: StatsTabProps) {
           <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-4 space-y-3">
             <h4 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider">Top Usuarios por Pronósticos</h4>
             {data.topUsers.length === 0 ? (
-              <p className="text-neutral-600 text-xs text-center py-8">Sin datos</p>
+              <p className="text-neutral-500 text-xs text-center py-8">Sin datos</p>
             ) : (
               <>
                 <div className="hidden sm:block" style={{ width: '100%', height: 200 }}>
@@ -326,7 +326,7 @@ export default function StatsTab({ user }: StatsTabProps) {
                     const max = data.topUsers[0]?.predictions || 1;
                     return (
                       <div key={u.nombre} className="flex items-center gap-2">
-                        <span className="text-[9px] font-bold text-neutral-600 w-4">{i + 1}</span>
+                        <span className="text-[9px] font-bold text-neutral-500 w-4">{i + 1}</span>
                         <span className="text-[10px] text-neutral-300 flex-1 truncate">{u.nombre}</span>
                         <div className="w-20 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                           <div className="h-full bg-green-500 rounded-full" style={{ width: `${(u.predictions / max) * 100}%` }} />
@@ -351,7 +351,7 @@ export default function StatsTab({ user }: StatsTabProps) {
                 Ingresos por Hora del Día
               </h4>
               {data.loginsByHour.every((h: any) => h.count === 0) ? (
-                <p className="text-neutral-600 text-xs text-center py-8">Sin datos de ingresos en este período</p>
+                <p className="text-neutral-500 text-xs text-center py-8">Sin datos de ingresos en este período</p>
               ) : (
                 <>
                   <div className="hidden sm:block" style={{ width: '100%', height: 180 }}>
@@ -397,7 +397,7 @@ export default function StatsTab({ user }: StatsTabProps) {
                         );
                       })}
                     </div>
-                    <div className="flex justify-between text-[9px] text-neutral-600 mt-1">
+                    <div className="flex justify-between text-[9px] text-neutral-500 mt-1">
                       <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
                     </div>
                     <div className="mt-2 space-y-1">
@@ -412,7 +412,7 @@ export default function StatsTab({ user }: StatsTabProps) {
                       ))}
                     </div>
                   </div>
-                  <p className="text-[9px] text-neutral-600 text-center">
+                  <p className="text-[9px] text-neutral-500 text-center">
                     Hora pico: {data.loginsByHour.reduce((max: any, h: any) => h.count > (max?.count ?? -1) ? h : max, null)?.label ?? '-'}
                   </p>
                 </>
@@ -426,7 +426,7 @@ export default function StatsTab({ user }: StatsTabProps) {
                 Anticipación al Registrar Pronósticos
               </h4>
               {!data.predBeforeMatch?.length ? (
-                <p className="text-neutral-600 text-xs text-center py-8">Sin datos</p>
+                <p className="text-neutral-500 text-xs text-center py-8">Sin datos</p>
               ) : (
                 <>
                   <div style={{ width: '100%', height: 180 }}>
@@ -457,7 +457,7 @@ export default function StatsTab({ user }: StatsTabProps) {
                             <div className="h-full rounded-full" style={{ width: `${total > 0 ? (b.count / total) * 100 : 0}%`, backgroundColor: colors[i] ?? '#737373' }} />
                           </div>
                           <span className="text-[10px] font-bold text-neutral-300 w-8 text-right">{b.count}</span>
-                          <span className="text-[9px] text-neutral-600 w-8 text-right">{total > 0 ? Math.round((b.count / total) * 100) : 0}%</span>
+                          <span className="text-[9px] text-neutral-500 w-8 text-right">{total > 0 ? Math.round((b.count / total) * 100) : 0}%</span>
                         </div>
                       ));
                     })()}
@@ -470,18 +470,18 @@ export default function StatsTab({ user }: StatsTabProps) {
           {/* ── Lectura de Mensajes ── */}
           <div className="bg-neutral-900/40 border border-neutral-800 rounded-2xl p-4 space-y-4">
             <h4 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-purple-400" />
+              <Mail className="w-3.5 h-3.5 text-purple-500" />
               Estadísticas de Mensajes / Notificaciones
             </h4>
             {data.messageStats.totalSent === 0 ? (
-              <p className="text-neutral-600 text-xs text-center py-8">Sin mensajes enviados en este período</p>
+              <p className="text-neutral-500 text-xs text-center py-8">Sin mensajes enviados en este período</p>
             ) : (
               <div className="space-y-4">
                 {/* Global read rate */}
                 <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
                   <div className="flex gap-4">
                     <div className="text-center">
-                      <div className="text-2xl font-black text-purple-400">{data.messageStats.totalSent}</div>
+                      <div className="text-2xl font-black text-purple-500">{data.messageStats.totalSent}</div>
                       <div className="text-[9px] text-neutral-500 uppercase tracking-widest">Enviados</div>
                     </div>
                     <div className="text-center">

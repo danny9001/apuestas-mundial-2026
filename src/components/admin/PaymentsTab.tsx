@@ -368,9 +368,9 @@ export default function PaymentsTab({
                       </td>
                       <td className="p-3 border-r border-neutral-850/50">
                         <div className="flex flex-wrap gap-1.5 items-center max-w-xs">
-                          {u.payments.length === 0 ? <span className="text-[10px] text-neutral-600 italic">Ningún pago</span> : u.payments.map((p: any) => (
+                          {u.payments.length === 0 ? <span className="text-[10px] text-neutral-500 italic">Ningún pago</span> : u.payments.map((p: any) => (
                             <span key={p.id} className="inline-flex items-center text-[9px] font-bold bg-neutral-900 border border-neutral-800 rounded-md px-1.5 py-0.5 text-neutral-400">
-                              Bs. {p.monto} <span className="text-neutral-600 ml-1 font-normal">({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})</span>
+                              Bs. {p.monto} <span className="text-neutral-500 ml-1 font-normal">({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})</span>
                             </span>
                           ))}
                         </div>
@@ -426,7 +426,7 @@ export default function PaymentsTab({
                       <div className="flex flex-wrap gap-1 mt-0.5">
                         {u.companies.length > 0 ? u.companies.map((c: any) => (
                           <span key={c.id} className="text-[9px] px-1.5 py-0 rounded-full border font-bold" style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '15' }}>{c.nombre}</span>
-                        )) : <span className="text-[9px] text-neutral-600">Sin empresa</span>}
+                        )) : <span className="text-[9px] text-neutral-500">Sin empresa</span>}
                       </div>
                     </div>
                   </div>
@@ -434,15 +434,15 @@ export default function PaymentsTab({
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="bg-neutral-950/60 rounded-xl p-2">
                       <div className="text-[11px] font-black text-neutral-300 font-mono">Bs. {cuota.toFixed(0)}</div>
-                      <div className="text-[8px] text-neutral-600 uppercase tracking-wider">Cuota</div>
+                      <div className="text-[8px] text-neutral-500 uppercase tracking-wider">Cuota</div>
                     </div>
                     <div className="bg-neutral-950/60 rounded-xl p-2">
                       <div className="text-[11px] font-black text-neutral-100 font-mono">Bs. {totalPagado.toFixed(0)}</div>
-                      <div className="text-[8px] text-neutral-600 uppercase tracking-wider">Pagado</div>
+                      <div className="text-[8px] text-neutral-500 uppercase tracking-wider">Pagado</div>
                     </div>
                     <div className="bg-neutral-950/60 rounded-xl p-2">
                       <div className={`text-[11px] font-black font-mono ${statusColor}`}>Bs. {saldo.toFixed(0)}</div>
-                      <div className="text-[8px] text-neutral-600 uppercase tracking-wider">Saldo</div>
+                      <div className="text-[8px] text-neutral-500 uppercase tracking-wider">Saldo</div>
                     </div>
                   </div>
                   {/* Pagos chips */}
@@ -450,7 +450,7 @@ export default function PaymentsTab({
                     <div className="flex flex-wrap gap-1">
                       {u.payments.map((p: any) => (
                         <span key={p.id} className="text-[9px] bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 text-neutral-400 font-mono">
-                          Bs.{p.monto} <span className="text-neutral-600">({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})</span>
+                          Bs.{p.monto} <span className="text-neutral-500">({new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' })})</span>
                         </span>
                       ))}
                     </div>
@@ -474,15 +474,15 @@ export default function PaymentsTab({
                 <div className="p-3 bg-neutral-950 grid grid-cols-3 gap-2 text-center border-t-2 border-neutral-800">
                   <div>
                     <div className="text-[11px] font-black text-neutral-300 font-mono">Bs. {totalCuotas.toFixed(0)}</div>
-                    <div className="text-[8px] text-neutral-600 uppercase">Total Cuotas</div>
+                    <div className="text-[8px] text-neutral-500 uppercase">Total Cuotas</div>
                   </div>
                   <div>
                     <div className="text-[11px] font-black text-yellow-500 font-mono">Bs. {totalPagadoTodos.toFixed(0)}</div>
-                    <div className="text-[8px] text-neutral-600 uppercase">Total Pagado</div>
+                    <div className="text-[8px] text-neutral-500 uppercase">Total Pagado</div>
                   </div>
                   <div>
                     <div className="text-[11px] font-black text-red-400 font-mono">Bs. {totalSaldo.toFixed(0)}</div>
-                    <div className="text-[8px] text-neutral-600 uppercase">Saldo Total</div>
+                    <div className="text-[8px] text-neutral-500 uppercase">Saldo Total</div>
                   </div>
                 </div>
               );

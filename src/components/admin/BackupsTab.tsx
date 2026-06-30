@@ -26,10 +26,10 @@ const TYPE_META = {
     label: 'Completo',
     desc: 'Base de datos entera',
     icon: <Database className="w-5 h-5" />,
-    color: 'text-purple-400',
+    color: 'text-purple-500',
     bg: 'bg-purple-500/10 border-purple-500/20',
     btnClass: 'bg-purple-600 hover:bg-purple-500 text-white',
-    badge: 'bg-purple-500/10 text-purple-400 border border-purple-500/20',
+    badge: 'bg-purple-500/10 text-purple-500 border border-purple-500/20',
   },
   incremental: {
     label: 'Incremental',
@@ -156,7 +156,7 @@ export default function BackupsTab({ user, showToast }: BackupsTabProps) {
                 </div>
                 {last
                   ? <ShieldCheck className="w-4 h-4 text-green-500" />
-                  : <AlertTriangle className="w-4 h-4 text-neutral-600" />}
+                  : <AlertTriangle className="w-4 h-4 text-neutral-500" />}
               </div>
 
               {last ? (
@@ -209,7 +209,7 @@ export default function BackupsTab({ user, showToast }: BackupsTabProps) {
           </div>
         ) : backups.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-3">
-            <Database className="w-12 h-12 text-neutral-700" />
+            <Database className="w-12 h-12 text-neutral-500" />
             <p className="text-xs text-neutral-400 font-bold font-sans">Sin backups registrados aún</p>
           </div>
         ) : (
@@ -305,7 +305,7 @@ export default function BackupsTab({ user, showToast }: BackupsTabProps) {
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <p className="text-[10px] text-neutral-500 font-sans">{formatDate(b.created_at)}</p>
-                        <p className="text-[10px] text-neutral-600 font-mono">{formatSize(b.size_bytes)}</p>
+                        <p className="text-[10px] text-neutral-500 font-mono">{formatSize(b.size_bytes)}</p>
                       </div>
                       {b.status === 'success' && (
                         <button

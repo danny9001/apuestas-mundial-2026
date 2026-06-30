@@ -440,7 +440,7 @@ export default function UsersTab({
                     <div className="min-w-0">
                       <div className="font-bold text-sm text-neutral-200 truncate">{u.nombre}</div>
                       <div className="text-[9px] text-neutral-500 font-mono">{u.email}{u.telefono && ` · 📱 ${u.telefono}`}</div>
-                      <div className="text-[8px] text-neutral-600 font-mono">{new Date(u.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                      <div className="text-[8px] text-neutral-500 font-mono">{new Date(u.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
@@ -662,7 +662,7 @@ export default function UsersTab({
               </div>
               <div className="space-y-1.5">
                 <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-                  📱 Celular / WhatsApp <span className="text-neutral-600 normal-case font-medium">(opcional)</span>
+                  📱 Celular / WhatsApp <span className="text-neutral-500 normal-case font-medium">(opcional)</span>
                 </label>
                 <input type="tel" value={editUserTelefono} onChange={e => setEditUserTelefono(e.target.value)} className="w-full input-stitch px-3 py-2.5 text-sm" placeholder="+591 7XXXXXXX" />
               </div>
@@ -703,7 +703,7 @@ export default function UsersTab({
               )}
               <div className="space-y-1.5">
                 <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                  <KeyRound className="w-3 h-3" /> Nueva Contraseña <span className="text-neutral-600 normal-case font-medium">(dejar vacío para no cambiar)</span>
+                  <KeyRound className="w-3 h-3" /> Nueva Contraseña <span className="text-neutral-500 normal-case font-medium">(dejar vacío para no cambiar)</span>
                 </label>
                 <input type="password" value={editUserPassword} onChange={e => setEditUserPassword(e.target.value)} className="w-full input-stitch px-3 py-2.5 text-sm" placeholder="••••••••" autoComplete="new-password" />
               </div>

@@ -228,7 +228,7 @@ export default function LogsTab({
                       <td className="p-3">
                         {log.comprobante_url
                           ? <a href={log.comprobante_url} target="_blank" rel="noopener noreferrer" className="text-yellow-500 hover:text-yellow-400 underline text-[10px] font-bold">Ver</a>
-                          : <span className="text-neutral-600">—</span>}
+                          : <span className="text-neutral-500">—</span>}
                       </td>
                       <td className="p-3 text-neutral-400 text-[10px]">{log.notas || '—'}</td>
                       <td className="p-3 text-right text-neutral-500 font-mono">{new Date(log.fecha).toLocaleString('es-BO')}</td>
@@ -273,7 +273,7 @@ export default function LogsTab({
                 </div>
                 <p className="text-[11px] text-neutral-300">{log.asunto}</p>
                 {log.error_mensaje && <p className="text-[10px] text-red-400 font-mono">{log.error_mensaje}</p>}
-                <p className="text-[9px] text-neutral-600 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
+                <p className="text-[9px] text-neutral-500 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
               </div>
             ))}
 
@@ -287,7 +287,7 @@ export default function LogsTab({
                 </div>
                 <p className="text-[11px] font-medium text-neutral-200">{log.mensaje}</p>
                 {log.detalles && <p className="text-[10px] text-neutral-500 font-mono">{log.detalles}</p>}
-                <p className="text-[9px] text-neutral-600 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
+                <p className="text-[9px] text-neutral-500 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
               </div>
             ))}
 
@@ -304,7 +304,7 @@ export default function LogsTab({
                     Ver comprobante
                   </a>
                 )}
-                <p className="text-[9px] text-neutral-600 font-mono">{new Date(log.fecha).toLocaleString('es-BO')}</p>
+                <p className="text-[9px] text-neutral-500 font-mono">{new Date(log.fecha).toLocaleString('es-BO')}</p>
               </div>
             ))}
 
@@ -315,7 +315,7 @@ export default function LogsTab({
                   <span className="text-[9px] font-mono text-neutral-500 bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded">{log.action}</span>
                 </div>
                 <p className="text-[11px] text-neutral-400 leading-relaxed">{log.details}</p>
-                <p className="text-[9px] text-neutral-600 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
+                <p className="text-[9px] text-neutral-500 font-mono">{new Date(log.created_at).toLocaleString('es-BO')}</p>
               </div>
             ))}
           </div>

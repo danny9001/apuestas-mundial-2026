@@ -88,7 +88,7 @@ function InvitacionPageContent() {
               <KeyRound className="w-4 h-4" />
               Ingresar con ElitePass Identity
             </button>
-            <p className="text-[10px] text-neutral-600 text-center mt-4">
+            <p className="text-[10px] text-neutral-500 text-center mt-4">
               Válido hasta el {new Date(inv.expires_at).toLocaleDateString('es-BO', { day: '2-digit', month: 'long', year: 'numeric' })}
             </p>
           </>

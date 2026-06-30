@@ -263,7 +263,7 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
               <button onClick={() => setLocal(v => v + 1)} className="w-6 h-6 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 text-sm font-black flex items-center justify-center transition">+</button>
             </div>
           </div>
-          <span className="text-neutral-600 font-mono text-xs">vs</span>
+          <span className="text-neutral-500 font-mono text-xs">vs</span>
           <div className="flex flex-col items-center gap-1 min-w-0">
             <span className="text-[9px] text-neutral-400 truncate max-w-[70px] text-center">{getTeamFlag(match.visitante)} {match.visitante}</span>
             <div className="flex items-center gap-1.5">
@@ -326,7 +326,7 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
                 placeholder="Jugador (opcional)"
                 value={eventForm?.jugador || ''}
                 onChange={e => setEventForm(f => ({ ...f!, jugador: e.target.value }))}
-                className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-neutral-100 placeholder-neutral-600 focus:border-yellow-500 outline-none"
+                className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-neutral-100 placeholder-neutral-400 focus:border-yellow-500 outline-none"
                 maxLength={50}
                 autoFocus
               />
@@ -335,7 +335,7 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
                 placeholder="Min."
                 value={eventForm?.minuto || ''}
                 onChange={e => setEventForm(f => ({ ...f!, minuto: e.target.value }))}
-                className="w-14 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-neutral-100 placeholder-neutral-600 focus:border-yellow-500 outline-none"
+                className="w-14 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-neutral-100 placeholder-neutral-400 focus:border-yellow-500 outline-none"
                 maxLength={5}
               />
             </div>
@@ -355,9 +355,9 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
             {[...eventos].reverse().map((e: any, i: number) => (
               <div key={i} className="flex items-center gap-1.5 text-[8px] text-neutral-500">
                 <span>{e.tipo === 'gol' ? '⚽' : e.tipo === 'gol_penal' ? '⚽P' : e.tipo === 'tarjeta_amarilla' ? '🟨' : e.tipo === 'tarjeta_roja' ? '🟥' : '🔄'}</span>
-                {e.minuto && <span className="font-mono text-neutral-600">{e.minuto}&apos;</span>}
+                {e.minuto && <span className="font-mono text-neutral-500">{e.minuto}&apos;</span>}
                 <span className="text-neutral-400 font-medium">{e.jugador || '—'}</span>
-                <span className="text-neutral-600">({e.equipo})</span>
+                <span className="text-neutral-500">({e.equipo})</span>
               </div>
             ))}
           </div>

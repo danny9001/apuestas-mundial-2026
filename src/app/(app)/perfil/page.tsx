@@ -242,7 +242,7 @@ export default function PerfilPage() {
                         style={{ color: c.color, borderColor: c.color, backgroundColor: c.color + '15' }}>{c.nombre}</span>
                     ))}
                   </div>
-                  <p className="text-[9px] text-neutral-600">Solo lectura · El administrador asigna empresas</p>
+                  <p className="text-[9px] text-neutral-500">Solo lectura · El administrador asigna empresas</p>
                 </div>
               )}
 
@@ -316,7 +316,7 @@ export default function PerfilPage() {
                     <span>{pk.label || (pk.device_type === 'multiDevice' ? 'Passkey en la nube' : 'Passkey en este dispositivo')}</span>
                     {pk.backed_up && <span className="text-[9px] bg-green-500/10 text-green-400 border border-green-500/20 px-1.5 rounded-full">backup</span>}
                   </div>
-                  <div className="text-[9px] text-neutral-600 mt-0.5 font-mono">
+                  <div className="text-[9px] text-neutral-500 mt-0.5 font-mono">
                     Registrada {new Date(pk.created_at).toLocaleDateString('es-BO')}
                     {pk.last_used_at && ` · Usada ${new Date(pk.last_used_at).toLocaleDateString('es-BO')}`}
                   </div>
@@ -332,7 +332,7 @@ export default function PerfilPage() {
           className="w-full bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-yellow-500/40 text-neutral-300 hover:text-neutral-100 py-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wider">
           <KeyRound className="w-4 h-4" /> Gestionar Passkeys en ElitePass Identity
         </a>
-        <p className="text-[10px] text-neutral-600 leading-relaxed">Las passkeys se gestionan en ElitePass Identity y funcionan en todas las apps del ecosistema.</p>
+        <p className="text-[10px] text-neutral-500 leading-relaxed">Las passkeys se gestionan en ElitePass Identity y funcionan en todas las apps del ecosistema.</p>
       </div>
 
       {/* Personal Stats */}

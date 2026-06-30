@@ -389,11 +389,11 @@ export default function ChatWidget() {
               <div className="flex-1 flex flex-col bg-neutral-900/50 overflow-y-auto px-6 py-4 space-y-4">
                 {messages.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                    <div className="p-4 bg-neutral-950 border border-neutral-850 rounded-full text-neutral-600 mb-3">
+                    <div className="p-4 bg-neutral-950 border border-neutral-850 rounded-full text-neutral-500 mb-3">
                       <MessageSquare className="w-8 h-8" />
                     </div>
                     <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider">No hay mensajes aún</p>
-                    <p className="text-[11px] text-neutral-600 max-w-[240px] mt-1 leading-normal">
+                    <p className="text-[11px] text-neutral-500 max-w-[240px] mt-1 leading-normal">
                       Escribe un mensaje abajo para comenzar la conversación con todos los participantes.
                     </p>
                   </div>

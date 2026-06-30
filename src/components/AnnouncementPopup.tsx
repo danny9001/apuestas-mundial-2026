@@ -89,7 +89,7 @@ export default function AnnouncementPopup({ user }: AnnouncementPopupProps) {
                 <Megaphone className="w-2.5 h-2.5 text-neutral-500 flex-shrink-0" />
                 <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest">Novedades</span>
                 {total > 1 && (
-                  <span className="text-[9px] text-neutral-600 font-mono ml-1">{current + 1} / {total}</span>
+                  <span className="text-[9px] text-neutral-500 font-mono ml-1">{current + 1} / {total}</span>
                 )}
               </div>
             </div>

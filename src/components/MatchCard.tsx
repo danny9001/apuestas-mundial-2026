@@ -239,10 +239,10 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
             <div className={`flex-1 rounded-lg px-2 py-1.5 text-center border transition-all ${
               fase === 'normal'
                 ? 'bg-red-500/15 border-red-500/40 text-red-400'
-                : 'bg-neutral-800/40 border-neutral-700/30 text-neutral-600'
+                : 'bg-neutral-800/40 border-neutral-700/30 text-neutral-500'
             }`}>
               <div className="text-[8px] font-black uppercase tracking-wider">⏱ Normal</div>
-              <div className={`font-mono font-black text-sm leading-none mt-0.5 ${fase === 'normal' ? 'text-red-300' : 'text-neutral-600'}`}>
+              <div className={`font-mono font-black text-sm leading-none mt-0.5 ${fase === 'normal' ? 'text-red-300' : 'text-neutral-500'}`}>
                 {fase === 'normal' ? (m.stats?.time || '–') : '–'}
               </div>
             </div>
@@ -254,7 +254,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
                   : 'bg-neutral-800/40 border-neutral-700/30 text-neutral-500'
               }`}>
                 <div className="text-[8px] font-black uppercase tracking-wider">⚡ T. Extra</div>
-                <div className={`font-mono font-black text-sm leading-none mt-0.5 ${fase === 'tiempo_extra' ? 'text-orange-300' : 'text-neutral-600'}`}>
+                <div className={`font-mono font-black text-sm leading-none mt-0.5 ${fase === 'tiempo_extra' ? 'text-orange-300' : 'text-neutral-500'}`}>
                   {fase === 'tiempo_extra' ? (m.stats?.extra_time || m.stats?.time || '–') : '–'}
                 </div>
               </div>
@@ -267,7 +267,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
                   : 'bg-neutral-800/40 border-neutral-700/30 text-neutral-500'
               }`}>
                 <div className="text-[8px] font-black uppercase tracking-wider">🎯 Penales</div>
-                <div className={`font-mono font-black text-sm leading-none mt-0.5 ${fase === 'penales' ? 'text-blue-300' : 'text-neutral-600'}`}>
+                <div className={`font-mono font-black text-sm leading-none mt-0.5 ${fase === 'penales' ? 'text-blue-300' : 'text-neutral-500'}`}>
                   {m.stats?.penales_local != null
                     ? `${m.stats.penales_local} – ${m.stats.penales_visitante}`
                     : '–'}

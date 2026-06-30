@@ -401,7 +401,7 @@ export default function DashboardPage() {
                 <span className="text-[9px] text-neutral-500 uppercase">Local</span>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <span className="text-xl font-black text-neutral-600">VS</span>
+                <span className="text-xl font-black text-neutral-500">VS</span>
                 {summaryMatch.estado === 'live' && <span className="text-[9px] bg-red-500 text-white font-black px-2 py-0.5 rounded-full animate-pulse">EN VIVO</span>}
               </div>
               <div className="flex flex-col items-center gap-2 flex-1">

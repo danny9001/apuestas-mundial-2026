@@ -231,7 +231,7 @@ export default function NotificationsTab({
               const r = await fetch('/api/admin/notify-scheduled', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo: 'rankings', force: true }) });
               const d = await r.json();
               showToast(r.ok ? `✅ Rankings enviados a ${d.companies_notified ?? 0} empresa(s)` : d.error);
-            }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition">
+            }} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition">
               📊 Rankings Semanales
             </button>
             <button type="button" onClick={fetchUnbetUsers} disabled={loadingUnbet} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition flex items-center gap-1.5 active:scale-95">
@@ -329,7 +329,7 @@ export default function NotificationsTab({
                         {msg.target_type === 'all' && (
                           <span className="text-[9px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">🌐 Todos</span>
                         )}
-                        <span className="text-[9px] text-neutral-600 font-mono">
+                        <span className="text-[9px] text-neutral-500 font-mono">
                           {new Date(msg.created_at).toLocaleString('es-BO')}
                         </span>
                       </div>

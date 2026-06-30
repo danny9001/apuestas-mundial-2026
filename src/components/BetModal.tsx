@@ -81,7 +81,7 @@ export default function BetModal({ match, user, existingPred, adminUsers = [], o
             </div>
           </div>
 
-          <span className="text-2xl text-neutral-700 font-extrabold font-mono">:</span>
+          <span className="text-2xl text-neutral-500 font-extrabold font-mono">:</span>
 
           {/* Visitante */}
           <div className="flex flex-col items-center gap-2 w-1/3">

@@ -966,6 +966,7 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
       });
 
       if (!localMatch) continue;
+      if (localMatch.stats?.manual_control) continue;
 
       let estado: 'upcoming' | 'live' | 'finished' = 'upcoming';
       const stateStr = comp.status?.type?.state;

@@ -125,8 +125,8 @@ export async function POST(req: NextRequest) {
       if (typeof finalStats === 'string') {
         try { finalStats = JSON.parse(finalStats); } catch { finalStats = {}; }
       }
-      if (estado === 'finished' && prevMatch.estado !== 'finished') {
-        finalStats.finished_at = new Date().toISOString();
+      if (estado === 'finished') {
+        finalStats.finished_at = finalStats.finished_at || new Date().toISOString();
       }
       // Set manual_control to true since an admin/superadmin is saving it
       finalStats.manual_control = true;

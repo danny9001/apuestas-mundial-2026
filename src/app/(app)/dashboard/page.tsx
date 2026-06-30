@@ -361,7 +361,7 @@ export default function DashboardPage() {
                         className={`w-9 h-9 xl:w-11 xl:h-11 rounded-full border border-neutral-800 shadow object-cover ${(!row.avatar || row.avatar === 'null' || row.avatar === 'undefined' || row.avatar.includes('avatar_5.png') || row.avatar.includes('default.webp')) ? 'bg-white' : 'bg-neutral-950'}`} alt="avatar" />
                       <div className="text-neutral-200 text-xs xl:text-sm flex items-center gap-2 flex-wrap">
                         <span>{row.nombre}</span>
-                        {isMe && <span className="bg-yellow-500 text-neutral-950 font-black text-[9px] px-1.5 py-0.5 rounded uppercase">Yo</span>}
+                        {isMe && <span className="bg-yellow-500 text-[#0e0e10] font-black text-[9px] px-1.5 py-0.5 rounded uppercase">Yo</span>}
                       </div>
                     </div>
                     <div className="text-right">

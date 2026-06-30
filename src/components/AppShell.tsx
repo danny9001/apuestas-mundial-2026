@@ -174,10 +174,10 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
                 <button onClick={handleTogglePush} className={`relative p-1.5 transition flex items-center justify-center flex-shrink-0 ${pushSubscribed ? 'text-yellow-500 hover:text-yellow-400' : 'text-neutral-500 hover:text-neutral-300'}`}>
                   {pushSubscribed ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
                 </button>
-                <button onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')} className="text-neutral-555 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0">
+                <button onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')} className="text-neutral-500 hover:text-yellow-500 p-1.5 transition flex items-center justify-center flex-shrink-0">
                   {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                 </button>
-                <button onClick={handleLogout} className="text-neutral-555 hover:text-red-400 p-1.5 transition flex-shrink-0">
+                <button onClick={handleLogout} className="text-neutral-500 hover:text-red-400 p-1.5 transition flex-shrink-0">
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
@@ -187,7 +187,7 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
               <button onClick={handleIdentityLogin} className="btn-primary-stitch w-full py-2.5 text-xs tracking-wider uppercase flex items-center justify-center gap-2">
                 🔑 Iniciar Sesión
               </button>
-              <button onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')} className="text-neutral-555 hover:text-yellow-500 p-2 border border-neutral-850 bg-neutral-900/40 rounded-xl transition flex items-center justify-center flex-shrink-0">
+              <button onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')} className="text-neutral-500 hover:text-yellow-500 p-2 border border-neutral-850 bg-neutral-900/40 rounded-xl transition flex items-center justify-center flex-shrink-0">
                 {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
               </button>
             </div>
@@ -277,7 +277,7 @@ export default function AppShell({ children, isInstalled, deferredPrompt, onInst
             </button>
 
             {/* Circular Soccer Ball Card */}
-            <div className="relative w-80 h-80 sm:w-96 sm:h-96 rounded-full overflow-hidden flex flex-col items-center justify-between shadow-[0_0_80px_rgba(255,255,255,0.15)] border-4 border-neutral-900 bg-white pointer-events-auto animate-bounce z-10">
+            <div className="relative w-80 h-80 sm:w-96 sm:h-96 rounded-full overflow-hidden flex flex-col items-center justify-between shadow-[0_0_80px_rgba(255,255,255,0.15)] border-4 border-neutral-900 bg-[#0e0e10] pointer-events-auto animate-bounce z-10">
               
               {/* Soccer Ball Pattern Image (matching JD8031 design) */}
               <div 

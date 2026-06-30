@@ -178,7 +178,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
 
             {/* VS / Score */}
             <div className="flex flex-col items-center justify-center flex-shrink-0 px-2 min-w-[60px] sm:min-w-[80px]">
-              <span className="bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded font-mono text-xs sm:text-sm font-black text-neutral-350 flex items-center justify-center">
+              <span className="bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded font-mono text-xs sm:text-sm font-black text-neutral-300 flex items-center justify-center">
                 {match.estado !== 'upcoming' ? (
                   match.stats?.penales_local != null && match.stats?.penales_visitante != null ? (
                     <span className="flex items-center justify-center">
@@ -263,7 +263,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                     ))
                   )}
                   {(!match.stats?.penales_lista_local || match.stats.penales_lista_local.length === 0) && (match.stats?.penales_local ?? 0) === 0 && (
-                    <span className="text-[9px] text-neutral-600 italic">No pateados aún</span>
+                    <span className="text-[9px] text-neutral-400 italic">No pateados aún</span>
                   )}
                 </div>
               </div>
@@ -296,7 +296,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                     ))
                   )}
                   {(!match.stats?.penales_lista_visitante || match.stats.penales_lista_visitante.length === 0) && (match.stats?.penales_visitante ?? 0) === 0 && (
-                    <span className="text-[9px] text-neutral-600 italic">No pateados aún</span>
+                    <span className="text-[9px] text-neutral-400 italic">No pateados aún</span>
                   )}
                 </div>
               </div>
@@ -322,7 +322,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                       onClose();
                       onBet();
                     }}
-                    className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-bold px-5 py-2.5 rounded-xl transition active:scale-95 uppercase tracking-wider font-sans shadow-[0_0_12px_rgba(234,179,8,0.2)]"
+                    className="bg-yellow-500 hover:bg-yellow-600 text-[#0e0e10] text-xs font-bold px-5 py-2.5 rounded-xl transition active:scale-95 uppercase tracking-wider font-sans shadow-[0_0_12px_rgba(234,179,8,0.2)]"
                   >
                     Editar Pronóstico ✏️
                   </button>
@@ -336,7 +336,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                   onClose();
                   onBet();
                 }}
-                className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-xs font-black uppercase tracking-wider rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(234,179,8,0.2)] animate-pulse"
+                className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-600 text-[#0e0e10] text-xs font-black uppercase tracking-wider rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(234,179,8,0.2)] animate-pulse"
               >
                 <span>⚽ Registrar Pronóstico Ahora</span>
               </button>
@@ -354,13 +354,13 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                 <span>Tendencia de Apuestas</span>
               </span>
               {betStats && (
-                <span className="text-neutral-600 font-mono text-[9px]">{betStats.total} pronósticos</span>
+                <span className="text-neutral-400 font-mono text-[9px]">{betStats.total} pronósticos</span>
               )}
             </div>
 
             {loadingStats && (
               <div className="h-8 flex items-center justify-center">
-                <span className="text-[10px] text-neutral-600 animate-pulse">Cargando...</span>
+                <span className="text-[10px] text-neutral-400 animate-pulse">Cargando...</span>
               </div>
             )}
 
@@ -408,7 +408,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                         <span className="text-[9px] font-mono text-neutral-500 w-8 text-right flex-shrink-0">
                           {s.pct}%
                         </span>
-                        <span className="text-[9px] text-neutral-600 w-10 text-right flex-shrink-0">
+                        <span className="text-[9px] text-neutral-400 w-10 text-right flex-shrink-0">
                           {s.count} usu.
                         </span>
                       </div>
@@ -417,7 +417,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                 )}
 
                 {!betStats.isClosed && (
-                  <p className="text-[9px] text-neutral-600 italic mt-1">
+                  <p className="text-[9px] text-neutral-400 italic mt-1">
                     Los scores exactos se revelan cuando cierran las apuestas.
                   </p>
                 )}
@@ -688,7 +688,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                   ></iframe>
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-neutral-600 text-[10px] italic py-6">
+                <div className="flex-1 flex items-center justify-center text-neutral-400 text-[10px] italic py-6">
                   Ubicación no disponible
                 </div>
               )}
@@ -696,7 +696,7 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                 href={googleMapsUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="bg-yellow-500 hover:bg-yellow-600 text-neutral-950 text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-lg transition active:scale-95 inline-flex items-center gap-1 font-sans mt-auto"
+                className="bg-yellow-500 hover:bg-yellow-600 text-[#0e0e10] text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-lg transition active:scale-95 inline-flex items-center gap-1 font-sans mt-auto"
               >
                 <MapPin className="w-3 h-3" />
                 <span>Ver en Google Maps</span>

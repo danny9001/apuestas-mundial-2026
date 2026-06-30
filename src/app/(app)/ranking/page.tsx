@@ -182,7 +182,7 @@ export default function RankingPage() {
         )}
         {filteredLeaderboard[0] && (
           <div className="glass-card border-2 border-yellow-500/50 rounded-xl p-5 text-center flex flex-col items-center justify-between order-2 relative shadow-[0_0_24px_rgba(255,209,101,0.2)] scale-105">
-            <span className="absolute top-[-10px] bg-yellow-500 text-neutral-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow">Líder</span>
+            <span className="absolute top-[-10px] bg-yellow-500 text-[#0e0e10] text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow">Líder</span>
             <div className="text-4xl animate-bounce">🥇</div>
             <div className="text-sm font-black text-neutral-100 truncate w-full mt-2">{filteredLeaderboard[0].nombre}</div>
             <div className="text-yellow-500 font-black text-lg font-mono mt-1">{filteredLeaderboard[0].puntos_totales} pts</div>
@@ -262,7 +262,7 @@ export default function RankingPage() {
                       className={`w-10 h-10 rounded-full border border-neutral-800 shadow object-cover ${(!row.avatar || row.avatar === 'null' || row.avatar === 'undefined' || row.avatar.includes('avatar_5.png') || row.avatar.includes('default.webp')) ? 'bg-white' : 'bg-neutral-950'}`} alt="avatar" />
                     <div className="text-neutral-200 text-sm flex items-center gap-2 flex-wrap">
                       <span>{row.nombre}</span>
-                      {isMe && <span className="bg-yellow-500 text-neutral-950 font-black text-[9px] px-1 rounded uppercase">Yo</span>}
+                      {isMe && <span className="bg-yellow-500 text-[#0e0e10] font-black text-[9px] px-1 rounded uppercase">Yo</span>}
                       {(row.companies || []).map((c: any) => (
                         <span key={c.id} className="text-[9px] px-2 py-0.5 rounded-full border font-bold"
                           style={{ color: c.color, borderColor: c.color + '40', backgroundColor: c.color + '18' }}>{c.nombre}</span>
@@ -278,7 +278,7 @@ export default function RankingPage() {
                   <div className="w-12 flex justify-center">
                     {row.tendencia === 'up' && <span className="flex items-center gap-0.5 text-green-500 text-xs font-black"><ArrowUp className="w-3.5 h-3.5" /> ▲</span>}
                     {row.tendencia === 'down' && <span className="flex items-center gap-0.5 text-red-500 text-xs font-black animate-pulse"><ArrowDown className="w-3.5 h-3.5" /> ▼</span>}
-                    {row.tendencia === 'same' && <span className="text-neutral-600 text-[10px]"><Circle className="w-2.5 h-2.5" /></span>}
+                    {row.tendencia === 'same' && <span className="text-neutral-400 text-[10px]"><Circle className="w-2.5 h-2.5" /></span>}
                   </div>
                 </div>
               </div>

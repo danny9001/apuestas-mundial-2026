@@ -79,7 +79,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
         {/* Top Header Row */}
         <div className="flex items-center justify-between w-full border-b border-neutral-800/40 pb-1.5 mb-1.5 text-[9px] font-semibold text-neutral-400">
           <div className="flex items-center gap-1.5 min-w-0 truncate">
-            <span className={`text-[8px] font-extrabold uppercase px-1 py-0.2 rounded font-mono flex-shrink-0 ${m.estado === 'live' ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' : 'bg-neutral-800 text-neutral-350'}`}>
+            <span className={`text-[8px] font-extrabold uppercase px-1 py-0.2 rounded font-mono flex-shrink-0 ${m.estado === 'live' ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' : 'bg-neutral-800 text-neutral-300'}`}>
               {m.estado === 'live' ? 'VIVO' : `G${m.grupo}`}
             </span>
             <span className="truncate">{m.fase}</span>
@@ -112,7 +112,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
                   <span className="flex items-center justify-center">
                     <span>{m.goles_local}</span>
                     <span className="text-blue-400 text-[8px] sm:text-[9px]">({m.stats.penales_local})</span>
-                    <span className="text-neutral-600 mx-0.5">-</span>
+                    <span className="text-neutral-400 mx-0.5">-</span>
                     <span className="text-blue-400 text-[8px] sm:text-[9px]">({m.stats.penales_visitante})</span>
                     <span>{m.goles_visitante}</span>
                   </span>
@@ -299,7 +299,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
                 <button onClick={() => onBet?.(m)} className="text-[10px] font-black text-yellow-500 hover:text-yellow-400 uppercase tracking-wider">Editar</button>
               )}
               {isClosed && myPred.puntos !== null && myPred.puntos !== undefined && (
-                <span className="bg-yellow-500 text-neutral-950 font-black px-2.5 py-1 rounded text-[10px] font-mono shadow-[0_0_12px_rgba(234,179,8,0.2)]">+{myPred.puntos} PTS</span>
+                <span className="bg-yellow-500 text-[#0e0e10] font-black px-2.5 py-1 rounded text-[10px] font-mono shadow-[0_0_12px_rgba(234,179,8,0.2)]">+{myPred.puntos} PTS</span>
               )}
             </div>
           </div>

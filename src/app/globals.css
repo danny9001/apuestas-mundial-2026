@@ -43,8 +43,11 @@
   --red-500: #ef4444;
   --orange-300: #fdba74;
   --orange-400: #fb923c;
+  --amber-400: #fbbf24;
   --amber-500: #f59e0b;
-  --amber-700: #b45309;
+  --amber-700: #d97706;  /* amber-600: ratio 5.6:1 en dark — sube de 3.6:1 */
+  --emerald-400: #34d399;
+  --emerald-500: #10b981;
 }
 
 .light {
@@ -82,16 +85,19 @@
   --blue-300: #1d4ed8;
 
   /* Semantic accent colors — light mode values (legible on #f8fafc / #ffffff) */
-  --green-400: #15803d;  /* green-700: ratio 9.8:1 */
-  --green-500: #16a34a;  /* green-600: ratio 6.8:1 */
-  --red-200: #b91c1c;    /* red-700:   ratio 10.8:1 */
-  --red-300: #dc2626;    /* red-600:   ratio 8.6:1 */
-  --red-400: #dc2626;    /* red-600:   ratio 8.6:1 */
-  --red-500: #b91c1c;    /* red-700:   ratio 10.8:1 */
-  --orange-300: #c2410c; /* orange-700: ratio 8.5:1 */
-  --orange-400: #c2410c; /* orange-700: ratio 8.5:1 */
-  --amber-500: #92400e;  /* amber-800:  ratio 9.9:1 */
-  --amber-700: #92400e;  /* amber-800:  ratio 9.9:1 */
+  --green-400: #15803d;  /* green-700:   ratio 9.8:1 */
+  --green-500: #16a34a;  /* green-600:   ratio 6.8:1 */
+  --red-200: #b91c1c;    /* red-700:     ratio 10.8:1 */
+  --red-300: #dc2626;    /* red-600:     ratio 8.6:1 */
+  --red-400: #dc2626;    /* red-600:     ratio 8.6:1 */
+  --red-500: #b91c1c;    /* red-700:     ratio 10.8:1 */
+  --orange-300: #c2410c; /* orange-700:  ratio 8.5:1 */
+  --orange-400: #c2410c; /* orange-700:  ratio 8.5:1 */
+  --amber-400: #92400e;  /* amber-800:   ratio 9.9:1 */
+  --amber-500: #92400e;  /* amber-800:   ratio 9.9:1 */
+  --amber-700: #92400e;  /* amber-800:   ratio 9.9:1 */
+  --emerald-400: #065f46; /* emerald-900: ratio 8.0:1 */
+  --emerald-500: #065f46; /* emerald-900: ratio 8.0:1 */
 }
 
 @theme inline {
@@ -130,8 +136,11 @@
   --color-red-500: var(--red-500);
   --color-orange-300: var(--orange-300);
   --color-orange-400: var(--orange-400);
+  --color-amber-400: var(--amber-400);
   --color-amber-500: var(--amber-500);
   --color-amber-700: var(--amber-700);
+  --color-emerald-400: var(--emerald-400);
+  --color-emerald-500: var(--emerald-500);
   
   /* Font config */
   --font-sans: var(--font-inter), sans-serif;
@@ -476,8 +485,8 @@ body {
   background: #f1f5f9;
   border-color: #d4d4d4;
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-  color: #ca8a04;
-  text-shadow: 0 0 5px rgba(202, 138, 4, 0.25);
+  color: #92400e;
+  text-shadow: 0 0 5px rgba(146, 64, 14, 0.20);
 }
 .light .split-flap-cell::after {
   background: rgba(203, 213, 225, 0.95);
@@ -718,7 +727,7 @@ body {
   font-family: var(--font-jetbrains-mono), monospace;
   font-weight: 900;
   font-size: 10px;
-  color: #404040;
+  color: var(--neutral-500);
   letter-spacing: 0.12em;
   padding: 1px 6px;
   border: 1px solid rgba(63, 63, 70, 0.50);

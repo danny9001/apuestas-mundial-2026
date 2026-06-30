@@ -128,6 +128,15 @@ export default function CompaniesTab({
   const [adminStatsShotAssistsLocal, setAdminStatsShotAssistsLocal] = useState(0);
   const [adminStatsShotAssistsVisitante, setAdminStatsShotAssistsVisitante] = useState(0);
 
+  // Admin penalties states
+  const [adminFaseActual, setAdminFaseActual] = useState('normal');
+  const [adminPenalesLocal, setAdminPenalesLocal] = useState(0);
+  const [adminPenalesVisitante, setAdminPenalesVisitante] = useState(0);
+  const [adminPenalesListaLocal, setAdminPenalesListaLocal] = useState<boolean[]>([]);
+  const [adminPenalesListaVisitante, setAdminPenalesListaVisitante] = useState<boolean[]>([]);
+  const [adminGanador, setAdminGanador] = useState('');
+  const [adminPenalesHabilitados, setAdminPenalesHabilitados] = useState(false);
+
   // Sync settings form with app values
   useEffect(() => {
     if (user?.tipo === 'superadmin') {
@@ -369,6 +378,12 @@ export default function CompaniesTab({
   const handleAdminUpdateMatch = async () => {
     if (!adminMatchModal) return;
     setAdminSubmitting(true);
+    
+    // Calculate penalty count
+    const pLocal = adminPenalesListaLocal.filter(Boolean).length;
+    const pVisitante = adminPenalesListaVisitante.filter(Boolean).length;
+    const finalWinner = adminGanador || (adminFaseActual === 'penales' ? (pLocal > pVisitante ? adminMatchModal.local : pVisitante > pLocal ? adminMatchModal.visitante : '') : '');
+
     try {
       const res = await fetch('/api/matches', {
         method: 'POST',
@@ -379,7 +394,9 @@ export default function CompaniesTab({
           goles_visitante: adminGolesVisitante,
           estado: adminEstado,
           transmision_enlaces: adminTransmisionEnlaces,
+          penales_habilitados: adminPenalesHabilitados,
           stats: {
+            ...adminMatchModal.stats,
             time: adminStatsTime,
             extra_time: adminStatsExtraTime,
             possession_local: adminStatsPossessionLocal,
@@ -402,11 +419,17 @@ export default function CompaniesTab({
             assists_local: adminStatsAssistsLocal,
             assists_visitante: adminStatsAssistsVisitante,
             shot_assists_local: adminStatsShotAssistsLocal,
-            shot_assists_visitante: adminStatsShotAssistsVisitante
+            shot_assists_visitante: adminStatsShotAssistsVisitante,
+            fase_actual: adminFaseActual,
+            penales_local: pLocal,
+            penales_visitante: pVisitante,
+            penales_lista_local: adminPenalesListaLocal,
+            penales_lista_visitante: adminPenalesListaVisitante,
+            ganador: finalWinner
           }
         }),
       });
-      if (res.ok) { setAdminMatchModal(null); showToast('⚽ Marcador actualizado'); await fetchMatches(); }
+      if (res.ok) { setAdminMatchModal(null); showToast('⚽ Marcador y estadísticas actualizados'); await fetchMatches(); }
       else { const d = await res.json(); showToast(d.error || 'Error'); }
     } catch { showToast('Error de red'); }
     finally { setAdminSubmitting(false); }
@@ -858,6 +881,7 @@ export default function CompaniesTab({
                   setAdminGolesVisitante(m.goles_visitante);
                   setAdminEstado(m.estado);
                   setAdminTransmisionEnlaces(m.transmision_enlaces || '');
+                  setAdminPenalesHabilitados(!!m.penales_habilitados);
                   
                   const stats = m.stats || {};
                   setAdminStatsTime(stats.time || '');
@@ -883,6 +907,14 @@ export default function CompaniesTab({
                   setAdminStatsAssistsVisitante(stats.assists_visitante || 0);
                   setAdminStatsShotAssistsLocal(stats.shot_assists_local || 0);
                   setAdminStatsShotAssistsVisitante(stats.shot_assists_visitante || 0);
+
+                  // Penalties
+                  setAdminFaseActual(stats.fase_actual || 'normal');
+                  setAdminPenalesLocal(stats.penales_local || 0);
+                  setAdminPenalesVisitante(stats.penales_visitante || 0);
+                  setAdminPenalesListaLocal(stats.penales_lista_local || []);
+                  setAdminPenalesListaVisitante(stats.penales_lista_visitante || []);
+                  setAdminGanador(stats.ganador || '');
                 }}
                   className="bg-neutral-950 hover:bg-neutral-800 text-neutral-300 font-bold px-4 py-2 border border-neutral-800 hover:border-yellow-500/25 rounded-xl transition">
                   Editar
@@ -964,19 +996,27 @@ export default function CompaniesTab({
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-neutral-400 text-xs font-bold uppercase tracking-wide mb-1.5">Estado del Partido</label>
-                <select value={adminEstado} onChange={e => setAdminEstado(e.target.value as any)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-xs text-neutral-300 outline-none transition">
-                  <option value="upcoming">Programado (upcoming)</option>
-                  <option value="live">En Juego (live)</option>
-                  <option value="finished">Finalizado (finished)</option>
+                <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1.5">Estado</label>
+                <select value={adminEstado} onChange={e => setAdminEstado(e.target.value as any)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-neutral-300 outline-none transition">
+                  <option value="upcoming">Programado</option>
+                  <option value="live">En Juego</option>
+                  <option value="finished">Finalizado</option>
                 </select>
               </div>
               <div>
-                <label className="block text-neutral-400 text-xs font-bold uppercase tracking-wide mb-1.5">Tiempo de Juego (Minuto)</label>
-                <input type="text" value={adminStatsTime} onChange={e => setAdminStatsTime(e.target.value)} placeholder="ej: 45', HT, 82'"
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-300 outline-none transition font-mono" />
+                <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1.5">Fase</label>
+                <select value={adminFaseActual} onChange={e => setAdminFaseActual(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-neutral-300 outline-none transition">
+                  <option value="normal">Reglamentario</option>
+                  <option value="tiempo_extra">Tiempo Extra</option>
+                  <option value="penales">Penales</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1.5">Minuto</label>
+                <input type="text" value={adminStatsTime} onChange={e => setAdminStatsTime(e.target.value)} placeholder="ej: 45', HT"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-neutral-300 outline-none transition font-mono" />
               </div>
             </div>
 
@@ -1086,6 +1126,123 @@ export default function CompaniesTab({
                   <label className="block text-neutral-400 text-[10px] font-bold uppercase tracking-wide mb-1">Clima / Temp</label>
                   <input type="text" value={adminStatsTemperatura} onChange={e => setAdminStatsTemperatura(e.target.value)} placeholder="ej: 18°C, Lluvia"
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-300 outline-none transition" />
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN DE PENALES */}
+            <div className="border-t border-neutral-800 pt-4 space-y-3">
+              <h4 className="text-[10px] font-black uppercase text-blue-400 tracking-wider">Tanda de Penales (Desempate)</h4>
+              
+              <div className="space-y-3 bg-neutral-950 p-3 rounded-xl border border-neutral-850">
+                {/* Penales Local */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-neutral-300">
+                    <span>{adminMatchModal.local}</span>
+                    <span className="font-mono text-blue-400">Total: {adminPenalesListaLocal.filter(Boolean).length}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 items-center min-h-[24px]">
+                    {adminPenalesListaLocal.map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          const next = [...adminPenalesListaLocal];
+                          next[idx] = !next[idx];
+                          setAdminPenalesListaLocal(next);
+                        }}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border transition ${
+                          p ? 'bg-green-500/25 border-green-500 text-green-400' : 'bg-red-500/25 border-red-500 text-red-400'
+                        }`}
+                      >
+                        {p ? '✓' : '✗'}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setAdminPenalesListaLocal(prev => [...prev, true])}
+                      className="h-6 px-2 rounded bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 text-[9px] font-bold uppercase"
+                    >
+                      + Tiro
+                    </button>
+                    {adminPenalesListaLocal.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setAdminPenalesListaLocal(prev => prev.slice(0, -1))}
+                        className="h-6 px-2 rounded bg-neutral-850 hover:bg-neutral-800 border border-neutral-750 text-neutral-400 text-[9px] font-bold uppercase"
+                      >
+                        - Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Penales Visitante */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-neutral-300">
+                    <span>{adminMatchModal.visitante}</span>
+                    <span className="font-mono text-blue-400">Total: {adminPenalesListaVisitante.filter(Boolean).length}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 items-center min-h-[24px]">
+                    {adminPenalesListaVisitante.map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          const next = [...adminPenalesListaVisitante];
+                          next[idx] = !next[idx];
+                          setAdminPenalesListaVisitante(next);
+                        }}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border transition ${
+                          p ? 'bg-green-500/25 border-green-500 text-green-400' : 'bg-red-500/25 border-red-500 text-red-400'
+                        }`}
+                      >
+                        {p ? '✓' : '✗'}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setAdminPenalesListaVisitante(prev => [...prev, true])}
+                      className="h-6 px-2 rounded bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 text-[9px] font-bold uppercase"
+                    >
+                      + Tiro
+                    </button>
+                    {adminPenalesListaVisitante.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setAdminPenalesListaVisitante(prev => prev.slice(0, -1))}
+                        className="h-6 px-2 rounded bg-neutral-850 hover:bg-neutral-800 border border-neutral-750 text-neutral-400 text-[9px] font-bold uppercase"
+                      >
+                        - Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Ganador & Habilitación */}
+                <div className="grid grid-cols-2 gap-4 border-t border-neutral-900 pt-3">
+                  <div>
+                    <label className="block text-neutral-400 text-[9px] font-bold uppercase tracking-wider mb-1">Ganador en Penales</label>
+                    <select
+                      value={adminGanador}
+                      onChange={e => setAdminGanador(e.target.value)}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-2 py-2 text-xs text-neutral-200 outline-none focus:border-blue-500"
+                    >
+                      <option value="">Selecciona...</option>
+                      <option value={adminMatchModal.local}>{adminMatchModal.local}</option>
+                      <option value={adminMatchModal.visitante}>{adminMatchModal.visitante}</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase text-neutral-400">Activar Puntos Penales</span>
+                    <button
+                      type="button"
+                      onClick={() => setAdminPenalesHabilitados(!adminPenalesHabilitados)}
+                      className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors duration-200 focus:outline-none ${adminPenalesHabilitados ? 'bg-blue-500' : 'bg-neutral-700'}`}
+                    >
+                      <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${adminPenalesHabilitados ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

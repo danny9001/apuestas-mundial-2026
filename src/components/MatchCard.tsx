@@ -106,8 +106,15 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
               <span className="uppercase text-[9px] sm:text-[10px] font-black text-neutral-100 text-right leading-none truncate">{m.local}</span>
               <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
             </div>
-            <div className="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded font-mono text-[10px] sm:text-[11px] font-black text-center min-w-[36px] sm:min-w-[42px] flex-shrink-0 text-neutral-100">
-              {m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}
+            <div className="flex flex-col items-center justify-center flex-shrink-0">
+              <div className="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded font-mono text-[10px] sm:text-[11px] font-black text-center min-w-[36px] sm:min-w-[42px] text-neutral-100">
+                {m.estado !== 'upcoming' ? `${m.goles_local}-${m.goles_visitante}` : 'VS'}
+              </div>
+              {m.estado !== 'upcoming' && m.stats?.penales_local != null && m.stats?.penales_visitante != null && (
+                <span className="text-[8px] font-black text-blue-400 mt-0.5 bg-blue-500/10 px-1 py-0.2 rounded border border-blue-500/10">
+                  ({m.stats.penales_local} - {m.stats.penales_visitante})
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1 min-w-0 flex-1 justify-start">
               <span className="text-base select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
@@ -187,14 +194,28 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
             <span className="text-xl select-none flex-shrink-0">{getTeamFlag(m.local)}</span>
             <span className={`font-black text-neutral-100 uppercase truncate ${m.estado === 'live' ? 'text-base' : 'text-sm'}`}>{m.local}</span>
           </div>
-          {m.estado !== 'upcoming' && <span className={`font-black font-mono text-neutral-100 ${m.estado === 'live' ? 'text-xl text-red-500' : 'text-base'}`}>{m.goles_local}</span>}
+          <div className="flex items-center gap-1.5 font-mono text-neutral-100">
+            {m.estado !== 'upcoming' && m.stats?.penales_local != null && m.stats?.penales_visitante != null && (
+              <span className="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/10 mr-1">
+                ({m.stats.penales_local})
+              </span>
+            )}
+            {m.estado !== 'upcoming' && <span className={`font-black ${m.estado === 'live' ? 'text-xl text-red-500' : 'text-base'}`}>{m.goles_local}</span>}
+          </div>
         </div>
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="text-xl select-none flex-shrink-0">{getTeamFlag(m.visitante)}</span>
             <span className={`font-black text-neutral-100 uppercase truncate ${m.estado === 'live' ? 'text-base' : 'text-sm'}`}>{m.visitante}</span>
           </div>
-          {m.estado !== 'upcoming' && <span className={`font-black font-mono text-neutral-100 ${m.estado === 'live' ? 'text-xl text-red-500' : 'text-base'}`}>{m.goles_visitante}</span>}
+          <div className="flex items-center gap-1.5 font-mono text-neutral-100">
+            {m.estado !== 'upcoming' && m.stats?.penales_local != null && m.stats?.penales_visitante != null && (
+              <span className="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/10 mr-1">
+                ({m.stats.penales_visitante})
+              </span>
+            )}
+            {m.estado !== 'upcoming' && <span className={`font-black ${m.estado === 'live' ? 'text-xl text-red-500' : 'text-base'}`}>{m.goles_visitante}</span>}
+          </div>
         </div>
       </div>
 

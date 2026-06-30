@@ -14,9 +14,10 @@ export async function POST(req: NextRequest) {
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-    const isSuperAdmin = user.tipo === 'superadmin';
-    if (!isSuperAdmin) {
-      return NextResponse.json({ error: 'Solo el super administrador puede registrar eventos' }, { status: 403 });
+    const isAdmin = user.tipo === 'admin' || user.tipo === 'superadmin';
+    const isArbitro = !!(user as any).arbitro_marcador;
+    if (!isAdmin && !isArbitro) {
+      return NextResponse.json({ error: 'Sin permisos para registrar eventos' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -30,6 +31,56 @@ export async function POST(req: NextRequest) {
 
     const currentStats: any = match.stats || {};
     const eventos: any[] = Array.isArray(currentStats.eventos) ? [...currentStats.eventos] : [];
+
+    // ── Advanced Stats Update (Penalties list, lineups, fouls, substitutions) ──
+    if (tipo === 'stats_update') {
+      const {
+        penales_local,
+        penales_visitante,
+        penales_lista_local,
+        penales_lista_visitante,
+        fase_actual,
+        extra_time,
+        ganador: statGanador,
+        faltas_local,
+        faltas_visitante,
+        alineacion_local,
+        alineacion_visitante,
+        cambios_local,
+        cambios_visitante
+      } = body;
+
+      const newStats = {
+        ...currentStats,
+        penales_local: penales_local !== undefined ? penales_local : currentStats.penales_local,
+        penales_visitante: penales_visitante !== undefined ? penales_visitante : currentStats.penales_visitante,
+        penales_lista_local: penales_lista_local !== undefined ? penales_lista_local : currentStats.penales_lista_local,
+        penales_lista_visitante: penales_lista_visitante !== undefined ? penales_lista_visitante : currentStats.penales_lista_visitante,
+        fase_actual: fase_actual !== undefined ? fase_actual : currentStats.fase_actual,
+        extra_time: extra_time !== undefined ? extra_time : currentStats.extra_time,
+        ganador: statGanador !== undefined ? statGanador : currentStats.ganador,
+        fouls_local: faltas_local !== undefined ? faltas_local : currentStats.fouls_local,
+        fouls_visitante: faltas_visitante !== undefined ? faltas_visitante : currentStats.fouls_visitante,
+        alineacion_local: alineacion_local !== undefined ? alineacion_local : currentStats.alineacion_local,
+        alineacion_visitante: alineacion_visitante !== undefined ? alineacion_visitante : currentStats.alineacion_visitante,
+        cambios_local: cambios_local !== undefined ? cambios_local : currentStats.cambios_local,
+        cambios_visitante: cambios_visitante !== undefined ? cambios_visitante : currentStats.cambios_visitante,
+      };
+
+      const res = await pool.query(
+        'UPDATE matches SET stats = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+        [JSON.stringify(newStats), matchId]
+      );
+      const updated = res.rows[0];
+      broadcastUpdate('match', updated);
+
+      if (updated.estado === 'finished' || updated.estado === 'live') {
+        pool.query('SELECT recalculate_leaderboard()').catch(() => {});
+        broadcastUpdate('leaderboard', { updated: true });
+      }
+
+      return NextResponse.json({ success: true, match: updated });
+    }
 
     // ── Penalty shootout result ──
     if (tipo === 'penales') {
@@ -160,8 +211,9 @@ export async function DELETE(req: NextRequest) {
   try {
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    const isSuperAdmin = user.tipo === 'superadmin';
-    if (!isSuperAdmin) return NextResponse.json({ error: 'Solo el super administrador puede modificar eventos' }, { status: 403 });
+    const isAdmin = user.tipo === 'admin' || user.tipo === 'superadmin';
+    const isArbitro = !!(user as any).arbitro_marcador;
+    if (!isAdmin && !isArbitro) return NextResponse.json({ error: 'Sin permisos para modificar eventos' }, { status: 403 });
 
     const body = await req.json();
     const { matchId, eventIndex } = body;

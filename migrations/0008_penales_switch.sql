@@ -31,13 +31,18 @@ BEGIN
   UPDATE predictions p
   SET puntos = CASE
     WHEN m.estado = 'upcoming' THEN 0
-    -- Exact score at 90' (3 points)
+    -- Exact score (3 points) - Option B: still applies even if it's a draw in a knockout match
     WHEN p.pred_local = m.goles_local AND p.pred_visitante = m.goles_visitante THEN 3
-    -- Penalty shootout: only counts when superadmin enables it
-    WHEN m.penales_habilitados = true AND (m.stats->>'ganador') IS NOT NULL AND (m.stats->>'ganador') <> '' AND (
-      (p.pred_local > p.pred_visitante AND m.stats->>'ganador' = m.local) OR
-      (p.pred_local < p.pred_visitante AND m.stats->>'ganador' = m.visitante)
-    ) THEN 1
+    -- Knockout match ending in a draw (either normal or extra time)
+    WHEN m.fase <> 'Fase de Grupos' AND m.goles_local = m.goles_visitante THEN
+      CASE
+        -- If user predicted the team that won the penalty shootout, they get 1 point
+        WHEN (m.stats->>'ganador') IS NOT NULL AND (m.stats->>'ganador') <> '' AND (
+          (p.pred_local > p.pred_visitante AND m.stats->>'ganador' = m.local) OR
+          (p.pred_local < p.pred_visitante AND m.stats->>'ganador' = m.visitante)
+        ) THEN 1
+        ELSE 0
+      END
     -- Regular result: correct winner or draw (1 point)
     WHEN (p.pred_local > p.pred_visitante AND m.goles_local > m.goles_visitante) OR
          (p.pred_local < p.pred_visitante AND m.goles_local < m.goles_visitante) OR

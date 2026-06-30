@@ -36,19 +36,28 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
   const [eventForm, setEventForm] = useState<EventForm>({ jugador: '', minuto: '' });
   const [savingEvent, setSavingEvent] = useState(false);
 
-  // ── Penalties ──
+  // ── Advanced Stats (Referees / Admins) ──
+  const [faseActual, setFaseActual] = useState<string>(match.stats?.fase_actual ?? 'normal');
+  const [extraTime, setExtraTime] = useState<string>(match.stats?.extra_time ?? '');
+  const [faltasLocal, setFaltasLocal] = useState<number>(match.stats?.fouls_local ?? 0);
+  const [faltasVisitante, setFaltasVisitante] = useState<number>(match.stats?.fouls_visitante ?? 0);
+  const [alineacionLocal, setAlineacionLocal] = useState<string>(match.stats?.alineacion_local ?? '');
+  const [alineacionVisitante, setAlineacionVisitante] = useState<string>(match.stats?.alineacion_visitante ?? '');
+  const [cambiosLocal, setCambiosLocal] = useState<string>(match.stats?.cambios_local ?? '');
+  const [cambiosVisitante, setCambiosVisitante] = useState<string>(match.stats?.cambios_visitante ?? '');
+
+  // ── Penalties (Tiro por tiro) ──
   const [showPenales, setShowPenales] = useState(false);
-  const [penalesLocal, setPenalesLocal] = useState<number>(match.stats?.penales_local ?? 0);
-  const [penalesVisitante, setPenalesVisitante] = useState<number>(match.stats?.penales_visitante ?? 0);
+  const [penalesListaLocal, setPenalesListaLocal] = useState<boolean[]>(match.stats?.penales_lista_local ?? []);
+  const [penalesListaVisitante, setPenalesListaVisitante] = useState<boolean[]>(match.stats?.penales_lista_visitante ?? []);
   const [ganador, setGanador] = useState<string>(match.stats?.ganador ?? '');
-  const [savingPenales, setSavingPenales] = useState(false);
+  const [savingStats, setSavingStats] = useState(false);
   const [penalesHabilitados, setPenalesHabilitados] = useState<boolean>(match.penales_habilitados ?? false);
   const [savingSwitch, setSavingSwitch] = useState(false);
 
   if (!isEditable(match)) return null;
 
   const isKnockout = KNOCKOUT_PHASES.includes(match.fase);
-  const hasExistingPenales = !!match.stats?.ganador;
 
   const unchanged = local === (match.goles_local ?? 0) && visitante === (match.goles_visitante ?? 0);
   const isAnnulment = local < (match.goles_local ?? 0) || visitante < (match.goles_visitante ?? 0);
@@ -105,7 +114,6 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
         onCorrected?.(data.match);
         setPendingEvent(null);
         setEventForm({ jugador: '', minuto: '' });
-        // Sync local score after goal event
         if (pendingEvent.tipo === 'gol' || pendingEvent.tipo === 'gol_penal') {
           setLocal(data.match.goles_local);
           setVisitante(data.match.goles_visitante);
@@ -146,33 +154,45 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
     }
   };
 
-  const handleSavePenales = async () => {
-    if (!ganador) { showToast('Selecciona el ganador en penales'); return; }
-    setSavingPenales(true);
+  const handleSaveStats = async () => {
+    setSavingStats(true);
+    const pLocal = penalesListaLocal.filter(Boolean).length;
+    const pVisitante = penalesListaVisitante.filter(Boolean).length;
+    const finalWinner = ganador || (faseActual === 'penales' ? (pLocal > pVisitante ? match.local : pVisitante > pLocal ? match.visitante : '') : '');
+
     try {
       const res = await fetch('/api/matches/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           matchId: match.id,
-          tipo: 'penales',
-          ganador,
-          penales_local: penalesLocal,
-          penales_visitante: penalesVisitante,
+          tipo: 'stats_update',
+          fase_actual: faseActual,
+          extra_time: extraTime,
+          faltas_local: faltasLocal,
+          faltas_visitante: faltasVisitante,
+          alineacion_local: alineacionLocal,
+          alineacion_visitante: alineacionVisitante,
+          cambios_local: cambiosLocal,
+          cambios_visitante: cambiosVisitante,
+          penales_lista_local: penalesListaLocal,
+          penales_lista_visitante: penalesListaVisitante,
+          penales_local: pLocal,
+          penales_visitante: pVisitante,
+          ganador: finalWinner,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`🎯 ${ganador} avanza en penales`);
+        showToast('📋 Estadísticas y eventos actualizados');
         onCorrected?.(data.match);
-        setShowPenales(false); // Auto-close after registering
       } else {
         showToast(`Error: ${data.error}`);
       }
     } catch {
       showToast('Error de red');
     } finally {
-      setSavingPenales(false);
+      setSavingStats(false);
     }
   };
 
@@ -219,7 +239,7 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
       {/* ── Score Correction ── */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
-          <span className="text-[9px] font-black uppercase tracking-widest text-yellow-500/80">⚖️ Árbitro</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-yellow-500/80">⚖️ Árbitro - Marcador</span>
           {match.estado === 'finished' && (
             <span className="text-[8px] text-neutral-500 font-mono">
               {(() => {
@@ -268,10 +288,10 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
         )}
       </div>
 
-      {/* ── Eventos del Partido (solo superadmin) ── */}
-      {isSuperAdmin && <div className="border-t border-yellow-500/10 pt-2.5">
+      {/* ── Eventos del Partido ── */}
+      <div className="border-t border-yellow-500/10 pt-2.5">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Registrar Evento</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Registrar Evento Rápido</span>
           {eventos.length > 0 && (
             <button onClick={handleDeleteLastEvent} disabled={savingEvent} className="text-[8px] text-orange-400 hover:text-orange-300 font-black uppercase tracking-wider disabled:opacity-50">
               ↩ Deshacer último
@@ -279,7 +299,6 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
           )}
         </div>
 
-        {/* Event buttons grid */}
         {!pendingEvent && (
           <div className="flex flex-wrap gap-1">
             <EventButton tipo="gol" equipo={match.local} label={`⚽ Gol ${match.local.split(' ')[0]}`} />
@@ -293,7 +312,6 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
           </div>
         )}
 
-        {/* Event form */}
         {pendingEvent && (
           <div className="space-y-1.5">
             <div className="text-[9px] font-black uppercase tracking-widest text-neutral-300 text-center">
@@ -329,7 +347,6 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
           </div>
         )}
 
-        {/* Events log */}
         {eventos.length > 0 && (
           <div className="mt-2 space-y-0.5 max-h-24 overflow-y-auto">
             {[...eventos].reverse().map((e: any, i: number) => (
@@ -342,105 +359,252 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
             ))}
           </div>
         )}
-      </div>}
+      </div>
 
-      {/* ── Penales (knockout only, solo superadmin) ── */}
-      {isSuperAdmin && isKnockout && (
-        <div className="border-t border-yellow-500/10 pt-2.5">
-
-          {/* Switch: ¿Contar penales para puntos? */}
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">
-              ⚡ Penales cuentan para puntos
-            </span>
-            <button
-              onClick={() => !savingSwitch && handleTogglePenalesSwitch(!penalesHabilitados)}
-              disabled={savingSwitch}
-              className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${penalesHabilitados ? 'bg-blue-500' : 'bg-neutral-700'}`}
-              title={penalesHabilitados ? 'Desactivar scoring de penales' : 'Activar scoring de penales'}
+      {/* ── Ajustes Avanzados del Partido (Fase, Faltas, Alineaciones, Cambios) ── */}
+      <div className="border-t border-yellow-500/10 pt-2.5 space-y-2.5">
+        <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">📊 Estadísticas y Alineación</span>
+        
+        <div className="grid grid-cols-2 gap-2">
+          {/* Fase actual */}
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] text-neutral-500 uppercase font-bold">Fase Partido</span>
+            <select
+              value={faseActual}
+              onChange={e => setFaseActual(e.target.value)}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-1.5 py-1 text-[10px] text-neutral-200 outline-none focus:border-yellow-500"
             >
-              <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${penalesHabilitados ? 'translate-x-4' : 'translate-x-0.5'}`} />
-            </button>
+              <option value="normal">Tiempo Normal</option>
+              <option value="tiempo_extra">Tiempo Extra</option>
+              <option value="penales">Penales</option>
+            </select>
           </div>
 
-          {hasExistingPenales ? (
-            /* Already registered — show summary + option to edit */
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">
-                  🎯 Penales: {match.stats.ganador}
-                  {match.stats.penales_local != null
-                    ? ` (${match.stats.penales_local}–${match.stats.penales_visitante})`
-                    : ''}
-                </span>
-                <button
-                  onClick={() => setShowPenales(v => !v)}
-                  className="text-[8px] text-neutral-500 hover:text-neutral-300 font-black uppercase tracking-wider"
-                >
-                  {showPenales ? 'Cerrar' : 'Editar'}
-                </button>
-              </div>
-            </div>
-          ) : (
+          {/* Minuto Extra */}
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] text-neutral-500 uppercase font-bold">Tiempo Alargue</span>
+            <input
+              type="text"
+              placeholder="Ej. 105', 120'"
+              value={extraTime}
+              onChange={e => setExtraTime(e.target.value)}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-neutral-200 outline-none focus:border-yellow-500"
+              disabled={faseActual === 'normal'}
+            />
+          </div>
+        </div>
+
+        {/* Faltas */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] text-neutral-500 uppercase font-bold">Faltas {match.local}</span>
+            <input
+              type="number"
+              value={faltasLocal}
+              onChange={e => setFaltasLocal(parseInt(e.target.value) || 0)}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-neutral-200 outline-none focus:border-yellow-500 font-mono"
+            />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] text-neutral-500 uppercase font-bold">Faltas {match.visitante}</span>
+            <input
+              type="number"
+              value={faltasVisitante}
+              onChange={e => setFaltasVisitante(parseInt(e.target.value) || 0)}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-neutral-200 outline-none focus:border-yellow-500 font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Alineaciones */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] text-neutral-500 uppercase font-bold">Alineación {match.local}</span>
+            <textarea
+              placeholder="Jugadores iniciales..."
+              value={alineacionLocal}
+              onChange={e => setAlineacionLocal(e.target.value)}
+              rows={2}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[9px] text-neutral-200 outline-none focus:border-yellow-500"
+            />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] text-neutral-500 uppercase font-bold">Alineación {match.visitante}</span>
+            <textarea
+              placeholder="Jugadores iniciales..."
+              value={alineacionVisitante}
+              onChange={e => setAlineacionVisitante(e.target.value)}
+              rows={2}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[9px] text-neutral-200 outline-none focus:border-yellow-500"
+            />
+          </div>
+        </div>
+
+        {/* Cambios */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] text-neutral-500 uppercase font-bold">Cambios {match.local}</span>
+            <textarea
+              placeholder="Cambios realizados..."
+              value={cambiosLocal}
+              onChange={e => setCambiosLocal(e.target.value)}
+              rows={1}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[9px] text-neutral-200 outline-none focus:border-yellow-500"
+            />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[8px] text-neutral-500 uppercase font-bold">Cambios {match.visitante}</span>
+            <textarea
+              placeholder="Cambios realizados..."
+              value={cambiosVisitante}
+              onChange={e => setCambiosVisitante(e.target.value)}
+              rows={1}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1 text-[9px] text-neutral-200 outline-none focus:border-yellow-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Editor de Penales ── */}
+      {isKnockout && (
+        <div className="border-t border-yellow-500/10 pt-2.5 space-y-2">
+          <div className="flex items-center justify-between">
             <button
               onClick={() => setShowPenales(v => !v)}
               className="w-full text-[9px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition text-left flex items-center justify-between"
             >
-              <span>🎯 Registrar Penales</span>
+              <span>🎯 Corrección de Penales (Tiro por Tiro)</span>
               <span>{showPenales ? '▲' : '▼'}</span>
             </button>
-          )}
+          </div>
 
           {showPenales && (
-            <div className="mt-2 space-y-2">
-              {/* Penalty scores */}
-              <div className="flex items-center justify-center gap-3">
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-[9px] text-neutral-400 truncate max-w-[70px] text-center">{getTeamFlag(match.local)} {match.local}</span>
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => setPenalesLocal(v => Math.max(0, v - 1))} className="w-6 h-6 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-black flex items-center justify-center">−</button>
-                    <span className="w-6 text-center font-black text-sm font-mono text-blue-300">{penalesLocal}</span>
-                    <button onClick={() => setPenalesLocal(v => v + 1)} className="w-6 h-6 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 text-sm font-black flex items-center justify-center">+</button>
-                  </div>
+            <div className="space-y-3 bg-neutral-950 p-2.5 rounded-lg border border-neutral-850">
+              {/* Penales Local */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[9px] font-bold text-neutral-350">
+                  <span>{match.local}</span>
+                  <span className="font-mono text-blue-400">Total: {penalesListaLocal.filter(Boolean).length}</span>
                 </div>
-                <span className="text-neutral-600 font-mono text-xs">pen.</span>
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-[9px] text-neutral-400 truncate max-w-[70px] text-center">{getTeamFlag(match.visitante)} {match.visitante}</span>
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => setPenalesVisitante(v => Math.max(0, v - 1))} className="w-6 h-6 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-black flex items-center justify-center">−</button>
-                    <span className="w-6 text-center font-black text-sm font-mono text-blue-300">{penalesVisitante}</span>
-                    <button onClick={() => setPenalesVisitante(v => v + 1)} className="w-6 h-6 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 text-sm font-black flex items-center justify-center">+</button>
-                  </div>
+                <div className="flex flex-wrap gap-1 items-center min-h-[24px]">
+                  {penalesListaLocal.map((p, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        const next = [...penalesListaLocal];
+                        next[idx] = !next[idx];
+                        setPenalesListaLocal(next);
+                      }}
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border transition ${
+                        p ? 'bg-green-500/25 border-green-500 text-green-450 hover:bg-green-500/40' : 'bg-red-500/25 border-red-500 text-red-450 hover:bg-red-500/40'
+                      }`}
+                      title={p ? 'Marcado como GOL. Click para fallar.' : 'Marcado como FALLADO. Click para gol.'}
+                    >
+                      {p ? '✓' : '✗'}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPenalesListaLocal(prev => [...prev, true])}
+                    className="h-6 px-1.5 rounded bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 text-[8px] font-bold uppercase"
+                  >
+                    + Tiro
+                  </button>
+                  {penalesListaLocal.length > 0 && (
+                    <button
+                      onClick={() => setPenalesListaLocal(prev => prev.slice(0, -1))}
+                      className="h-6 px-1.5 rounded bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 text-neutral-400 text-[8px] font-bold uppercase"
+                    >
+                      - Quitar
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Winner selector */}
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => setGanador(match.local)}
-                  className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition ${ganador === match.local ? 'bg-blue-500/20 border-blue-400 text-blue-300' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-blue-500/40'}`}
-                >
-                  {getTeamFlag(match.local)} {match.local}
-                </button>
-                <button
-                  onClick={() => setGanador(match.visitante)}
-                  className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition ${ganador === match.visitante ? 'bg-blue-500/20 border-blue-400 text-blue-300' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-blue-500/40'}`}
-                >
-                  {getTeamFlag(match.visitante)} {match.visitante}
-                </button>
+              {/* Penales Visitante */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[9px] font-bold text-neutral-350">
+                  <span>{match.visitante}</span>
+                  <span className="font-mono text-blue-400">Total: {penalesListaVisitante.filter(Boolean).length}</span>
+                </div>
+                <div className="flex flex-wrap gap-1 items-center min-h-[24px]">
+                  {penalesListaVisitante.map((p, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        const next = [...penalesListaVisitante];
+                        next[idx] = !next[idx];
+                        setPenalesListaVisitante(next);
+                      }}
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border transition ${
+                        p ? 'bg-green-500/25 border-green-500 text-green-450 hover:bg-green-500/40' : 'bg-red-500/25 border-red-500 text-red-450 hover:bg-red-500/40'
+                      }`}
+                      title={p ? 'Marcado como GOL. Click para fallar.' : 'Marcado como FALLADO. Click para gol.'}
+                    >
+                      {p ? '✓' : '✗'}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPenalesListaVisitante(prev => [...prev, true])}
+                    className="h-6 px-1.5 rounded bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 text-[8px] font-bold uppercase"
+                  >
+                    + Tiro
+                  </button>
+                  {penalesListaVisitante.length > 0 && (
+                    <button
+                      onClick={() => setPenalesListaVisitante(prev => prev.slice(0, -1))}
+                      className="h-6 px-1.5 rounded bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 text-neutral-400 text-[8px] font-bold uppercase"
+                    >
+                      - Quitar
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <button
-                onClick={handleSavePenales}
-                disabled={savingPenales || !ganador}
-                className="w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 transition disabled:opacity-40"
-              >
-                {savingPenales ? '...' : `🎯 Confirmar: ${ganador || 'selecciona ganador'}`}
-              </button>
+              {/* Ganador en Penales */}
+              <div className="space-y-1">
+                <span className="text-[8px] text-neutral-500 uppercase font-bold block">Ganador del Desempate</span>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setGanador(match.local)}
+                    className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition ${ganador === match.local ? 'bg-blue-500/20 border-blue-400 text-blue-300' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-blue-500/40'}`}
+                  >
+                    {getTeamFlag(match.local)} {match.local}
+                  </button>
+                  <button
+                    onClick={() => setGanador(match.visitante)}
+                    className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition ${ganador === match.visitante ? 'bg-blue-500/20 border-blue-400 text-blue-300' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-blue-500/40'}`}
+                  >
+                    {getTeamFlag(match.visitante)} {match.visitante}
+                  </button>
+                </div>
+              </div>
+
+              {/* Switch: ¿Contar penales para puntos? */}
+              <div className="flex items-center justify-between border-t border-neutral-900 pt-2">
+                <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400">
+                  ⚡ Activar Puntos por Penales
+                </span>
+                <button
+                  onClick={() => !savingSwitch && handleTogglePenalesSwitch(!penalesHabilitados)}
+                  disabled={savingSwitch}
+                  className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${penalesHabilitados ? 'bg-blue-500' : 'bg-neutral-700'}`}
+                >
+                  <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${penalesHabilitados ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
             </div>
           )}
         </div>
       )}
+
+      {/* Botón de Guardado General de Estadísticas */}
+      <button
+        onClick={handleSaveStats}
+        disabled={savingStats}
+        className="w-full py-2 rounded-lg text-[10px] font-black uppercase tracking-wider bg-yellow-500 text-neutral-950 hover:bg-yellow-400 transition disabled:opacity-50 shadow-md"
+      >
+        {savingStats ? 'Guardando estadísticas...' : '💾 Guardar Estadísticas y Alineaciones'}
+      </button>
     </div>
   );
 }

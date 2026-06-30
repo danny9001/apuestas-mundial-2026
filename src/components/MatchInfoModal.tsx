@@ -201,26 +201,93 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
             </div>
           </div>
 
-          {/* Extra time + Penalty strip */}
-          {match.stats?.ganador && (
-            <div className="w-full border-t border-blue-500/20 pt-3 flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2 text-[8px] text-neutral-500 uppercase tracking-widest font-mono">
-                <span>🕐 Alargue</span>
-                <span className="text-neutral-700">·</span>
-                <span>⚽ Penales</span>
-              </div>
-              {match.stats.penales_local != null && (
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-[9px] text-neutral-400 font-black truncate max-w-[72px] text-right">{match.local}</span>
-                  <span className="bg-blue-500/10 border border-blue-500/30 px-3 py-1 rounded font-mono text-sm font-black text-blue-300">
-                    {match.stats.penales_local} – {match.stats.penales_visitante}
-                  </span>
-                  <span className="text-[9px] text-neutral-400 font-black truncate max-w-[72px] text-left">{match.visitante}</span>
-                </div>
-              )}
-              <span className="text-[9px] text-blue-400 font-black uppercase tracking-wider">
-                🎯 {match.stats.ganador} avanza
+          {/* BLOQUE 2: TIEMPO EXTRA (Solo si está en alargue/tiempo extra) */}
+          {(match.stats?.fase_actual === 'tiempo_extra' || match.stats?.extra_time || match.stats?.time === 'AET') && (
+            <div className="w-full bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 flex flex-col items-center gap-1.5 animate-pulse mt-3 text-center">
+              <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">⚠️ TIEMPO EXTRA / ALARGUE ⚠️</span>
+              <span className="text-xs text-neutral-300 font-semibold">
+                Minuto: {match.stats?.time || '90+'} {match.stats?.extra_time ? `(${match.stats.extra_time})` : ''}
               </span>
+            </div>
+          )}
+
+          {/* BLOQUE 3: TANDA DE PENALES (Solo si está en tanda de penales o hay ganador) */}
+          {(match.stats?.fase_actual === 'penales' || match.stats?.penales_lista_local || match.stats?.penales_local != null || match.stats?.ganador) && (
+            <div className="w-full bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex flex-col gap-3 mt-3">
+              <div className="text-center">
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest block">⚡ TANDA DE PENALES ⚡</span>
+                {match.stats?.ganador && (
+                  <span className="text-[10px] text-yellow-500 font-black uppercase tracking-wider mt-1 inline-block">
+                    🎯 {match.stats.ganador} avanza
+                  </span>
+                )}
+              </div>
+              
+              {/* Barra de goles metidos (Local) */}
+              <div className="w-full flex flex-col gap-1">
+                <div className="flex justify-between text-[10px] font-bold text-neutral-300">
+                  <span>{match.local}</span>
+                  <span className="font-mono text-blue-400">
+                    {match.stats?.penales_local ?? 0} goles
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {Array.isArray(match.stats?.penales_lista_local) ? (
+                    match.stats.penales_lista_local.map((p: boolean, idx: number) => (
+                      <span
+                        key={idx}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${
+                          p
+                            ? 'bg-green-500/20 border-green-500 text-green-400'
+                            : 'bg-red-500/20 border-red-500 text-red-400'
+                        }`}
+                      >
+                        {p ? '✓' : '✗'}
+                      </span>
+                    ))
+                  ) : (
+                    Array.from({ length: match.stats?.penales_local ?? 0 }).map((_, idx) => (
+                      <span key={idx} className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold bg-green-500/20 border border-green-500 text-green-400">✓</span>
+                    ))
+                  )}
+                  {(!match.stats?.penales_lista_local || match.stats.penales_lista_local.length === 0) && (match.stats?.penales_local ?? 0) === 0 && (
+                    <span className="text-[9px] text-neutral-600 italic">No pateados aún</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Barra de goles metidos (Visitante) */}
+              <div className="w-full flex flex-col gap-1 mt-1">
+                <div className="flex justify-between text-[10px] font-bold text-neutral-300">
+                  <span>{match.visitante}</span>
+                  <span className="font-mono text-blue-400">
+                    {match.stats?.penales_visitante ?? 0} goles
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {Array.isArray(match.stats?.penales_lista_visitante) ? (
+                    match.stats.penales_lista_visitante.map((p: boolean, idx: number) => (
+                      <span
+                        key={idx}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${
+                          p
+                            ? 'bg-green-500/20 border-green-500 text-green-400'
+                            : 'bg-red-500/20 border-red-500 text-red-400'
+                        }`}
+                      >
+                        {p ? '✓' : '✗'}
+                      </span>
+                    ))
+                  ) : (
+                    Array.from({ length: match.stats?.penales_visitante ?? 0 }).map((_, idx) => (
+                      <span key={idx} className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold bg-green-500/20 border border-green-500 text-green-400">✓</span>
+                    ))
+                  )}
+                  {(!match.stats?.penales_lista_visitante || match.stats.penales_lista_visitante.length === 0) && (match.stats?.penales_visitante ?? 0) === 0 && (
+                    <span className="text-[9px] text-neutral-600 italic">No pateados aún</span>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

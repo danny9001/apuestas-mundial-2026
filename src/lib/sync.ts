@@ -196,6 +196,12 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
       } else if (game.statusGroup === 3) {
         estado = 'live';
       }
+      // Never mark a future match as finished/live — guards against stale API data
+      if (estado !== 'upcoming') {
+        const kickoff = new Date(localMatch.fecha).getTime();
+        if (estado === 'finished' && kickoff > Date.now()) estado = 'upcoming';
+        else if (estado === 'live' && kickoff > Date.now() + 30 * 60 * 1000) estado = 'upcoming';
+      }
 
       const isLInverted = cleanName(localMatch.local) === cleanAway;
       const scoreHome = game.homeCompetitor.score >= 0 ? game.homeCompetitor.score : 0;
@@ -517,6 +523,12 @@ export async function syncApiFixture(pendingGoalNotifs?: Map<number, PendingGoal
         let estado: 'upcoming' | 'live' | 'finished' = 'upcoming';
         if (estatusRaw === 'Finalizado') estado = 'finished';
         else if (estatusRaw === 'En vivo') estado = 'live';
+        // Never mark a future match as finished/live — guards against stale API data
+        if (estado !== 'upcoming') {
+          const kickoff = new Date(localMatch.fecha).getTime();
+          if (estado === 'finished' && kickoff > Date.now()) estado = 'upcoming';
+          else if (estado === 'live' && kickoff > Date.now() + 30 * 60 * 1000) estado = 'upcoming';
+        }
 
         // Parse "0 - 2" score string
         const marcador = (partido.marcador || '') as string;
@@ -701,7 +713,7 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
       // Determine state
       let estado: 'upcoming' | 'live' | 'finished' = 'upcoming';
       const matchTime = new Date(game.DateUtc).getTime();
-      
+
       if (game.HomeTeamScore !== null && game.AwayTeamScore !== null) {
         if (game.Winner !== null || now - matchTime > 2.5 * 60 * 60 * 1000) {
           estado = 'finished';
@@ -710,6 +722,12 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
         }
       } else if (now >= matchTime && now - matchTime <= 2.5 * 60 * 60 * 1000) {
         estado = 'live';
+      }
+      // Never mark a future match as finished/live — guards against stale API data
+      if (estado !== 'upcoming') {
+        const kickoff = new Date(localMatch.fecha).getTime();
+        if (estado === 'finished' && kickoff > Date.now()) estado = 'upcoming';
+        else if (estado === 'live' && kickoff > Date.now() + 30 * 60 * 1000) estado = 'upcoming';
       }
 
       // Only block downgrade during live (prevents API glitch flicker); allow it when finished (fixes annulled goals)
@@ -974,6 +992,12 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
         estado = 'finished';
       } else if (stateStr === 'in') {
         estado = 'live';
+      }
+      // Never mark a future match as finished/live — guards against stale API data
+      if (estado !== 'upcoming') {
+        const kickoff = new Date(localMatch.fecha).getTime();
+        if (estado === 'finished' && kickoff > Date.now()) estado = 'upcoming';
+        else if (estado === 'live' && kickoff > Date.now() + 30 * 60 * 1000) estado = 'upcoming';
       }
 
       const isLInverted = cleanName(localMatch.local) === cleanAway;
@@ -1384,6 +1408,12 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
 
       if (localMatch.stats?.manual_control) {
         continue;
+      }
+      // Never mark a future match as finished/live — guards against stale API data
+      if (estado !== 'upcoming') {
+        const kickoff = new Date(localMatch.fecha).getTime();
+        if (estado === 'finished' && kickoff > Date.now()) estado = 'upcoming';
+        else if (estado === 'live' && kickoff > Date.now() + 30 * 60 * 1000) estado = 'upcoming';
       }
 
       if (localMatch.external_id !== extId) {

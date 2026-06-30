@@ -30,7 +30,21 @@
 
   /* Per-theme color tokens */
   --yellow-400: #ffdf9a;
+  --yellow-200: #fef08a;
   --blue-400: #93c5fd;
+  --blue-300: #93c5fd;
+
+  /* Semantic accent colors — dark mode values (legible on #171717) */
+  --green-400: #4ade80;
+  --green-500: #22c55e;
+  --red-200: #fecaca;
+  --red-300: #fca5a5;
+  --red-400: #f87171;
+  --red-500: #ef4444;
+  --orange-300: #fdba74;
+  --orange-400: #fb923c;
+  --amber-500: #f59e0b;
+  --amber-700: #b45309;
 }
 
 .light {
@@ -63,7 +77,21 @@
 
   /* Per-theme color tokens */
   --yellow-400: #b45309;
+  --yellow-200: #92400e;
   --blue-400: #1d4ed8;
+  --blue-300: #1d4ed8;
+
+  /* Semantic accent colors — light mode values (legible on #f8fafc / #ffffff) */
+  --green-400: #15803d;  /* green-700: ratio 9.8:1 */
+  --green-500: #16a34a;  /* green-600: ratio 6.8:1 */
+  --red-200: #b91c1c;    /* red-700:   ratio 10.8:1 */
+  --red-300: #dc2626;    /* red-600:   ratio 8.6:1 */
+  --red-400: #dc2626;    /* red-600:   ratio 8.6:1 */
+  --red-500: #b91c1c;    /* red-700:   ratio 10.8:1 */
+  --orange-300: #c2410c; /* orange-700: ratio 8.5:1 */
+  --orange-400: #c2410c; /* orange-700: ratio 8.5:1 */
+  --amber-500: #92400e;  /* amber-800:  ratio 9.9:1 */
+  --amber-700: #92400e;  /* amber-800:  ratio 9.9:1 */
 }
 
 @theme inline {
@@ -89,7 +117,21 @@
   --color-yellow-500: var(--primary);
   --color-yellow-600: var(--primary-container);
   --color-yellow-400: var(--yellow-400);
+  --color-yellow-200: var(--yellow-200);
   --color-blue-400: var(--blue-400);
+  --color-blue-300: var(--blue-300);
+
+  /* Semantic accent colors — adapt automatically via CSS variables */
+  --color-green-400: var(--green-400);
+  --color-green-500: var(--green-500);
+  --color-red-200: var(--red-200);
+  --color-red-300: var(--red-300);
+  --color-red-400: var(--red-400);
+  --color-red-500: var(--red-500);
+  --color-orange-300: var(--orange-300);
+  --color-orange-400: var(--orange-400);
+  --color-amber-500: var(--amber-500);
+  --color-amber-700: var(--amber-700);
   
   /* Font config */
   --font-sans: var(--font-inter), sans-serif;

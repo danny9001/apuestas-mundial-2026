@@ -119,7 +119,7 @@ export default function DashboardPage() {
   const myCompanyRank = myCompanyRankIndex >= 0 ? myCompanyRankIndex + 1 : null;
   const liveMatches = matches.filter(m => m.estado === 'live');
   const upcomingMatches = matches.filter(m => m.estado === 'upcoming').sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).slice(0, 3);
-  const isArbitro = !!(user as any)?.arbitro_marcador || user?.tipo === 'admin' || user?.tipo === 'superadmin';
+  const isArbitro = !!(user as any)?.arbitro_marcador;
   const GRACE_MS = 15 * 60 * 1000;
   const recentlyFinished = isArbitro
     ? matches.filter(m => m.estado === 'finished' && m.updated_at && Date.now() - new Date(m.updated_at).getTime() <= GRACE_MS)

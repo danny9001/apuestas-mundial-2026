@@ -21,6 +21,12 @@ export default function DashboardPage() {
   const [betModalMatch, setBetModalMatch] = useState<any | null>(null);
   const [infoModalMatch, setInfoModalMatch] = useState<any | null>(null);
   const [summaryMatch, setSummaryMatch] = useState<any | null>(null);
+  const [openConsoles, setOpenConsoles] = useState<Set<number>>(new Set());
+  const toggleConsole = (id: number) => setOpenConsoles(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [kickoffTimeLeft, setKickoffTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -289,12 +295,26 @@ export default function DashboardPage() {
                   <MatchCard match={m} prediction={predictions.find(p => p.match_id === m.id)}
                     compact={false} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
                   {canEditMatches && isEditableMatch && (
-                    <ScoreCorrectionPanel
-                      match={m}
-                      showToast={showToast}
-                      onCorrected={updated => setMatches(prev => prev.map(x => x.id === updated.id ? updated : x))}
-                      isSuperAdmin={user?.tipo === 'superadmin'}
-                    />
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => toggleConsole(m.id)}
+                        className={`w-full text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border transition-all ${
+                          openConsoles.has(m.id)
+                            ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/15'
+                            : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300'
+                        }`}
+                      >
+                        {openConsoles.has(m.id) ? '▲ Ocultar consola' : '▼ Desplegar consola'}
+                      </button>
+                      {openConsoles.has(m.id) && (
+                        <ScoreCorrectionPanel
+                          match={m}
+                          showToast={showToast}
+                          onCorrected={updated => setMatches(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                          isSuperAdmin={user?.tipo === 'superadmin'}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               );

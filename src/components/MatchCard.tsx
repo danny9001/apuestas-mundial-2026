@@ -228,6 +228,56 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
         </div>
       </div>
 
+      {/* Live Phase Blocks */}
+      {m.estado === 'live' && (() => {
+        const fase = m.stats?.fase_actual ?? 'normal';
+        const hasExtraTime = fase === 'tiempo_extra' || !!m.stats?.extra_time;
+        const hasPenales = fase === 'penales' || m.stats?.penales_local != null || m.penales_habilitados;
+        return (
+          <div className="flex gap-1.5 mt-1" onClick={e => e.stopPropagation()}>
+            {/* Bloque 1: Tiempo Normal */}
+            <div className={`flex-1 rounded-lg px-2 py-1.5 text-center border transition-all ${
+              fase === 'normal'
+                ? 'bg-red-500/15 border-red-500/40 text-red-400'
+                : 'bg-neutral-800/40 border-neutral-700/30 text-neutral-600'
+            }`}>
+              <div className="text-[8px] font-black uppercase tracking-wider">⏱ Normal</div>
+              <div className={`font-mono font-black text-sm leading-none mt-0.5 ${fase === 'normal' ? 'text-red-300' : 'text-neutral-600'}`}>
+                {fase === 'normal' ? (m.stats?.time || '–') : '–'}
+              </div>
+            </div>
+            {/* Bloque 2: Tiempo Extra (solo si aplica) */}
+            {hasExtraTime && (
+              <div className={`flex-1 rounded-lg px-2 py-1.5 text-center border transition-all ${
+                fase === 'tiempo_extra'
+                  ? 'bg-orange-500/15 border-orange-500/40 text-orange-400'
+                  : 'bg-neutral-800/40 border-neutral-700/30 text-neutral-500'
+              }`}>
+                <div className="text-[8px] font-black uppercase tracking-wider">⚡ T. Extra</div>
+                <div className={`font-mono font-black text-sm leading-none mt-0.5 ${fase === 'tiempo_extra' ? 'text-orange-300' : 'text-neutral-600'}`}>
+                  {fase === 'tiempo_extra' ? (m.stats?.extra_time || m.stats?.time || '–') : '–'}
+                </div>
+              </div>
+            )}
+            {/* Bloque 3: Penales (solo si aplica) */}
+            {hasPenales && (
+              <div className={`flex-1 rounded-lg px-2 py-1.5 text-center border transition-all ${
+                fase === 'penales'
+                  ? 'bg-blue-500/15 border-blue-500/40 text-blue-400'
+                  : 'bg-neutral-800/40 border-neutral-700/30 text-neutral-500'
+              }`}>
+                <div className="text-[8px] font-black uppercase tracking-wider">🎯 Penales</div>
+                <div className={`font-mono font-black text-sm leading-none mt-0.5 ${fase === 'penales' ? 'text-blue-300' : 'text-neutral-600'}`}>
+                  {m.stats?.penales_local != null
+                    ? `${m.stats.penales_local} – ${m.stats.penales_visitante}`
+                    : '–'}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Events timeline (live / finished) */}
       {m.estado !== 'upcoming' && (
         <div onClick={e => e.stopPropagation()}>

@@ -16,8 +16,11 @@ const KNOCKOUT_PHASES = ['Ronda de 32', 'Octavos de Final', 'Cuartos de Final', 
 
 function isEditable(match: any): boolean {
   if (match.estado === 'live') return true;
-  if (match.estado === 'finished' && match.updated_at) {
-    return Date.now() - new Date(match.updated_at).getTime() <= GRACE_MS;
+  if (match.estado === 'finished') {
+    const finishedTime = match.stats?.finished_at 
+      ? new Date(match.stats.finished_at).getTime() 
+      : (match.updated_at ? new Date(match.updated_at).getTime() : 0);
+    return finishedTime > 0 && (Date.now() - finishedTime <= GRACE_MS);
   }
   return false;
 }

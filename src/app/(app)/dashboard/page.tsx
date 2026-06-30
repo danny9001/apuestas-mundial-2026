@@ -117,12 +117,28 @@ export default function DashboardPage() {
   );
   const myCompanyRankIndex = companyLeaderboard.findIndex(r => r.user_id === user?.id);
   const myCompanyRank = myCompanyRankIndex >= 0 ? myCompanyRankIndex + 1 : null;
-  const liveMatches = matches.filter(m => m.estado === 'live');
-  const upcomingMatches = matches.filter(m => m.estado === 'upcoming').sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).slice(0, 3);
+  const isTodayBolivia = (dateStr: string) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    const boliviaTime = new Date(d.getTime() - 4 * 60 * 60 * 1000);
+    const nowBolivia = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    return boliviaTime.getUTCDate() === nowBolivia.getUTCDate() &&
+           boliviaTime.getUTCMonth() === nowBolivia.getUTCMonth() &&
+           boliviaTime.getUTCFullYear() === nowBolivia.getUTCFullYear();
+  };
+
+  const liveMatches = matches.filter(m => m.estado === 'live' && isTodayBolivia(m.fecha));
+  const upcomingMatches = matches.filter(m => m.estado === 'upcoming' && isTodayBolivia(m.fecha)).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).slice(0, 3);
   const isArbitro = !!(user as any)?.arbitro_marcador;
   const GRACE_MS = 15 * 60 * 1000;
   const recentlyFinished = isArbitro
-    ? matches.filter(m => m.estado === 'finished' && m.updated_at && Date.now() - new Date(m.updated_at).getTime() <= GRACE_MS)
+    ? matches.filter(m => {
+        if (m.estado !== 'finished' || !isTodayBolivia(m.fecha)) return false;
+        const finishedTime = m.stats?.finished_at 
+          ? new Date(m.stats.finished_at).getTime() 
+          : (m.updated_at ? new Date(m.updated_at).getTime() : 0);
+        return finishedTime > 0 && (Date.now() - finishedTime <= GRACE_MS);
+      })
     : [];
   const countdownMatch = matches.filter(m => m.estado === 'upcoming' && new Date(m.fecha).getTime() > Date.now()).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
 

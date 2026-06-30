@@ -875,50 +875,76 @@ export default function CompaniesTab({
                     {m.estado === 'live' ? '🔴 En juego' : m.estado === 'finished' ? '⚫ Finalizado' : '⚪ Programado'}
                   </span>
                 </div>
-                <button onClick={() => {
-                  setAdminMatchModal(m);
-                  setAdminGolesLocal(m.goles_local);
-                  setAdminGolesVisitante(m.goles_visitante);
-                  setAdminEstado(m.estado);
-                  setAdminTransmisionEnlaces(m.transmision_enlaces || '');
-                  setAdminPenalesHabilitados(!!m.penales_habilitados);
-                  
-                  const stats = m.stats || {};
-                  setAdminStatsTime(stats.time || '');
-                  setAdminStatsExtraTime(stats.extra_time || '');
-                  setAdminStatsPossessionLocal(stats.possession_local !== undefined ? stats.possession_local : 50);
-                  setAdminStatsPossessionVisitante(stats.possession_visitante !== undefined ? stats.possession_visitante : 50);
-                  setAdminStatsShotsLocal(stats.shots_local || 0);
-                  setAdminStatsShotsVisitante(stats.shots_visitante || 0);
-                  setAdminStatsFoulsLocal(stats.fouls_local || 0);
-                  setAdminStatsFoulsVisitante(stats.fouls_visitante || 0);
-                  setAdminStatsYellowLocal(stats.yellow_cards_local || 0);
-                  setAdminStatsYellowVisitante(stats.yellow_cards_visitante || 0);
-                  setAdminStatsRedLocal(stats.red_cards_local || 0);
-                  setAdminStatsRedVisitante(stats.red_cards_visitante || 0);
-                  setAdminStatsCornersLocal(stats.corners_local || 0);
-                  setAdminStatsCornersVisitante(stats.corners_visitante || 0);
-                  setAdminStatsArbitro(stats.arbitro || '');
-                  setAdminStatsTemperatura(stats.temperatura || '');
-                  setAdminStatsEvents(stats.events || []);
-                  setAdminStatsShotsOnTargetLocal(stats.shots_on_target_local || 0);
-                  setAdminStatsShotsOnTargetVisitante(stats.shots_on_target_visitante || 0);
-                  setAdminStatsAssistsLocal(stats.assists_local || 0);
-                  setAdminStatsAssistsVisitante(stats.assists_visitante || 0);
-                  setAdminStatsShotAssistsLocal(stats.shot_assists_local || 0);
-                  setAdminStatsShotAssistsVisitante(stats.shot_assists_visitante || 0);
+                <div className="flex gap-2">
+                  {m.estado === 'finished' && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/matches', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: m.id, open_for_arbitros: true })
+                          });
+                          if (res.ok) {
+                            showToast('🔓 Partido abierto para árbitros (15 min)');
+                            await fetchMatches();
+                          } else {
+                            showToast('Error al abrir partido');
+                          }
+                        } catch {
+                          showToast('Error de red');
+                        }
+                      }}
+                      className="bg-blue-500/10 hover:bg-blue-500/25 border border-blue-500/30 text-blue-450 font-bold px-3 py-2 rounded-xl transition text-[11px]"
+                    >
+                      Abrir
+                    </button>
+                  )}
+                  <button onClick={() => {
+                    setAdminMatchModal(m);
+                    setAdminGolesLocal(m.goles_local);
+                    setAdminGolesVisitante(m.goles_visitante);
+                    setAdminEstado(m.estado);
+                    setAdminTransmisionEnlaces(m.transmision_enlaces || '');
+                    setAdminPenalesHabilitados(!!m.penales_habilitados);
+                    
+                    const stats = m.stats || {};
+                    setAdminStatsTime(stats.time || '');
+                    setAdminStatsExtraTime(stats.extra_time || '');
+                    setAdminStatsPossessionLocal(stats.possession_local !== undefined ? stats.possession_local : 50);
+                    setAdminStatsPossessionVisitante(stats.possession_visitante !== undefined ? stats.possession_visitante : 50);
+                    setAdminStatsShotsLocal(stats.shots_local || 0);
+                    setAdminStatsShotsVisitante(stats.shots_visitante || 0);
+                    setAdminStatsFoulsLocal(stats.fouls_local || 0);
+                    setAdminStatsFoulsVisitante(stats.fouls_visitante || 0);
+                    setAdminStatsYellowLocal(stats.yellow_cards_local || 0);
+                    setAdminStatsYellowVisitante(stats.yellow_cards_visitante || 0);
+                    setAdminStatsRedLocal(stats.red_cards_local || 0);
+                    setAdminStatsRedVisitante(stats.red_cards_visitante || 0);
+                    setAdminStatsCornersLocal(stats.corners_local || 0);
+                    setAdminStatsCornersVisitante(stats.corners_visitante || 0);
+                    setAdminStatsArbitro(stats.arbitro || '');
+                    setAdminStatsTemperatura(stats.temperatura || '');
+                    setAdminStatsEvents(stats.events || []);
+                    setAdminStatsShotsOnTargetLocal(stats.shots_on_target_local || 0);
+                    setAdminStatsShotsOnTargetVisitante(stats.shots_on_target_visitante || 0);
+                    setAdminStatsAssistsLocal(stats.assists_local || 0);
+                    setAdminStatsAssistsVisitante(stats.assists_visitante || 0);
+                    setAdminStatsShotAssistsLocal(stats.shot_assists_local || 0);
+                    setAdminStatsShotAssistsVisitante(stats.shot_assists_visitante || 0);
 
-                  // Penalties
-                  setAdminFaseActual(stats.fase_actual || 'normal');
-                  setAdminPenalesLocal(stats.penales_local || 0);
-                  setAdminPenalesVisitante(stats.penales_visitante || 0);
-                  setAdminPenalesListaLocal(stats.penales_lista_local || []);
-                  setAdminPenalesListaVisitante(stats.penales_lista_visitante || []);
-                  setAdminGanador(stats.ganador || '');
-                }}
-                  className="bg-neutral-950 hover:bg-neutral-800 text-neutral-300 font-bold px-4 py-2 border border-neutral-800 hover:border-yellow-500/25 rounded-xl transition">
-                  Editar
-                </button>
+                    // Penalties
+                    setAdminFaseActual(stats.fase_actual || 'normal');
+                    setAdminPenalesLocal(stats.penales_local || 0);
+                    setAdminPenalesVisitante(stats.penales_visitante || 0);
+                    setAdminPenalesListaLocal(stats.penales_lista_local || []);
+                    setAdminPenalesListaVisitante(stats.penales_lista_visitante || []);
+                    setAdminGanador(stats.ganador || '');
+                  }}
+                    className="bg-neutral-950 hover:bg-neutral-800 text-neutral-300 font-bold px-4 py-2 border border-neutral-800 hover:border-yellow-500/25 rounded-xl transition">
+                    Editar
+                  </button>
+                </div>
               </div>
             ))}
           </div>

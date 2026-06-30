@@ -87,6 +87,26 @@ export async function POST(req: NextRequest) {
     let matchResult;
 
     if (id) {
+      if (body.open_for_arbitros) {
+        const getStatsRes = await pool.query('SELECT stats FROM matches WHERE id = $1', [id]);
+        if (getStatsRes.rows.length === 0) {
+          return NextResponse.json({ error: 'Partido no encontrado' }, { status: 404 });
+        }
+        const currentStats = getStatsRes.rows[0].stats || {};
+        currentStats.finished_at = new Date().toISOString(); // Reset finished_at to now
+        
+        const updateRes = await pool.query(
+          `UPDATE matches 
+           SET stats = $1, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $2 RETURNING *`,
+          [JSON.stringify(currentStats), id]
+        );
+        const updatedMatch = updateRes.rows[0];
+        broadcastUpdate('match', updatedMatch);
+        logSystem('info', 'PARTIDO', `${user.nombre} abrió partido ${updatedMatch.local} vs ${updatedMatch.visitante} para edición de árbitros`, '').catch(() => {});
+        return NextResponse.json({ success: true, match: updatedMatch });
+      }
+
       // UPDATE MATCH
       // Get the existing match state before updating to check for transitions
       const checkRes = await pool.query('SELECT estado, goles_local, goles_visitante FROM matches WHERE id = $1', [id]);
@@ -99,6 +119,15 @@ export async function POST(req: NextRequest) {
       const penalesHabilitadosValue = user.tipo === 'superadmin' && penales_habilitados !== undefined
         ? penales_habilitados
         : null;
+
+      // If transition to finished, set finished_at in stats
+      let finalStats = stats || {};
+      if (typeof finalStats === 'string') {
+        try { finalStats = JSON.parse(finalStats); } catch { finalStats = {}; }
+      }
+      if (estado === 'finished' && prevMatch.estado !== 'finished') {
+        finalStats.finished_at = new Date().toISOString();
+      }
 
       const updateQuery = `
         UPDATE matches
@@ -125,7 +154,7 @@ export async function POST(req: NextRequest) {
         scoreLocal !== undefined && scoreLocal !== null ? scoreLocal : null,
         scoreVisitante !== undefined && scoreVisitante !== null ? scoreVisitante : null,
         fase, grupo, transmision_enlaces,
-        stats ? (typeof stats === 'string' ? stats : JSON.stringify(stats)) : null,
+        finalStats ? (typeof finalStats === 'string' ? finalStats : JSON.stringify(finalStats)) : null,
         id,
         penalesHabilitadosValue
       ]);

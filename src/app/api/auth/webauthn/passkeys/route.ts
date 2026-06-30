@@ -18,7 +18,7 @@ export async function GET() {
     const response = NextResponse.json(res.rows);
     response.headers.set('Cache-Control', 'no-store');
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
@@ -38,7 +38,7 @@ export async function DELETE(req: NextRequest) {
 
     await pool.query('DELETE FROM passkeys WHERE id = $1', [id]);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

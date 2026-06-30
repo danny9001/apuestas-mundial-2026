@@ -31,20 +31,17 @@ export async function getSessionUser(): Promise<UserSession | null> {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('apuestas_session');
     if (!sessionCookie?.value) {
-      console.log('[getSessionUser] No session cookie found');
       return null;
     }
 
     let payload: { id: number; tipo: string };
     try {
       payload = jwt.verify(sessionCookie.value, getJwtSecret()) as { id: number; tipo: string };
-    } catch (e: any) {
-      console.log('[getSessionUser] JWT verify failed:', e.message);
+    } catch {
       return null;
     }
 
     if (!payload.id) {
-      console.log('[getSessionUser] No payload ID');
       return null;
     }
 
@@ -54,11 +51,9 @@ export async function getSessionUser(): Promise<UserSession | null> {
     );
 
     if (res.rows.length === 0) {
-      console.log('[getSessionUser] User not found in DB:', payload.id);
       return null;
     }
     if (!res.rows[0].activo) {
-      console.log('[getSessionUser] User inactive:', payload.id);
       return null;
     }
 

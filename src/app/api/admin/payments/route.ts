@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
         AND u.participa IS NOT FALSE
     `;
 
-    let queryParams: any[] = [];
+    const queryParams: any[] = [];
 
     if (sessionUser.tipo === 'admin') {
       // Only show users in companies that the admin is assigned to
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
     const res = await pool.query(queryText, queryParams);
     return NextResponse.json(res.rows);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching payments:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
       
       const { sendPaymentEmailNotification, logSystem } = await import('@/lib/mail');
       sendPaymentEmailNotification(userId, parseFloat(monto), payDate, comprobanteUrl, notas).catch(e => console.error(e));
-      logSystem('info', 'payment', `Pago registrado para usuario ID ${userId}`, `Monto: ${monto}, Notas: ${notas}`).catch(e => console.error(e));
+      logSystem('info', 'PAGO', `Pago registrado para usuario ID ${userId}`, `Monto: ${monto}, Notas: ${notas}`).catch(e => console.error(e));
 
       return NextResponse.json({ success: true, payment: res.rows[0] });
     }
@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
       const payDate = fecha ? new Date(fecha) : new Date();
       
       let updateQuery = `UPDATE user_payments SET monto = $1, fecha = $2, notas = $3`;
-      let queryParams: any[] = [parseFloat(monto), payDate, notas];
+      const queryParams: any[] = [parseFloat(monto), payDate, notas];
       if (comprobanteUrl) {
         updateQuery += `, comprobante_url = $4 WHERE id = $5`;
         queryParams.push(comprobanteUrl, paymentId);
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error managing payment:', error);
     if (error instanceof ValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });

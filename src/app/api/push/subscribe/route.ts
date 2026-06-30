@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Push subscribe error:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -49,7 +49,7 @@ export async function DELETE(req: NextRequest) {
     );
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Push unsubscribe error:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

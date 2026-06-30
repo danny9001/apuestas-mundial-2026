@@ -22,7 +22,7 @@ export async function GET() {
     const response = NextResponse.json(groups);
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching groups:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error managing group:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

@@ -310,7 +310,7 @@ export async function sendPaymentEmailNotification(
     // 3. Calculate quota (cuota)
     const companiesList = userData.companies;
     const cuota = companiesList.length > 0 
-      ? companiesList.reduce((sum: number, c: any) => sum + parseFloat(c.monto_participacion || 150), 0)
+      ? companiesList.reduce((sum: number, c: { monto_participacion?: string | number }) => sum + parseFloat(String(c.monto_participacion || 150)), 0)
       : 150;
     
     const saldo = cuota - totalPagado;

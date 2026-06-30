@@ -39,7 +39,7 @@ function MatchEvents({ match }: { match: any }) {
           {localEvents.map((e, i) => (
             <span key={i} className="flex items-center gap-1 truncate">
               <EventIcon tipo={e.tipo} />
-              {e.minuto && <span className="text-neutral-500 font-mono">{e.minuto}'</span>}
+              {e.minuto && <span className="text-neutral-500 font-mono">{e.minuto}&apos;</span>}
               <span className="truncate font-medium text-neutral-300">{e.jugador || match.local}</span>
             </span>
           ))}
@@ -48,7 +48,7 @@ function MatchEvents({ match }: { match: any }) {
           {visitanteEvents.map((e, i) => (
             <span key={i} className="flex items-center gap-1 truncate justify-end">
               <span className="truncate font-medium text-neutral-300">{e.jugador || match.visitante}</span>
-              {e.minuto && <span className="text-neutral-500 font-mono">{e.minuto}'</span>}
+              {e.minuto && <span className="text-neutral-500 font-mono">{e.minuto}&apos;</span>}
               <EventIcon tipo={e.tipo} />
             </span>
           ))}
@@ -164,7 +164,7 @@ export default function MatchCard({ match: m, prediction: myPred, compact = true
             {(m.stats?.eventos || []).map((e: any, i: number) => (
               <span key={i} className="flex items-center gap-0.5">
                 <EventIcon tipo={e.tipo} />
-                {e.minuto && <span className="font-mono">{e.minuto}'</span>}
+                {e.minuto && <span className="font-mono">{e.minuto}&apos;</span>}
                 {e.jugador && <span className="text-neutral-400">{e.jugador}</span>}
               </span>
             ))}

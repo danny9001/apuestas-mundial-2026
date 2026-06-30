@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Tipo de log no soportado' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching logs:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

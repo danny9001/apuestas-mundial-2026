@@ -47,7 +47,7 @@ export async function DELETE(
     broadcastUpdate('chat', { id, deleted: true });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting chat message:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -116,7 +116,7 @@ export async function PUT(
     });
 
     return NextResponse.json({ success: true, message: updated });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating chat message:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

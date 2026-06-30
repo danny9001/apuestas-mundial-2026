@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Node.js CommonJS scripts — intentional require() usage
+    "scripts/**",
+    "generate_init_sql.js",
+    "scheduler.js",
+    "public/sw.js",
   ]),
 ]);
 

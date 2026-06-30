@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'step inválido' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('WebAuthn authenticate error:', error);
     return NextResponse.json({ error: 'Error de autenticación' }, { status: 500 });
   }

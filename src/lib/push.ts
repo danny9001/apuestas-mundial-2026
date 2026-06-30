@@ -64,14 +64,15 @@ export async function sendPushNotification(userId: number, payload: PushPayload)
       const subscription = { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } };
       try {
         await webpush.sendNotification(subscription, JSON.stringify(payload));
-      } catch (err: any) {
-        if (err.statusCode === 410 || err.statusCode === 404) {
+      } catch (err: unknown) {
+        const statusCode = (err as { statusCode?: number })?.statusCode;
+        if (statusCode === 410 || statusCode === 404) {
           await pool.query(
             'DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2',
             [userId, row.endpoint]
           );
         } else {
-          console.error('Push send error for user', userId, err.message);
+          console.error('Push send error for user', userId, err instanceof Error ? err.message : String(err));
         }
       }
     }

@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.json(res.rows);
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching user predictions:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

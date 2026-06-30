@@ -22,7 +22,7 @@ export async function GET() {
       last_synced: lastSyncRes.rows[0]?.last_synced || null,
       sync_enabled: process.env.SYNC_ENABLED !== 'false'
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
@@ -36,7 +36,7 @@ export async function POST() {
 
     const result = await syncMatches();
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

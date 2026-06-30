@@ -1,12 +1,14 @@
-export function getStandings(matchesList: any[]) {
-  const standings: Record<string, any[]> = {};
+import type { Match, StandingEntry } from './types';
+
+export function getStandings(matchesList: Match[]) {
+  const standings: Record<string, StandingEntry[]> = {};
   const groupMatches = matchesList.filter(m => m.fase === 'Fase de Grupos');
   ['A','B','C','D','E','F','G','H','I','J','K','L'].forEach(g => { standings[g] = []; });
 
-  const ensureTeam = (grp: string, team: string) => {
+  const ensureTeam = (grp: string, team: string): StandingEntry | null => {
     if (!team || team.includes('A confirmar') || team.startsWith('Ganador')) return null;
     if (!standings[grp]) return null;
-    let s = standings[grp].find((x: any) => x.team === team);
+    let s = standings[grp].find((x) => x.team === team);
     if (!s) { s = { team, pts: 0, pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, dif: 0 }; standings[grp].push(s); }
     return s;
   };
@@ -28,7 +30,7 @@ export function getStandings(matchesList: any[]) {
   });
 
   Object.keys(standings).forEach(grp => {
-    standings[grp].sort((a: any, b: any) => {
+    standings[grp].sort((a, b) => {
       if (b.pts !== a.pts) return b.pts - a.pts;
       if (b.dif !== a.dif) return b.dif - a.dif;
       return b.gf - a.gf;
@@ -43,9 +45,9 @@ function toBoliviaDateStr(date: Date): string {
   return date.toLocaleDateString('es-ES', { timeZone: TZ });
 }
 
-export function getMatchesByDate(matchesList: any[]) {
+export function getMatchesByDate(matchesList: Match[]) {
   const sorted = [...matchesList].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-  const groups: { dateStr: string; matches: any[] }[] = [];
+  const groups: { dateStr: string; matches: Match[] }[] = [];
   const now = new Date();
   const nowStr = toBoliviaDateStr(now);
   const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -65,6 +67,6 @@ export function getMatchesByDate(matchesList: any[]) {
   return groups;
 }
 
-export function getTodayMatchGroupIndex(groupedMatches: { dateStr: string; matches: any[] }[]): number {
+export function getTodayMatchGroupIndex(groupedMatches: { dateStr: string; matches: Match[] }[]): number {
   return groupedMatches.findIndex(g => g.dateStr.includes('(HOY)'));
 }

@@ -19,7 +19,7 @@ export async function POST() {
     broadcastUpdate('leaderboard', { manualRecalculation: true });
 
     return NextResponse.json({ success: true, message: 'Clasificación recalculada con éxito' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error recalculating leaderboard:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

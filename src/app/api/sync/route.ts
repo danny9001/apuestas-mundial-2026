@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     const result = await syncMatches();
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in sync api endpoint route:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     const result = await syncMatches();
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in sync api endpoint POST route:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

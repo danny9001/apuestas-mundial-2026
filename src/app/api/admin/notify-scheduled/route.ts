@@ -53,7 +53,7 @@ async function getPredictionCloseMinutes(): Promise<number> {
 async function notifyUpcomingMatches(force: boolean = false) {
   const closeMinutes = await getPredictionCloseMinutes();
 
-  let query = `
+  const query = `
     SELECT m.id, m.local, m.visitante, m.fecha, m.fase
     FROM matches m
     WHERE m.estado = 'upcoming'
@@ -200,8 +200,8 @@ export async function GET() {
       last_match_reminder: lastMatch.rows[0]?.enviado_at || null,
       last_weekly_ranking: lastRanking.rows[0]?.enviado_at || null,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error interno' }, { status: 500 });
   }
 }
 

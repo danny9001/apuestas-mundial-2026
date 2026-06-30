@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     const telegramText = `📣 Aviso Oficial\n${trimmedMessage}\nDestinatario: ${targetLabel}`;
 
     let usersQuery = `SELECT id FROM users WHERE activo = true AND aprobado = true`;
-    let queryParams: any[] = [];
+    const queryParams: any[] = [];
 
     if (resolvedTargetType === 'user') {
       usersQuery += ` AND id = $1`;
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, message: chatMsg });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating system chat message:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

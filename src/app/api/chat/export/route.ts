@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const res = await pool.query(query);
 
     return NextResponse.json(res.rows);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error exporting chat logs:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

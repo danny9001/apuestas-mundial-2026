@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.json(rows);
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching chat messages:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     broadcastUpdate('chat', chatMsg);
 
     return NextResponse.json({ success: true, message: chatMsg });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error sending chat message:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

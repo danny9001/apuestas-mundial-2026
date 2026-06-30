@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'step inválido' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('WebAuthn register error:', error);
     return NextResponse.json({ error: 'Error al registrar passkey' }, { status: 500 });
   }

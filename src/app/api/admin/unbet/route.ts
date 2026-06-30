@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(Object.values(grouped));
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching unbet users:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Acción no soportada' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in unbet POST route:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

@@ -75,7 +75,7 @@ function setupPostgresListener(emitter: EventEmitter) {
   connectAndListen();
 }
 
-export function broadcastUpdate(type: 'match' | 'leaderboard' | 'goal' | 'card' | 'notification' | 'settings' | 'chat' | 'reaction', data: any) {
+export function broadcastUpdate(type: 'match' | 'leaderboard' | 'goal' | 'card' | 'notification' | 'settings' | 'chat' | 'reaction', data: unknown) {
   const payload = {
     type,
     data,

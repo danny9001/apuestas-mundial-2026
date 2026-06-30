@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       pagadoCompleto,
       payments
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching profile payments:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

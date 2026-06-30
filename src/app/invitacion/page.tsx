@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { KeyRound, Building2, Loader2, AlertTriangle } from 'lucide-react';
 
 interface Invitation {
@@ -59,7 +60,7 @@ function InvitacionPageContent() {
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <AlertTriangle className="w-8 h-8 text-red-400" />
             <p className="text-sm text-red-400">{error}</p>
-            <a href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition">Ir al inicio</a>
+            <Link href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition">Ir al inicio</Link>
           </div>
         )}
 
@@ -67,7 +68,7 @@ function InvitacionPageContent() {
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <AlertTriangle className="w-8 h-8 text-amber-400" />
             <p className="text-sm text-amber-400 font-semibold">Esta invitación ha expirado.</p>
-            <a href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition">Ir al inicio</a>
+            <Link href="/" className="text-xs text-neutral-500 hover:text-neutral-300 transition">Ir al inicio</Link>
           </div>
         )}
 

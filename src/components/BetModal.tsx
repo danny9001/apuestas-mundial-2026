@@ -31,8 +31,8 @@ export default function BetModal({ match, user, existingPred, adminUsers = [], o
     try {
       await onSave(match.id, predLocal, predVisitante, targetUserId);
       onClose();
-    } catch (e: any) {
-      setError(e.message || 'Error al guardar el pronóstico');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error al guardar el pronóstico');
     } finally {
       setSubmitting(false);
     }

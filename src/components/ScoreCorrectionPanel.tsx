@@ -355,7 +355,7 @@ export default function ScoreCorrectionPanel({ match, onCorrected, showToast, is
             {[...eventos].reverse().map((e: any, i: number) => (
               <div key={i} className="flex items-center gap-1.5 text-[8px] text-neutral-500">
                 <span>{e.tipo === 'gol' ? '⚽' : e.tipo === 'gol_penal' ? '⚽P' : e.tipo === 'tarjeta_amarilla' ? '🟨' : e.tipo === 'tarjeta_roja' ? '🟥' : '🔄'}</span>
-                {e.minuto && <span className="font-mono text-neutral-600">{e.minuto}'</span>}
+                {e.minuto && <span className="font-mono text-neutral-600">{e.minuto}&apos;</span>}
                 <span className="text-neutral-400 font-medium">{e.jugador || '—'}</span>
                 <span className="text-neutral-600">({e.equipo})</span>
               </div>

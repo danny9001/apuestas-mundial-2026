@@ -77,7 +77,7 @@ export async function GET() {
       );
     }
     return NextResponse.json(res.rows);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching users:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -514,7 +514,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, user: res.rows[0] });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating user status:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -546,7 +546,7 @@ export async function DELETE(req: NextRequest) {
 
     logSystem('warn', 'USUARIO', `${user.nombre} eliminó usuario ${res.rows[0].nombre}`, `Email: ${res.rows[0].email}`).catch(() => {});
     return NextResponse.json({ success: true, message: `Usuario ${res.rows[0].nombre} eliminado con éxito` });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting user:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

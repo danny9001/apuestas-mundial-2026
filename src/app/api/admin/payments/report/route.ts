@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         AND u.participa IS NOT FALSE
     `;
 
-    let queryParams: any[] = [];
+    const queryParams: any[] = [];
 
     if (sessionUser.tipo === 'admin') {
       queryText += `

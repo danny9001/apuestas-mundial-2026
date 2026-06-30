@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.json(res.rows);
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching predictions:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
 
     let targetUserId = user.id;
     // Superadmin bypasses time restriction always (own or other user's prediction)
-    let isSuperAdminBypass = user.tipo === 'superadmin';
+    const isSuperAdminBypass = user.tipo === 'superadmin';
 
     if (userId !== undefined && parseInt(userId) !== user.id) {
       if (user.tipo !== 'superadmin') {
@@ -252,7 +252,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, prediction: res.rows[0] });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error saving predictions:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

@@ -29,7 +29,7 @@ export async function GET() {
     );
 
     return NextResponse.json(res.rows);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

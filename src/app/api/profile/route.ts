@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
       message: 'Perfil actualizado con éxito',
       user: updatedSession
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating profile:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -147,7 +147,7 @@ export async function PUT(req: NextRequest) {
     );
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating PWA status:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.json(res.rows);
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching matches:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, match: matchResult.rows[0] });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating/updating match:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

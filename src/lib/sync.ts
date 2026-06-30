@@ -23,14 +23,6 @@ type DowngradeEntry = {
   conflicted: boolean; // two sources proposed different lower scores
 };
 
-async function notifSent(matchId: number, event: string): Promise<boolean> {
-  const res = await pool.query(
-    'SELECT 1 FROM match_notif_log WHERE match_id = $1 AND event = $2',
-    [matchId, event]
-  );
-  return res.rows.length > 0;
-}
-
 async function markNotifSent(matchId: number, event: string): Promise<boolean> {
   const res = await pool.query(
     'INSERT INTO match_notif_log (match_id, event) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING 1',
@@ -434,9 +426,9 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
         }
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("365Scores sync error:", err);
-    errors.push(err.message || '365Scores unknown error');
+    errors.push(err instanceof Error ? err.message : '365Scores unknown error');
   }
 
   return {
@@ -495,12 +487,13 @@ export async function syncApiFixture(pendingGoalNotifs?: Map<number, PendingGoal
         errors.push(`ApiFixture returned status ${res.status} for ${fecha}`);
         continue;
       }
-      const data = await res.json() as { partidos?: any[] };
+      type ApiFixturePartido = { local?: { nombre?: string; definido?: boolean }; visitante?: { nombre?: string; definido?: boolean }; [k: string]: unknown };
+      const data = await res.json() as { partidos?: ApiFixturePartido[] };
       const partidos = data.partidos || [];
 
       for (const partido of partidos) {
-        const rawLocal = partido.local?.nombre as string | undefined;
-        const rawVisitante = partido.visitante?.nombre as string | undefined;
+        const rawLocal = partido.local?.nombre;
+        const rawVisitante = partido.visitante?.nombre;
         if (!rawLocal || !rawVisitante || !partido.local?.definido || !partido.visitante?.definido) continue;
 
         const resolvedLocal = nameMap[rawLocal.toLowerCase()] ?? rawLocal;
@@ -656,9 +649,9 @@ export async function syncApiFixture(pendingGoalNotifs?: Map<number, PendingGoal
         }
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('ApiFixture sync error:', err);
-    errors.push(err.message || 'ApiFixture unknown error');
+    errors.push(err instanceof Error ? err.message : 'ApiFixture unknown error');
   }
 
   return { updated: updatedCount, goals_detected: goalsDetected, finished: finishedCount, errors };
@@ -908,9 +901,9 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
         }
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("FixtureDownload sync error:", err);
-    errors.push(err.message || 'FixtureDownload unknown error');
+    errors.push(err instanceof Error ? err.message : 'FixtureDownload unknown error');
   }
 
   return {
@@ -962,8 +955,8 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
       const comp = event.competitions && event.competitions[0];
       if (!comp || !comp.competitors) continue;
 
-      const homeCompetitor = comp.competitors.find((c: any) => c.homeAway === 'home');
-      const awayCompetitor = comp.competitors.find((c: any) => c.homeAway === 'away');
+      const homeCompetitor = comp.competitors.find((c: Record<string, unknown>) => c.homeAway === 'home');
+      const awayCompetitor = comp.competitors.find((c: Record<string, unknown>) => c.homeAway === 'away');
       if (!homeCompetitor || !awayCompetitor) continue;
 
       const homeDisplayName = homeCompetitor.team?.name || homeCompetitor.team?.displayName;
@@ -1070,7 +1063,7 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
 
         // Extract detailed events (cards, goals) from ESPN scoreboard if available
         if (comp.details && Array.isArray(comp.details)) {
-          const events: any[] = [];
+          const events: Record<string, unknown>[] = [];
           let yellowL = 0;
           let yellowV = 0;
           let redL = 0;
@@ -1115,8 +1108,8 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
         
         // Extract competitor stats from ESPN scoreboard if available
         if (homeCompetitor.statistics && Array.isArray(homeCompetitor.statistics)) {
-          const getStatVal = (comp: any, name: string) => {
-            const found = comp.statistics.find((s: any) => s.name === name);
+          const getStatVal = (comp: { statistics: { name: string; displayValue: string }[] }, name: string) => {
+            const found = comp.statistics.find((s) => s.name === name);
             return found ? parseFloat(found.displayValue) || 0 : 0;
           };
 
@@ -1328,9 +1321,9 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
         }
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("ESPN sync error:", err);
-    errors.push(err.message || 'ESPN unknown error');
+    errors.push(err instanceof Error ? err.message : 'ESPN unknown error');
   }
 
   return {
@@ -1651,8 +1644,8 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
         }
       }
     }
-  } catch (err: any) {
-    errors.push(err.message || 'FootballData unknown error');
+  } catch (err: unknown) {
+    errors.push(err instanceof Error ? err.message : 'FootballData unknown error');
     console.error("FootballData source exception:", err);
   }
 
@@ -1744,7 +1737,7 @@ export async function syncGroupStandings(): Promise<void> {
     }
 
     logSystem('info', 'SYNC', 'Group standings sincronizadas desde football-data.org', '').catch(() => {});
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('syncGroupStandings error:', err);
   }
 }
@@ -1957,8 +1950,8 @@ export async function syncMatches(): Promise<{
       if (val.errors && val.errors.length > 0) {
         errors.push(...val.errors.map(err => `[${source.name}] ${err}`));
       }
-    } catch (err: any) {
-      errors.push(`[${source.name}] Sync failed: ${err?.message || err}`);
+    } catch (err: unknown) {
+      errors.push(`[${source.name}] Sync failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -2060,7 +2053,7 @@ async function sendUpcomingReminders() {
         }
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('sendUpcomingReminders error:', err);
   }
 }
@@ -2114,18 +2107,21 @@ export async function runKnockoutCascade() {
     }
 
     // Helper to get winner
-    const getWinner = (m: any) => {
+    type KnockoutMatch = { estado?: string; goles_local?: number | null; goles_visitante?: number | null; local?: string; visitante?: string; stats?: { ganador?: string } } | null;
+    const getWinner = (m: KnockoutMatch) => {
       if (!m || m.estado !== 'finished') return null;
-      if (m.goles_local > m.goles_visitante) return m.local;
-      if (m.goles_local < m.goles_visitante) return m.visitante;
+      const gl = m.goles_local ?? -1, gv = m.goles_visitante ?? -1;
+      if (gl > gv) return m.local;
+      if (gl < gv) return m.visitante;
       return m.stats?.ganador || m.visitante;
     };
 
     // Helper to get loser
-    const getLoser = (m: any) => {
+    const getLoser = (m: KnockoutMatch) => {
       if (!m || m.estado !== 'finished') return null;
-      if (m.goles_local < m.goles_visitante) return m.local;
-      if (m.goles_local > m.goles_visitante) return m.visitante;
+      const gl = m.goles_local ?? -1, gv = m.goles_visitante ?? -1;
+      if (gl < gv) return m.local;
+      if (gl > gv) return m.visitante;
       if (m.stats?.ganador === m.local) return m.visitante;
       return m.local;
     };

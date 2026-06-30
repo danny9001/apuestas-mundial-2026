@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.json({ matchId, total, isClosed, trend, topScores });
     response.headers.set('Cache-Control', 'no-store, max-age=0');
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching prediction stats:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

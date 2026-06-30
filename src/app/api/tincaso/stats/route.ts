@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({ stats, totalVotes });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching tincaso stats:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

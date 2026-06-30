@@ -20,7 +20,7 @@ export async function GET() {
       settings[row.key] = row.value;
     });
     return NextResponse.json(settings);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching settings:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
       message: 'Configuración actualizada con éxito',
       settings: settingsMap,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating settings:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

@@ -28,7 +28,7 @@ NEXT_BUILD_STANDALONE=1 pnpm build
 ### Stack
 - **Next.js 16** (App Router) · **React 19** · **TypeScript** · **Tailwind CSS v4**
 - **PostgreSQL** via `pg` pool — no ORM
-- **JWT** in `httpOnly` cookie (`apuestas_session`) — 12h TTL
+- **JWT** in `httpOnly` cookie (`apuestas_session`) — 7 days TTL
 - **PWA**: service worker in `public/sw.js`, manifest via `/api/manifest`
 
 ### Database

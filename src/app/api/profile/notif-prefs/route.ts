@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     await setSession(updatedSession);
 
     return NextResponse.json({ success: true, notif_prefs });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error saving notification preferences:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }

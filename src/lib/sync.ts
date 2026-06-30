@@ -298,7 +298,7 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
                updated_at = CURRENT_TIMESTAMP 
            WHERE id = $6 
            RETURNING *`,
-          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), hasPenalties || !!localMatch.penales_habilitados, localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), !!localMatch.penales_habilitados, localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];
@@ -1174,7 +1174,7 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
                updated_at = CURRENT_TIMESTAMP 
            WHERE id = $6 
            RETURNING *`,
-          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), hasPenalties || !!localMatch.penales_habilitados, localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), !!localMatch.penales_habilitados, localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];
@@ -1493,7 +1493,7 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
                updated_at = CURRENT_TIMESTAMP 
            WHERE id = $6 
            RETURNING *`,
-          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), hasPenalties || !!localMatch.penales_habilitados, localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), !!localMatch.penales_habilitados, localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];

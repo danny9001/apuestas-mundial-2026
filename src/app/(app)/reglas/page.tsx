@@ -55,6 +55,36 @@ export default function ReglasPage() {
               </div>
             </div>
           </div>
+
+          <div className="glass-card border border-blue-500/20 rounded-2xl p-5 space-y-4">
+            <h3 className="text-xs font-black text-blue-400 uppercase tracking-widest border-b border-blue-500/20 pb-2">Eliminatorias y Penales</h3>
+            <p className="text-neutral-400 text-xs leading-relaxed">
+              En partidos eliminatorios (desde Ronda de 32), el marcador que cuenta es el resultado <span className="text-neutral-200 font-bold">antes de los penales</span> (tiempo regular + prórroga).
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-start gap-3 bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+                <div className="text-green-400 font-black text-lg font-mono mt-0.5">3</div>
+                <div>
+                  <div className="text-green-400 font-black text-xs">Predices empate (cualquier marcador)</div>
+                  <div className="text-neutral-500 text-xs mt-0.5">Ej: predices 0-0 o 2-2 y el partido va a penales (empate antes de penales) → 3 puntos</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 bg-neutral-800/50 border border-neutral-700/50 rounded-xl p-3">
+                <div className="text-neutral-300 font-black text-lg font-mono mt-0.5">1</div>
+                <div>
+                  <div className="text-neutral-300 font-black text-xs">Predices el equipo ganador</div>
+                  <div className="text-neutral-500 text-xs mt-0.5">Ej: predices victoria de Marruecos y Marruecos gana (ya sea en tiempo regular o por penales) → 1 punto</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 bg-neutral-900 border border-neutral-800 rounded-xl p-3">
+                <div className="text-neutral-500 font-black text-lg font-mono mt-0.5">0</div>
+                <div>
+                  <div className="text-neutral-500 font-black text-xs">Predices el equipo perdedor</div>
+                  <div className="text-neutral-500 text-xs mt-0.5">El equipo que elegiste queda eliminado → 0 puntos</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-6">

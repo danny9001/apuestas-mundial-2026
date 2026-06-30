@@ -340,9 +340,11 @@ BEGIN
     WHEN m.estado = 'upcoming' THEN 0
     -- Exact score (3 points) - Option B: still applies even if it's a draw in a knockout match
     WHEN p.pred_local = m.goles_local AND p.pred_visitante = m.goles_visitante THEN 3
-    -- Knockout match ending in a draw (either normal or extra time)
+    -- Knockout match ending in a draw (penalties scenario)
     WHEN m.fase <> 'Fase de Grupos' AND m.goles_local = m.goles_visitante THEN
       CASE
+        -- If user predicted a draw (any score), they get 3 points for correctly predicting penalties
+        WHEN p.pred_local = p.pred_visitante THEN 3
         -- If user predicted the team that won the penalty shootout, they get 1 point
         WHEN (m.stats->>'ganador') IS NOT NULL AND (m.stats->>'ganador') <> '' AND (
           (p.pred_local > p.pred_visitante AND m.stats->>'ganador' = m.local) OR

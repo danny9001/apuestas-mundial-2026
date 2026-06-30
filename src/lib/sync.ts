@@ -2000,64 +2000,6 @@ export async function runKnockoutCascade() {
       }
     };
 
-    // 2. Propagate Group Standings to Ronda de 32
-    const r32Matches = await pool.query("SELECT * FROM matches WHERE fase = 'Ronda de 32' ORDER BY fecha ASC, id ASC");
-    const r32Placeholders = [
-      { local: '1A', visitante: '3C/D/E' },
-      { local: '1B', visitante: '3A/C/D' },
-      { local: '1C', visitante: '3B/F/G' },
-      { local: '1D', visitante: '3A/B/H' },
-      { local: '1E', visitante: '3D/F/I' },
-      { local: '1F', visitante: '3E/G/J' },
-      { local: '1G', visitante: '3F/H/K' },
-      { local: '1H', visitante: '3G/I/L' },
-      { local: '2A', visitante: '2B' },
-      { local: '2C', visitante: '2D' },
-      { local: '2E', visitante: '2F' },
-      { local: '2G', visitante: '2H' },
-      { local: '2I', visitante: '2J' },
-      { local: '2K', visitante: '2L' },
-      { local: '1I', visitante: '3J/K/L' },
-      { local: '1J', visitante: '2K' }
-    ];
-
-    for (let i = 0; i < r32Matches.rows.length; i++) {
-      const match = r32Matches.rows[i];
-      const template = r32Placeholders[i];
-      if (!template) continue;
-
-      let local = match.local;
-      let visitante = match.visitante;
-
-      const matchLocalPlaceholder = template.local.match(/^([1-3])([A-L])$/);
-      if (matchLocalPlaceholder) {
-        const pos = parseInt(matchLocalPlaceholder[1]) - 1;
-        const grp = matchLocalPlaceholder[2];
-        if (groupStandings[grp] && groupStandings[grp][pos]) {
-          local = groupStandings[grp][pos];
-        }
-      }
-
-      const matchVisitantePlaceholder = template.visitante.match(/^([1-3])([A-L])$/);
-      if (matchVisitantePlaceholder) {
-        const pos = parseInt(matchVisitantePlaceholder[1]) - 1;
-        const grp = matchVisitantePlaceholder[2];
-        if (groupStandings[grp] && groupStandings[grp][pos]) {
-          visitante = groupStandings[grp][pos];
-        }
-      } else if (template.visitante.startsWith('3') && template.visitante.includes('/')) {
-        const grps = template.visitante.replace('3', '').split('/');
-        for (const grp of grps) {
-          if (groupStandings[grp] && groupStandings[grp][2]) {
-            visitante = groupStandings[grp][2];
-            break;
-          }
-        }
-      }
-
-      await updateMatchTeams(match.id, local, visitante);
-    }
-
     const r32MatchesUpdated = await pool.query("SELECT * FROM matches WHERE fase = 'Ronda de 32' ORDER BY fecha ASC, id ASC");
 
     // 3. Propagate Ronda de 32 to Octavos de Final
@@ -2067,8 +2009,8 @@ export async function runKnockoutCascade() {
       const r32Local = r32MatchesUpdated.rows[2 * i];
       const r32Visitante = r32MatchesUpdated.rows[2 * i + 1];
 
-      const local = getWinner(r32Local) || match.local;
-      const visitante = getWinner(r32Visitante) || match.visitante;
+      const local = getWinner(r32Local) || `Ganador R32-${2 * i + 1}`;
+      const visitante = getWinner(r32Visitante) || `Ganador R32-${2 * i + 2}`;
 
       await updateMatchTeams(match.id, local, visitante);
     }
@@ -2082,8 +2024,8 @@ export async function runKnockoutCascade() {
       const octLocal = octMatchesUpdated.rows[2 * i];
       const octVisitante = octMatchesUpdated.rows[2 * i + 1];
 
-      const local = getWinner(octLocal) || match.local;
-      const visitante = getWinner(octVisitante) || match.visitante;
+      const local = getWinner(octLocal) || `Ganador Octavos-${2 * i + 1}`;
+      const visitante = getWinner(octVisitante) || `Ganador Octavos-${2 * i + 2}`;
 
       await updateMatchTeams(match.id, local, visitante);
     }
@@ -2097,8 +2039,8 @@ export async function runKnockoutCascade() {
       const cuartosLocal = cuartosMatchesUpdated.rows[2 * i];
       const cuartosVisitante = cuartosMatchesUpdated.rows[2 * i + 1];
 
-      const local = getWinner(cuartosLocal) || match.local;
-      const visitante = getWinner(cuartosVisitante) || match.visitante;
+      const local = getWinner(cuartosLocal) || `Ganador Cuartos-${2 * i + 1}`;
+      const visitante = getWinner(cuartosVisitante) || `Ganador Cuartos-${2 * i + 2}`;
 
       await updateMatchTeams(match.id, local, visitante);
     }
@@ -2112,8 +2054,8 @@ export async function runKnockoutCascade() {
       const semi1 = semiMatchesUpdated.rows[0];
       const semi2 = semiMatchesUpdated.rows[1];
 
-      const local = getWinner(semi1) || match.local;
-      const visitante = getWinner(semi2) || match.visitante;
+      const local = getWinner(semi1) || `Ganador Semifinal-1`;
+      const visitante = getWinner(semi2) || `Ganador Semifinal-2`;
 
       await updateMatchTeams(match.id, local, visitante);
     }
@@ -2124,8 +2066,8 @@ export async function runKnockoutCascade() {
       const semi1 = semiMatchesUpdated.rows[0];
       const semi2 = semiMatchesUpdated.rows[1];
 
-      const local = getLoser(semi1) || match.local;
-      const visitante = getLoser(semi2) || match.visitante;
+      const local = getLoser(semi1) || `Perdedor Semifinal-1`;
+      const visitante = getLoser(semi2) || `Perdedor Semifinal-2`;
 
       await updateMatchTeams(match.id, local, visitante);
     }

@@ -188,6 +188,7 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
       });
 
       if (!localMatch) continue;
+      if (localMatch.stats?.manual_control) continue;
 
       let estado: 'upcoming' | 'live' | 'finished' = 'upcoming';
       if (game.statusGroup === 5 || game.statusGroup === 4) {
@@ -200,8 +201,15 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
       const scoreHome = game.homeCompetitor.score >= 0 ? game.homeCompetitor.score : 0;
       const scoreAway = game.awayCompetitor.score >= 0 ? game.awayCompetitor.score : 0;
 
+      const penalesHome = game.homeCompetitor.penaltiesScore >= 0 ? game.homeCompetitor.penaltiesScore : null;
+      const penalesAway = game.awayCompetitor.penaltiesScore >= 0 ? game.awayCompetitor.penaltiesScore : null;
+
       const golesLocal = isLInverted ? scoreAway : scoreHome;
       const golesVisitante = isLInverted ? scoreHome : scoreAway;
+
+      const penalesLocal = isLInverted ? penalesAway : penalesHome;
+      const penalesVisitante = isLInverted ? penalesHome : penalesAway;
+      const hasPenalties = penalesLocal !== null && penalesVisitante !== null;
 
       // Only block downgrade during live (prevents API glitch flicker); allow it when finished (fixes annulled goals)
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
@@ -244,8 +252,30 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
 
         if (estado === 'live') {
           stats.time = liveTime;
+          const timeStr = (game.gameTimeDisplay || '').toLowerCase();
+          const gameTime = game.gameTime || 0;
+          if (timeStr.includes('pen') || game.statusGroup === 4) {
+            stats.fase_actual = 'penales';
+          } else if (timeStr.includes('et') || timeStr.includes('extra') || gameTime > 90) {
+            stats.fase_actual = 'tiempo_extra';
+            stats.extra_time = game.gameTimeDisplay || `${gameTime}'`;
+          } else {
+            stats.fase_actual = 'normal';
+          }
         } else if (estado === 'finished') {
           stats.time = 'Final';
+          stats.finished_at = stats.finished_at || new Date().toISOString();
+        }
+
+        if (hasPenalties) {
+          stats.fase_actual = 'penales';
+          stats.penales_local = penalesLocal;
+          stats.penales_visitante = penalesVisitante;
+          if (game.winner !== undefined) {
+            stats.ganador = isLInverted 
+              ? (game.winner === 1 ? localMatch.visitante : localMatch.local)
+              : (game.winner === 1 ? localMatch.local : localMatch.visitante);
+          }
         }
 
         if (!stats.possession_local && (estado === 'live' || estado === 'finished')) {
@@ -263,11 +293,12 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
                goles_local = $2, 
                goles_visitante = $3, 
                stats = $4,
+               penales_habilitados = $5,
                last_synced_at = CURRENT_TIMESTAMP, 
                updated_at = CURRENT_TIMESTAMP 
-           WHERE id = $5 
+           WHERE id = $6 
            RETURNING *`,
-          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), hasPenalties || !!localMatch.penales_habilitados, localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];
@@ -478,6 +509,7 @@ export async function syncApiFixture(pendingGoalNotifs?: Map<number, PendingGoal
                  (cl === cleanVisitante && cv === cleanLocal);
         });
         if (!localMatch) continue;
+        if (localMatch.stats?.manual_control) continue;
 
         const isLInverted = cleanName(localMatch.local) === cleanVisitante;
 
@@ -523,16 +555,21 @@ export async function syncApiFixture(pendingGoalNotifs?: Map<number, PendingGoal
         if (!isDowngrade && scoreChanged && await isAnnulledScore(localMatch.id, finalGolesLocal, finalGolesVisitante)) continue;
 
         if (stateChanged || scoreChanged) {
+          const stats = localMatch.stats || {};
+          if (estado === 'finished') {
+            stats.finished_at = stats.finished_at || new Date().toISOString();
+          }
           const updateRes = await pool.query(
             `UPDATE matches
              SET estado = $1,
                  goles_local = $2,
                  goles_visitante = $3,
+                 stats = $4,
                  last_synced_at = CURRENT_TIMESTAMP,
                  updated_at = CURRENT_TIMESTAMP
-             WHERE id = $4
+             WHERE id = $5
              RETURNING *`,
-            [estado, hasScore ? finalGolesLocal : localMatch.goles_local, hasScore ? finalGolesVisitante : localMatch.goles_visitante, localMatch.id]
+            [estado, hasScore ? finalGolesLocal : localMatch.goles_local, hasScore ? finalGolesVisitante : localMatch.goles_visitante, JSON.stringify(stats), localMatch.id]
           );
           const updatedMatch = updateRes.rows[0];
           updatedCount++;
@@ -653,6 +690,7 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
       );
 
       if (!localMatch) continue;
+      if (localMatch.stats?.manual_control) continue;
 
       const isLInverted = localMatch.local === awayName;
 
@@ -707,6 +745,9 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
 
       if (stateChanged || scoreChanged) {
         const stats = localMatch.stats || {};
+        if (estado === 'finished') {
+          stats.finished_at = stats.finished_at || new Date().toISOString();
+        }
         const updateRes = await pool.query(
           `UPDATE matches
            SET estado = $1,
@@ -938,8 +979,15 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
       const scoreHome = parseInt(homeCompetitor.score) >= 0 ? parseInt(homeCompetitor.score) : 0;
       const scoreAway = parseInt(awayCompetitor.score) >= 0 ? parseInt(awayCompetitor.score) : 0;
 
+      const penalesHome = homeCompetitor.shootoutScore !== undefined ? parseInt(homeCompetitor.shootoutScore) : null;
+      const penalesAway = awayCompetitor.shootoutScore !== undefined ? parseInt(awayCompetitor.shootoutScore) : null;
+
       const golesLocal = isLInverted ? scoreAway : scoreHome;
       const golesVisitante = isLInverted ? scoreHome : scoreAway;
+
+      const penalesLocal = isLInverted ? penalesAway : penalesHome;
+      const penalesVisitante = isLInverted ? penalesHome : penalesAway;
+      const hasPenalties = penalesLocal !== null && penalesVisitante !== null;
 
       // Only block downgrade during live (prevents API glitch flicker); allow it when finished (fixes annulled goals)
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
@@ -979,6 +1027,16 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
         
         if (estado === 'live') {
           stats.time = liveTime;
+          const detailStr = (comp.status?.type?.detail || '').toLowerCase();
+          const stateDesc = (comp.status?.type?.description || '').toLowerCase();
+          if (detailStr.includes('penalties') || detailStr.includes('shootout') || detailStr.includes('pen')) {
+            stats.fase_actual = 'penales';
+          } else if (detailStr.includes('aet') || detailStr.includes('extra') || stateDesc.includes('extra') || stateDesc.includes('overtime')) {
+            stats.fase_actual = 'tiempo_extra';
+            stats.extra_time = comp.status?.type?.detail || '';
+          } else {
+            stats.fase_actual = 'normal';
+          }
         } else if (estado === 'finished') {
           stats.time = 'Final';
         }
@@ -1089,17 +1147,33 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
           stats.shot_assists_visitante = 5;
         }
 
+        if (hasPenalties) {
+          stats.fase_actual = 'penales';
+          stats.penales_local = penalesLocal;
+          stats.penales_visitante = penalesVisitante;
+          if (comp.status?.type?.detail?.toLowerCase().includes('shootout') || estado === 'finished') {
+            const winnerId = comp.winner === true ? homeCompetitor.team?.id : (comp.winner === false ? awayCompetitor.team?.id : null);
+            if (winnerId) {
+              const isHomeWinner = winnerId === homeCompetitor.team?.id;
+              stats.ganador = isLInverted 
+                ? (isHomeWinner ? localMatch.visitante : localMatch.local)
+                : (isHomeWinner ? localMatch.local : localMatch.visitante);
+            }
+          }
+        }
+
         const updateRes = await pool.query(
           `UPDATE matches 
            SET estado = $1, 
                goles_local = $2, 
                goles_visitante = $3, 
                stats = $4,
+               penales_habilitados = $5,
                last_synced_at = CURRENT_TIMESTAMP, 
                updated_at = CURRENT_TIMESTAMP 
-           WHERE id = $5 
+           WHERE id = $6 
            RETURNING *`,
-          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), hasPenalties || !!localMatch.penales_habilitados, localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];
@@ -1294,9 +1368,6 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
         estado = 'live';
       }
 
-      const golesLocal = score?.fullTime?.home !== null ? score.fullTime.home : 0;
-      const golesVisitante = score?.fullTime?.away !== null ? score.fullTime.away : 0;
-
       const localName = teamNameMapping[apiMatch.homeTeam?.name] || apiMatch.homeTeam?.name;
       const visitanteName = teamNameMapping[apiMatch.awayTeam?.name] || apiMatch.awayTeam?.name;
       const faseName = stageMapping[apiMatch.stage] || apiMatch.stage;
@@ -1307,6 +1378,10 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
       );
 
       if (!localMatch) {
+        continue;
+      }
+
+      if (localMatch.stats?.manual_control) {
         continue;
       }
 
@@ -1330,6 +1405,26 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
         localMatch.logo_local = logoLocal;
         localMatch.logo_visitante = logoVisitante;
       }
+
+      let golesLocal = score?.fullTime?.home !== null ? score.fullTime.home : 0;
+      let golesVisitante = score?.fullTime?.away !== null ? score.fullTime.away : 0;
+
+      let penalesLocal = null;
+      let penalesVisitante = null;
+
+      if (score?.duration === 'PENALTY_SHOOTOUT' || (score?.penalties?.home !== null && score?.penalties?.home !== undefined)) {
+        // Use extra time score if available, otherwise fullTime (excluding penalties)
+        const regularLocal = score?.extraTime?.home !== null && score?.extraTime?.home !== undefined ? score.extraTime.home : (score?.fullTime?.home !== null ? score.fullTime.home : 1);
+        const regularVisitante = score?.extraTime?.away !== null && score?.extraTime?.away !== undefined ? score.extraTime.away : (score?.fullTime?.away !== null ? score.fullTime.away : 1);
+        
+        penalesLocal = score?.penalties?.home !== undefined ? score.penalties.home : null;
+        penalesVisitante = score?.penalties?.away !== undefined ? score.penalties.away : null;
+
+        golesLocal = regularLocal;
+        golesVisitante = regularVisitante;
+      }
+
+      const hasPenalties = penalesLocal !== null && penalesVisitante !== null;
 
       // Only block downgrade during live (prevents API glitch flicker); allow it when finished (fixes annulled goals)
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
@@ -1363,6 +1458,28 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
 
       if (stateChanged || scoreChanged) {
         const stats = apiMatch.stats || {};
+        if (estado === 'finished') {
+          stats.finished_at = stats.finished_at || new Date().toISOString();
+        }
+
+        if (estado === 'live') {
+          if (apiMatch.score?.duration === 'PENALTY_SHOOTOUT') {
+            stats.fase_actual = 'penales';
+          } else if (apiMatch.score?.duration === 'EXTRA_TIME') {
+            stats.fase_actual = 'tiempo_extra';
+          } else {
+            stats.fase_actual = 'normal';
+          }
+        }
+
+        if (hasPenalties) {
+          stats.fase_actual = 'penales';
+          stats.penales_local = penalesLocal;
+          stats.penales_visitante = penalesVisitante;
+          if (score.winner) {
+            stats.ganador = score.winner === 'HOME_TEAM' ? localMatch.local : localMatch.visitante;
+          }
+        }
 
         const updateRes = await pool.query(
           `UPDATE matches 
@@ -1370,11 +1487,12 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
                goles_local = $2, 
                goles_visitante = $3, 
                stats = $4,
+               penales_habilitados = $5,
                last_synced_at = CURRENT_TIMESTAMP, 
                updated_at = CURRENT_TIMESTAMP 
-           WHERE id = $5 
+           WHERE id = $6 
            RETURNING *`,
-          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), localMatch.id]
+          [estado, finalGolesLocal, finalGolesVisitante, JSON.stringify(stats), hasPenalties || !!localMatch.penales_habilitados, localMatch.id]
         );
 
         const updatedMatch = updateRes.rows[0];

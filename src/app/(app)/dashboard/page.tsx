@@ -127,19 +127,9 @@ export default function DashboardPage() {
            boliviaTime.getUTCFullYear() === nowBolivia.getUTCFullYear();
   };
 
-  const liveMatches = matches.filter(m => m.estado === 'live' && isTodayBolivia(m.fecha));
-  const upcomingMatches = matches.filter(m => m.estado === 'upcoming' && isTodayBolivia(m.fecha)).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).slice(0, 3);
-  const isArbitro = !!(user as any)?.arbitro_marcador;
   const GRACE_MS = 15 * 60 * 1000;
-  const recentlyFinished = isArbitro
-    ? matches.filter(m => {
-        if (m.estado !== 'finished' || !isTodayBolivia(m.fecha)) return false;
-        const finishedTime = m.stats?.finished_at 
-          ? new Date(m.stats.finished_at).getTime() 
-          : (m.updated_at ? new Date(m.updated_at).getTime() : 0);
-        return finishedTime > 0 && (Date.now() - finishedTime <= GRACE_MS);
-      })
-    : [];
+  const canEditMatches = !!(user && ((user as any).arbitro_marcador || user.tipo === 'admin' || user.tipo === 'superadmin'));
+  const todayMatches = matches.filter(m => isTodayBolivia(m.fecha)).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
   const countdownMatch = matches.filter(m => m.estado === 'upcoming' && new Date(m.fecha).getTime() > Date.now()).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
 
   return (
@@ -270,76 +260,45 @@ export default function DashboardPage() {
       {/* Online Users */}
       {user && <OnlineUsers currentUserId={user.id} />}
 
-      {/* Live Matches — promoted, larger cards */}
-      {liveMatches.length > 0 && (
+      {/* Partidos de Hoy */}
+      {todayMatches.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-3.5 w-3.5 flex-shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500" />
-            </span>
-            <h3 className="text-sm xl:text-base font-black text-red-400 uppercase tracking-widest">
-              En Vivo Ahora
-            </h3>
-            <span className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-mono font-black animate-pulse">
-              {liveMatches.length} {liveMatches.length === 1 ? 'partido' : 'partidos'}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {liveMatches.map(m => (
-              <div key={m.id}>
-                <MatchCard match={m} prediction={predictions.find(p => p.match_id === m.id)}
-                  compact={false} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
-                {isArbitro && (
-                  <ScoreCorrectionPanel
-                    match={m}
-                    showToast={showToast}
-                    onCorrected={updated => setMatches(prev => prev.map(x => x.id === updated.id ? updated : x))}
-                    isSuperAdmin={user?.tipo === 'superadmin'}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Correction window for recently finished matches (árbitros only) */}
-      {recentlyFinished.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500">⚖️ Corrección post-partido</span>
-            <span className="text-[9px] text-neutral-500 font-mono">(ventana 15 min)</span>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {recentlyFinished.map(m => (
-              <div key={m.id}>
-                <MatchCard match={m} prediction={predictions.find(p => p.match_id === m.id)}
-                  compact={false} onBet={() => {}} onClick={() => setInfoModalMatch(m)} />
-                <ScoreCorrectionPanel
-                  match={m}
-                  showToast={showToast}
-                  onCorrected={updated => setMatches(prev => prev.map(x => x.id === updated.id ? updated : x))}
-                  isSuperAdmin={user?.tipo === 'superadmin'}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Upcoming */}
-      {upcomingMatches.length > 0 && (
-        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs xl:text-sm font-black text-neutral-400 uppercase tracking-widest">Próximos Partidos</h3>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-yellow-500 animate-pulse" />
+              <h3 className="text-sm xl:text-base font-black text-yellow-500 uppercase tracking-widest">
+                Partidos de Hoy
+              </h3>
+              <span className="text-[9px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-2 py-0.5 rounded-full font-mono font-black">
+                {todayMatches.length} {todayMatches.length === 1 ? 'partido' : 'partidos'}
+              </span>
+            </div>
             <Link href="/partidos" className="text-[10px] xl:text-xs text-yellow-500 hover:text-yellow-400 font-bold uppercase tracking-wider transition">Ver todos →</Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-            {upcomingMatches.map(m => (
-              <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
-                onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
-            ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {todayMatches.map(m => {
+              const isEditableMatch = m.estado === 'live' || (m.estado === 'finished' && (() => {
+                const finishedTime = m.stats?.finished_at 
+                  ? new Date(m.stats.finished_at).getTime() 
+                  : (m.updated_at ? new Date(m.updated_at).getTime() : 0);
+                return finishedTime > 0 && (Date.now() - finishedTime <= GRACE_MS);
+              })());
+
+              return (
+                <div key={m.id} className="flex flex-col gap-2">
+                  <MatchCard match={m} prediction={predictions.find(p => p.match_id === m.id)}
+                    compact={false} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
+                  {canEditMatches && isEditableMatch && (
+                    <ScoreCorrectionPanel
+                      match={m}
+                      showToast={showToast}
+                      onCorrected={updated => setMatches(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                      isSuperAdmin={user?.tipo === 'superadmin'}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

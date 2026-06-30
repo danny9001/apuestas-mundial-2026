@@ -37,21 +37,22 @@ export async function POST(req: NextRequest) {
 
     const match = matchRes.rows[0];
 
-    // Time window check for non-admins
-    if (!isAdmin) {
-      const isLive = match.estado === 'live';
-      const isRecentlyFinished = match.estado === 'finished' &&
-        match.updated_at &&
-        (Date.now() - new Date(match.updated_at).getTime()) <= GRACE_PERIOD_MS;
+    // Time window check (15 minutes limit) for everyone (admins must use Marcadores en Vivo after 15 mins)
+    const isLive = match.estado === 'live';
+    const finishedTime = match.stats?.finished_at 
+      ? new Date(match.stats.finished_at).getTime() 
+      : (match.updated_at ? new Date(match.updated_at).getTime() : 0);
+    const isRecentlyFinished = match.estado === 'finished' &&
+      finishedTime > 0 &&
+      (Date.now() - finishedTime) <= GRACE_PERIOD_MS;
 
-      if (!isLive && !isRecentlyFinished) {
-        const minsSinceEnd = match.updated_at
-          ? Math.floor((Date.now() - new Date(match.updated_at).getTime()) / 60000)
-          : '?';
-        return NextResponse.json({
-          error: `Solo se puede corregir durante el partido en vivo o hasta 15 minutos después de finalizar. Han pasado ${minsSinceEnd} minutos.`
-        }, { status: 400 });
-      }
+    if (!isLive && !isRecentlyFinished) {
+      const minsSinceEnd = finishedTime > 0
+        ? Math.floor((Date.now() - finishedTime) / 60000)
+        : '?';
+      return NextResponse.json({
+        error: `Solo se puede corregir desde el inicio durante el partido en vivo o hasta 15 minutos después de finalizar. Han pasado ${minsSinceEnd} minutos. Como administrador, realiza correcciones fuera de este tiempo desde Marcadores en Vivo.`
+      }, { status: 400 });
     }
 
     const prevLocal = match.goles_local ?? 0;
@@ -59,11 +60,17 @@ export async function POST(req: NextRequest) {
     const noChange = prevLocal === goles_local && prevVisitante === goles_visitante;
     if (noChange) return NextResponse.json({ error: 'El score ya tiene ese valor' }, { status: 400 });
 
+    const currentStats = match.stats || {};
+    currentStats.manual_control = true;
+    if (match.estado === 'finished' && !currentStats.finished_at) {
+      currentStats.finished_at = new Date().toISOString();
+    }
+
     // Apply correction
     const updateRes = await pool.query(
-      `UPDATE matches SET goles_local = $1, goles_visitante = $2, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3 RETURNING *`,
-      [goles_local, goles_visitante, matchId]
+      `UPDATE matches SET goles_local = $1, goles_visitante = $2, stats = $3, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $4 RETURNING *`,
+      [goles_local, goles_visitante, JSON.stringify(currentStats), matchId]
     );
     const updated = updateRes.rows[0];
 

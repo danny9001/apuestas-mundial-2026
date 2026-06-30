@@ -1315,6 +1315,22 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
         localMatch.external_id = extId;
       }
 
+      // Update team names and logos from the API if they are different
+      if (localName && visitanteName && (localMatch.local !== localName || localMatch.visitante !== visitanteName)) {
+        const logoLocal = `/uploads/flags/${localName.toLowerCase().replace(/ /g, '_')}.png`;
+        const logoVisitante = `/uploads/flags/${visitanteName.toLowerCase().replace(/ /g, '_')}.png`;
+        await pool.query(
+          `UPDATE matches 
+           SET local = $1, visitante = $2, logo_local = $3, logo_visitante = $4, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $5`,
+          [localName, visitanteName, logoLocal, logoVisitante, localMatch.id]
+        );
+        localMatch.local = localName;
+        localMatch.visitante = visitanteName;
+        localMatch.logo_local = logoLocal;
+        localMatch.logo_visitante = logoVisitante;
+      }
+
       // Only block downgrade during live (prevents API glitch flicker); allow it when finished (fixes annulled goals)
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
       const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
@@ -1807,9 +1823,10 @@ export async function syncMatches(): Promise<{
   // Sync official standings every cycle (uses official tiebreakers from football-data.org)
   await syncGroupStandings();
 
-  if (updatedCount > 0) {
-    await runKnockoutCascade();
-  }
+  // We do not calculate knockout matches locally; we obtain them from the sync
+  // if (updatedCount > 0) {
+  //   await runKnockoutCascade();
+  // }
 
   if (finishedCount > 0) {
     const { runBackup } = await import('./backup');

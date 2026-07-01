@@ -1682,10 +1682,15 @@ export async function syncMatches(): Promise<{
   // Sync official standings every cycle (uses official tiebreakers from football-data.org)
   await syncGroupStandings();
 
-  // We do not calculate knockout matches locally; we obtain them from the sync
-  // if (updatedCount > 0) {
-  //   await runKnockoutCascade();
-  // }
+  // Disabled: the local R32→Octavos slot mapping (R32_TO_OCT) does not match the
+  // real FIFA 2026 bracket. It guessed "Francia vs México" for a slot that
+  // football-data.org still reports as undetermined (None vs None), while the
+  // authoritative feed had already confirmed Francia's real opponent as Paraguay
+  // in a different slot — producing a duplicate team across two Octavos matches.
+  // Team names for knockout rounds are obtained exclusively from the football-data.org
+  // sync (matched by external_id) until the R32→Octavos slot mapping can be verified
+  // against the official bracket. See openspec/changes/fix-octavos-doble-francia-2026-07-01.
+  // await runKnockoutCascade();
 
   if (finishedCount > 0) {
     const { runBackup } = await import('./backup');
@@ -1845,93 +1850,77 @@ export async function runKnockoutCascade() {
     };
 
     // Helper to update match teams in DB if changed
-    const updateMatchTeams = async (matchId: number, local: string, visitante: string) => {
-      const res = await pool.query('SELECT local, visitante FROM matches WHERE id = $1', [matchId]);
+    const isPlaceholder = (name: string) => /^(Ganador|Perdedor)\s+/i.test(name || '');
+
+    // Only replace a team slot if it's currently a placeholder — never overwrite admin-set names
+    const updateMatchTeams = async (matchId: number, newLocal: string | null | undefined, newVisitante: string | null | undefined) => {
+      const res = await pool.query('SELECT id, local, visitante FROM matches WHERE id = $1', [matchId]);
       if (res.rows.length === 0) return;
       const current = res.rows[0];
-      if (current.local !== local || current.visitante !== visitante) {
-        const logoLocal = `/uploads/flags/${local.toLowerCase().replace(/ /g, '_')}.png`;
-        const logoVisitante = `/uploads/flags/${visitante.toLowerCase().replace(/ /g, '_')}.png`;
+      const finalLocal = (newLocal && isPlaceholder(current.local)) ? newLocal : current.local;
+      const finalVisitante = (newVisitante && isPlaceholder(current.visitante)) ? newVisitante : current.visitante;
+      if (finalLocal !== current.local || finalVisitante !== current.visitante) {
+        const logoLocal = `/uploads/flags/${finalLocal.toLowerCase().replace(/ /g, '_')}.png`;
+        const logoVisitante = `/uploads/flags/${finalVisitante.toLowerCase().replace(/ /g, '_')}.png`;
         const updateRes = await pool.query(
-          `UPDATE matches 
-           SET local = $1, visitante = $2, logo_local = $3, logo_visitante = $4, updated_at = CURRENT_TIMESTAMP 
+          `UPDATE matches
+           SET local = $1, visitante = $2, logo_local = $3, logo_visitante = $4, updated_at = CURRENT_TIMESTAMP
            WHERE id = $5 RETURNING *`,
-          [local, visitante, logoLocal, logoVisitante, matchId]
+          [finalLocal, finalVisitante, logoLocal, logoVisitante, matchId]
         );
         broadcastUpdate('match', updateRes.rows[0]);
       }
     };
 
-    const r32MatchesUpdated = await pool.query("SELECT * FROM matches WHERE fase = 'Ronda de 32' ORDER BY fecha ASC, id ASC");
+    const r32Rows = (await pool.query("SELECT * FROM matches WHERE fase = 'Ronda de 32' ORDER BY fecha ASC, id ASC")).rows;
 
-    // 3. Propagate Ronda de 32 to Octavos de Final
-    const octMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Octavos de Final' ORDER BY fecha ASC, id ASC");
-    for (let i = 0; i < octMatches.rows.length; i++) {
-      const match = octMatches.rows[i];
-      const r32Local = r32MatchesUpdated.rows[2 * i];
-      const r32Visitante = r32MatchesUpdated.rows[2 * i + 1];
+    // 3. Propagate Ronda de 32 → Octavos de Final
+    // FIFA 2026 crossing bracket: within each group of 4 R32 matches, 1st plays 4th and 2nd plays 3rd
+    // Oct[i]: R32[crossL] winner vs R32[crossV] winner
+    const R32_TO_OCT: [number, number][] = [
+      [0, 3], [1, 2],   // group 1: R32 matches 1-4
+      [4, 7], [5, 6],   // group 2: R32 matches 5-8
+      [8, 11], [9, 10], // group 3: R32 matches 9-12
+      [12, 15], [13, 14], // group 4: R32 matches 13-16
+    ];
 
-      const local = getWinner(r32Local) || `Ganador R32-${2 * i + 1}`;
-      const visitante = getWinner(r32Visitante) || `Ganador R32-${2 * i + 2}`;
-
-      await updateMatchTeams(match.id, local, visitante);
+    const octRows = (await pool.query("SELECT * FROM matches WHERE fase = 'Octavos de Final' ORDER BY fecha ASC, id ASC")).rows;
+    for (let i = 0; i < octRows.length; i++) {
+      const [li, vi] = R32_TO_OCT[i] ?? [2 * i, 2 * i + 1];
+      await updateMatchTeams(octRows[i].id, getWinner(r32Rows[li] ?? null), getWinner(r32Rows[vi] ?? null));
     }
 
-    const octMatchesUpdated = await pool.query("SELECT * FROM matches WHERE fase = 'Octavos de Final' ORDER BY fecha ASC, id ASC");
+    const octRowsUpdated = (await pool.query("SELECT * FROM matches WHERE fase = 'Octavos de Final' ORDER BY fecha ASC, id ASC")).rows;
 
-    // 4. Propagate Octavos to Cuartos de Final
-    const cuartosMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Cuartos de Final' ORDER BY fecha ASC, id ASC");
-    for (let i = 0; i < cuartosMatches.rows.length; i++) {
-      const match = cuartosMatches.rows[i];
-      const octLocal = octMatchesUpdated.rows[2 * i];
-      const octVisitante = octMatchesUpdated.rows[2 * i + 1];
-
-      const local = getWinner(octLocal) || `Ganador Octavos-${2 * i + 1}`;
-      const visitante = getWinner(octVisitante) || `Ganador Octavos-${2 * i + 2}`;
-
-      await updateMatchTeams(match.id, local, visitante);
+    // 4. Propagate Octavos → Cuartos de Final (consecutive pairs within bracket halves)
+    const OCT_TO_CUARTOS: [number, number][] = [
+      [0, 1], [2, 3], [4, 5], [6, 7],
+    ];
+    const cuartosRows = (await pool.query("SELECT * FROM matches WHERE fase = 'Cuartos de Final' ORDER BY fecha ASC, id ASC")).rows;
+    for (let i = 0; i < cuartosRows.length; i++) {
+      const [li, vi] = OCT_TO_CUARTOS[i] ?? [2 * i, 2 * i + 1];
+      await updateMatchTeams(cuartosRows[i].id, getWinner(octRowsUpdated[li] ?? null), getWinner(octRowsUpdated[vi] ?? null));
     }
 
-    const cuartosMatchesUpdated = await pool.query("SELECT * FROM matches WHERE fase = 'Cuartos de Final' ORDER BY fecha ASC, id ASC");
+    const cuartosRowsUpdated = (await pool.query("SELECT * FROM matches WHERE fase = 'Cuartos de Final' ORDER BY fecha ASC, id ASC")).rows;
 
-    // 5. Propagate Cuartos to Semifinal
-    const semiMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC");
-    for (let i = 0; i < semiMatches.rows.length; i++) {
-      const match = semiMatches.rows[i];
-      const cuartosLocal = cuartosMatchesUpdated.rows[2 * i];
-      const cuartosVisitante = cuartosMatchesUpdated.rows[2 * i + 1];
-
-      const local = getWinner(cuartosLocal) || `Ganador Cuartos-${2 * i + 1}`;
-      const visitante = getWinner(cuartosVisitante) || `Ganador Cuartos-${2 * i + 2}`;
-
-      await updateMatchTeams(match.id, local, visitante);
+    // 5. Propagate Cuartos → Semifinal
+    const semiRows = (await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC")).rows;
+    for (let i = 0; i < semiRows.length; i++) {
+      await updateMatchTeams(semiRows[i].id, getWinner(cuartosRowsUpdated[2 * i] ?? null), getWinner(cuartosRowsUpdated[2 * i + 1] ?? null));
     }
 
-    const semiMatchesUpdated = await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC");
+    const semiRowsUpdated = (await pool.query("SELECT * FROM matches WHERE fase = 'Semifinal' ORDER BY fecha ASC, id ASC")).rows;
 
-    // 6. Propagate Semis to Final and Tercer Puesto
-    const finalMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Final' ORDER BY fecha ASC, id ASC");
-    if (finalMatches.rows.length > 0) {
-      const match = finalMatches.rows[0];
-      const semi1 = semiMatchesUpdated.rows[0];
-      const semi2 = semiMatchesUpdated.rows[1];
-
-      const local = getWinner(semi1) || `Ganador Semifinal-1`;
-      const visitante = getWinner(semi2) || `Ganador Semifinal-2`;
-
-      await updateMatchTeams(match.id, local, visitante);
+    // 6. Propagate Semis → Final and Tercer Puesto
+    const finalRows = (await pool.query("SELECT * FROM matches WHERE fase = 'Final' ORDER BY fecha ASC, id ASC")).rows;
+    if (finalRows.length > 0) {
+      await updateMatchTeams(finalRows[0].id, getWinner(semiRowsUpdated[0] ?? null), getWinner(semiRowsUpdated[1] ?? null));
     }
 
-    const tercerPuestoMatches = await pool.query("SELECT * FROM matches WHERE fase = 'Tercer Puesto' ORDER BY fecha ASC, id ASC");
-    if (tercerPuestoMatches.rows.length > 0) {
-      const match = tercerPuestoMatches.rows[0];
-      const semi1 = semiMatchesUpdated.rows[0];
-      const semi2 = semiMatchesUpdated.rows[1];
-
-      const local = getLoser(semi1) || `Perdedor Semifinal-1`;
-      const visitante = getLoser(semi2) || `Perdedor Semifinal-2`;
-
-      await updateMatchTeams(match.id, local, visitante);
+    const tercerRows = (await pool.query("SELECT * FROM matches WHERE fase = 'Tercer Puesto' ORDER BY fecha ASC, id ASC")).rows;
+    if (tercerRows.length > 0) {
+      await updateMatchTeams(tercerRows[0].id, getLoser(semiRowsUpdated[0] ?? null), getLoser(semiRowsUpdated[1] ?? null));
     }
 
   } catch (error) {

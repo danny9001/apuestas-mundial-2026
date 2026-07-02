@@ -17,6 +17,7 @@ module.exports = {
       args: 'start -p 3002',
       exec_mode: 'cluster',
       instances: 4,
+      max_memory_restart: '500M',
       env: {
         NODE_ENV: 'production',
       }
@@ -24,6 +25,7 @@ module.exports = {
     {
       name: 'elitepass-scheduler',
       script: 'scheduler.js',
+      max_memory_restart: '500M',
       env: {
         NODE_ENV: 'production',
         APP_BASE_URL: 'http://localhost:3002',

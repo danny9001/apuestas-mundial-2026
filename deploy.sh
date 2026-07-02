@@ -7,7 +7,9 @@ if [ -f .env.local ]; then
 fi
 
 echo "▶ Building in temporary directory to avoid downtime..."
-NEXT_DIST_DIR=.next_temp pnpm build
+# nice/ionice: el cluster de producción sigue sirviendo tráfico durante el build,
+# así que le bajamos prioridad de CPU/disco para no competir por recursos con él.
+NEXT_DIST_DIR=.next_temp nice -n 15 ionice -c2 -n7 pnpm build
 
 echo "▶ Swapping build directories atomically..."
 rm -rf .next

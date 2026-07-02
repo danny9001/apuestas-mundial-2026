@@ -35,6 +35,9 @@ export function formatPlaceholderText(name: string): string {
   if (clean.startsWith('3') && clean.includes('/')) return `Mejor 3° Grupo ${clean.substring(1)}`;
   if (/^[G][0-9]+$/.test(clean)) return `Ganador Partido ${clean.substring(1)}`;
   if (/^[P][0-9]+$/.test(clean)) return `Perdedor Partido ${clean.substring(1)}`;
+  // Knockout-stage slots use the fully spelled-out form directly (e.g. "Ganador R32-9",
+  // "Ganador Octavos-1", "Perdedor Semifinal-1") — already human-readable, show as-is.
+  if (/^(Ganador|Perdedor)\s+/i.test(clean)) return clean;
   return '';
 }
 

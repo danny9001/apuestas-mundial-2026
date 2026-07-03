@@ -288,6 +288,22 @@ export default function CompaniesTab({
     } catch { showToast('Error de red'); }
   };
 
+  const [uploadingQrId, setUploadingQrId] = useState<number | null>(null);
+  const handleUploadCompanyQr = async (companyId: number, file: File | undefined) => {
+    if (!file) return;
+    setUploadingQrId(companyId);
+    try {
+      const fd = new FormData();
+      fd.append('action', 'update_qr');
+      fd.append('id', String(companyId));
+      fd.append('file', file);
+      const res = await fetch('/api/companies', { method: 'POST', body: fd });
+      if (res.ok) { showToast('📷 QR de pago actualizado'); await fetchCompanies(); }
+      else { const d = await res.json(); showToast(d.error || 'Error al subir el QR'); }
+    } catch { showToast('Error de red'); }
+    finally { setUploadingQrId(null); }
+  };
+
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     setGroupSubmitting(true);
@@ -601,6 +617,13 @@ export default function CompaniesTab({
                         className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${expandedCompanyModos === c.id ? 'text-cyan-500 border-cyan-500/40 bg-cyan-500/10' : 'text-neutral-400 border-neutral-700 hover:border-neutral-500'}`}>
                         🎯 Modos
                       </button>
+                      {c.qr_url && (
+                        <img src={c.qr_url} alt={`QR de pago de ${c.nombre}`} className="w-7 h-7 rounded-md border border-neutral-700 object-cover flex-shrink-0" />
+                      )}
+                      <label className={`cursor-pointer flex items-center gap-1.5 text-[10px] font-black text-cyan-400 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/10 transition flex-shrink-0 ${uploadingQrId === c.id ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {uploadingQrId === c.id ? '⏳ Subiendo...' : c.qr_url ? '🔄 Cambiar QR' : '📷 Subir QR'}
+                        <input type="file" accept="image/*" className="hidden" onChange={e => { handleUploadCompanyQr(c.id, e.target.files?.[0]); e.target.value = ''; }} />
+                      </label>
                       <button onClick={() => handleDeleteCompany(c.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg border border-red-500/20 hover:border-red-500/40 transition flex items-center gap-1.5">
                         <Trash2 className="w-3 h-3" /> Eliminar
                       </button>
@@ -635,7 +658,9 @@ export default function CompaniesTab({
       )}
 
       {/* Admin (non-superadmin) company editor */}
-      {user.tipo === 'admin' && (user.companies || []).map((c: any) => {
+      {user.tipo === 'admin' && companies
+        .filter(c => (user.companies || []).some((uc: any) => uc.id === c.id))
+        .map((c: any) => {
         const adminCModos: Record<string, string> = (c.modos_por_fase && typeof c.modos_por_fase === 'object') ? c.modos_por_fase : {};
         return (
           <div key={c.id} className="bg-neutral-900/40 border border-neutral-900 rounded-2xl p-5 space-y-4">
@@ -654,6 +679,18 @@ export default function CompaniesTab({
                   }
                 }}
                 className="w-full input-stitch px-3 py-2 text-xs font-mono" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">QR de Pago</label>
+              <div className="flex items-center gap-2">
+                {c.qr_url && (
+                  <img src={c.qr_url} alt={`QR de pago de ${c.nombre}`} className="w-10 h-10 rounded-md border border-neutral-700 object-cover flex-shrink-0" />
+                )}
+                <label className={`cursor-pointer flex items-center gap-1.5 text-[10px] font-black text-cyan-400 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/10 transition ${uploadingQrId === c.id ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {uploadingQrId === c.id ? '⏳ Subiendo...' : c.qr_url ? '🔄 Cambiar QR' : '📷 Subir QR'}
+                  <input type="file" accept="image/*" className="hidden" onChange={e => { handleUploadCompanyQr(c.id, e.target.files?.[0]); e.target.value = ''; }} />
+                </label>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="block text-neutral-400 text-[10px] font-black uppercase tracking-widest">Modo de Apuesta por Fase</label>

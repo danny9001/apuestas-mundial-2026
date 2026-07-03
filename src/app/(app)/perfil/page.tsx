@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { User, Check, RefreshCw, LogOut, Activity, Trash2, KeyRound } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
+import PaymentQrModal from '@/components/PaymentQrModal';
 
 export default function PerfilPage() {
   const { user, setUser, handleLogout, handleTogglePush, pushSubscribed, showToast } = useApp();
@@ -19,6 +20,7 @@ export default function PerfilPage() {
   const [userPasskeys, setUserPasskeys] = useState<any[]>([]);
   const [myStats, setMyStats] = useState<any>(null);
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -137,10 +139,10 @@ export default function PerfilPage() {
       )}
 
       {/* Payment Status Card */}
-      {paymentInfo && user.tipo !== 'superadmin' && (
+      {paymentInfo && user.tipo !== 'superadmin' && paymentInfo.participa !== false && (
         <div className={`border rounded-2xl p-5 flex gap-3 text-xs font-semibold ${
-          paymentInfo.pagadoCompleto 
-            ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' 
+          paymentInfo.pagadoCompleto
+            ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400'
             : 'bg-yellow-500/5 border-yellow-500/20 text-yellow-500'
         }`}>
           <span className="text-xl">💰</span>
@@ -149,11 +151,19 @@ export default function PerfilPage() {
               Estado de Pago: {paymentInfo.pagadoCompleto ? '🟢 Pago Completado' : '🔴 Pago Incompleto / Pendiente'}
             </p>
             <p className="text-neutral-400 leading-relaxed text-[11px]">
-              {paymentInfo.pagadoCompleto 
+              {paymentInfo.pagadoCompleto
                 ? `¡Gracias! Has cubierto la totalidad de tu cuota de Bs. ${paymentInfo.cuota.toLocaleString('es-BO')}.`
                 : `Has pagado Bs. ${paymentInfo.totalPagado.toLocaleString('es-BO')} de un total de Bs. ${paymentInfo.cuota.toLocaleString('es-BO')}. Saldo pendiente: Bs. ${(paymentInfo.cuota - paymentInfo.totalPagado).toLocaleString('es-BO')}.`
               }
             </p>
+            {!paymentInfo.pagadoCompleto && (
+              <button
+                onClick={() => setQrModalOpen(true)}
+                className="text-[10px] font-black uppercase tracking-wider text-yellow-500 border border-yellow-500/30 rounded-lg px-3 py-1.5 hover:bg-yellow-500/10 transition"
+              >
+                📷 Ver QR para pagar
+              </button>
+            )}
             {paymentInfo.payments.length > 0 && (
               <div className="pt-2 flex flex-wrap gap-1.5">
                 {paymentInfo.payments.map((p: any) => (
@@ -428,6 +438,10 @@ export default function PerfilPage() {
           <LogOut className="w-4 h-4" /> Cerrar Sesión
         </button>
       </div>
+
+      {qrModalOpen && paymentInfo && (
+        <PaymentQrModal companies={paymentInfo.companies || []} onClose={() => setQrModalOpen(false)} />
+      )}
     </section>
   );
 }

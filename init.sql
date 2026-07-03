@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS companies (
   monto_participacion NUMERIC DEFAULT 150,
   modo_apuesta VARCHAR(20) DEFAULT 'partido',
   modos_por_fase JSONB DEFAULT '{}'::jsonb,
+  qr_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

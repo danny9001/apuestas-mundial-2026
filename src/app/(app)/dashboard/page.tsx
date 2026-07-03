@@ -10,6 +10,7 @@ import BetModal from '@/components/BetModal';
 import MatchInfoModal from '@/components/MatchInfoModal';
 import ScoreCorrectionPanel from '@/components/ScoreCorrectionPanel';
 import OnlineUsers from '@/components/OnlineUsers';
+import DebtBanner from '@/components/DebtBanner';
 
 export default function DashboardPage() {
   const { user, showToast, lastMatchUpdate } = useApp();
@@ -140,6 +141,8 @@ export default function DashboardPage() {
 
   return (
     <section className="space-y-6 pb-8">
+
+      <DebtBanner user={user} />
 
       {/* Welcome Card */}
       <div className="bg-gradient-to-r from-yellow-500/15 via-amber-500/5 to-transparent border border-yellow-500/20 rounded-2xl p-6 xl:p-8 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg animate-fade-in">

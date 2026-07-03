@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Trophy, Building2, RefreshCw, ArrowUp, ArrowDown, Circle, X } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { getTeamFlag } from '@/lib/constants';
+import DebtBanner from '@/components/DebtBanner';
 
 export default function RankingPage() {
   const { user, handleIdentityLogin } = useApp();
@@ -105,6 +106,7 @@ export default function RankingPage() {
 
   return (
     <section className="space-y-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <DebtBanner user={user} className="lg:col-span-3" />
       <div className="lg:col-span-2 space-y-6">
       {/* Filter toggle */}
       <div className="flex justify-center">

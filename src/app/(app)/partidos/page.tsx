@@ -678,7 +678,11 @@ export default function PartidosPage() {
           <div className="overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
             <div className="flex gap-4 py-4 justify-between" style={{ minWidth: '1080px' }}>
               {KNOCKOUT_PHASES.map((fase) => {
-                const fm = matches.filter(m => m.fase === fase);
+                // Ronda de 32 reads chronologically (real match calendar); later rounds
+                // sort by id, which was assigned in bracket-slot order and doesn't
+                // always match broadcast date (e.g. "Cuartos-3" can air before "Cuartos-2").
+                const fm = matches.filter(m => m.fase === fase)
+                  .sort((a, b) => fase === 'Ronda de 32' ? 0 : a.id - b.id);
                 const isFinal = fase === 'Final';
                 return (
                   <div 

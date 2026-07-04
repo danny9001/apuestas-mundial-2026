@@ -1525,7 +1525,9 @@ async function applyConfirmedDowngrades(): Promise<void> {
 
     // Apply the automatic correction
     const updateRes = await pool.query(
-      `UPDATE matches SET goles_local = $1, goles_visitante = $2, updated_at = CURRENT_TIMESTAMP
+      `UPDATE matches SET goles_local = $1, goles_visitante = $2,
+         stats = COALESCE(stats, '{}' ::jsonb) || '{"manual_control": true}'::jsonb,
+         updated_at = CURRENT_TIMESTAMP
        WHERE id = $3 RETURNING *`,
       [row.proposed_local, row.proposed_visitante, row.match_id]
     ).catch(() => ({ rows: [] }));

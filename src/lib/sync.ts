@@ -264,8 +264,11 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
       }
 
       const isLInverted = cleanName(localMatch.local) === cleanAway;
-      const scoreHome = game.homeCompetitor.score >= 0 ? game.homeCompetitor.score : 0;
-      const scoreAway = game.awayCompetitor.score >= 0 ? game.awayCompetitor.score : 0;
+      // 365Scores occasionally reports a match as finished before its score fields are populated,
+      // which would otherwise be read as 0 and silently overwrite a real in-progress score.
+      const hasScore = typeof game.homeCompetitor.score === 'number' && typeof game.awayCompetitor.score === 'number';
+      const scoreHome = hasScore && game.homeCompetitor.score >= 0 ? game.homeCompetitor.score : 0;
+      const scoreAway = hasScore && game.awayCompetitor.score >= 0 ? game.awayCompetitor.score : 0;
 
       const penalesHome = game.homeCompetitor.penaltiesScore >= 0 ? game.homeCompetitor.penaltiesScore : null;
       const penalesAway = game.awayCompetitor.penaltiesScore >= 0 ? game.awayCompetitor.penaltiesScore : null;
@@ -279,11 +282,11 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
 
       // Only block downgrade during live (prevents API glitch flicker); allow it when finished (fixes annulled goals)
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
-      const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
-      const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+      const finalGolesLocal = (!hasScore || isDowngrade) ? (localMatch.goles_local || 0) : golesLocal;
+      const finalGolesVisitante = (!hasScore || isDowngrade) ? (localMatch.goles_visitante || 0) : golesVisitante;
 
       // Track downgrade consensus across sources for auto-correction
-      if (pendingDowngrades && estado === 'live') {
+      if (pendingDowngrades && hasScore && estado === 'live') {
         const ex = pendingDowngrades.get(localMatch.id);
         if (isDowngrade) {
           if (!ex) {
@@ -868,8 +871,13 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
       }
 
       const isLInverted = cleanName(localMatch.local) === cleanAway;
-      const scoreHome = parseInt(homeCompetitor.score) >= 0 ? parseInt(homeCompetitor.score) : 0;
-      const scoreAway = parseInt(awayCompetitor.score) >= 0 ? parseInt(awayCompetitor.score) : 0;
+      // ESPN occasionally reports a match as finished (status "post") before its score fields
+      // are populated, which would otherwise be read as 0 and silently overwrite a real in-progress score.
+      const hasScore = homeCompetitor.score !== undefined && homeCompetitor.score !== null &&
+        awayCompetitor.score !== undefined && awayCompetitor.score !== null &&
+        !isNaN(parseInt(homeCompetitor.score)) && !isNaN(parseInt(awayCompetitor.score));
+      const scoreHome = hasScore && parseInt(homeCompetitor.score) >= 0 ? parseInt(homeCompetitor.score) : 0;
+      const scoreAway = hasScore && parseInt(awayCompetitor.score) >= 0 ? parseInt(awayCompetitor.score) : 0;
 
       const penalesHomeRaw = homeCompetitor.shootoutScore !== undefined ? parseInt(homeCompetitor.shootoutScore) : null;
       const penalesAwayRaw = awayCompetitor.shootoutScore !== undefined ? parseInt(awayCompetitor.shootoutScore) : null;
@@ -885,11 +893,11 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
 
       // Only block downgrade during live (prevents API glitch flicker); allow it when finished (fixes annulled goals)
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
-      const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
-      const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+      const finalGolesLocal = (!hasScore || isDowngrade) ? (localMatch.goles_local || 0) : golesLocal;
+      const finalGolesVisitante = (!hasScore || isDowngrade) ? (localMatch.goles_visitante || 0) : golesVisitante;
 
       // Track downgrade consensus across sources for auto-correction
-      if (pendingDowngrades && estado === 'live') {
+      if (pendingDowngrades && hasScore && estado === 'live') {
         const ex = pendingDowngrades.get(localMatch.id);
         if (isDowngrade) {
           if (!ex) {

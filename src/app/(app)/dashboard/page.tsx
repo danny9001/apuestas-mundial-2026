@@ -11,6 +11,7 @@ import MatchInfoModal from '@/components/MatchInfoModal';
 import ScoreCorrectionPanel from '@/components/ScoreCorrectionPanel';
 import OnlineUsers from '@/components/OnlineUsers';
 import DebtBanner from '@/components/DebtBanner';
+import Top5Podium3D from '@/components/Top5Podium3D';
 
 export default function DashboardPage() {
   const { user, showToast, lastMatchUpdate } = useApp();
@@ -141,6 +142,7 @@ export default function DashboardPage() {
 
   return (
     <section className="space-y-6 pb-8">
+      <Top5Podium3D leaderboard={leaderboard} currentUserId={user?.id} />
 
       <DebtBanner user={user} />
 

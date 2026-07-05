@@ -117,6 +117,7 @@ export default function DashboardPage() {
   };
 
   const myRank = user ? leaderboard.find(r => r.user_id === user.id) : null;
+  const isParticipante = !!myRank && myRank.participa !== false;
   const activeCompanyId = selectedCompanyId ?? user?.companies?.[0]?.id ?? null;
   // Solo participantes (participa !== false), filtrados por empresa activa
   const companyLeaderboard = leaderboard.filter(r =>
@@ -142,7 +143,9 @@ export default function DashboardPage() {
 
   return (
     <section className="space-y-6 pb-8">
-      <Top5Podium3D leaderboard={leaderboard} currentUserId={user?.id} />
+      {isParticipante && (
+        <Top5Podium3D leaderboard={leaderboard.filter(r => r.participa !== false)} currentUserId={user?.id} />
+      )}
 
       <DebtBanner user={user} />
 

@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     const currentStats = match.stats || {};
     if (match.estado === 'finished') {
       currentStats.manual_control = true;
+      currentStats.manual_control_at = new Date().toISOString();
     }
     if (match.estado === 'finished' && !currentStats.finished_at) {
       currentStats.finished_at = new Date().toISOString();

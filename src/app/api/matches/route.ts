@@ -132,9 +132,12 @@ export async function POST(req: NextRequest) {
       if (estado === 'finished') {
         finalStats.finished_at = finalStats.finished_at || new Date().toISOString();
       }
-      // Only freeze sync when score/estado is being manually overridden
+      // Only freeze sync when score/estado is being manually overridden.
+      // manual_control_at drives the 5-min auto-resume in clearExpiredManualControl()
+      // (finished matches are excluded there and stay frozen until reopened for árbitros).
       if (scoreLocal !== undefined || scoreVisitante !== undefined || estado !== undefined) {
         finalStats.manual_control = true;
+        finalStats.manual_control_at = new Date().toISOString();
       }
 
       const updateQuery = `

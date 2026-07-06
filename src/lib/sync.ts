@@ -1496,6 +1496,36 @@ async function reconcileDowngrades(observed: Map<number, DowngradeEntry>): Promi
   }
 }
 
+const MANUAL_CONTROL_TIMEOUT_MS = 5 * 60 * 1000;
+
+// Un-freezes matches left in manual_control after a correction, once 5 minutes pass
+// with no further manual change, so external sources resume updating them automatically.
+// Finished matches are excluded on purpose: those stay frozen until a superadmin
+// explicitly reopens them for árbitros (see /api/matches open_for_arbitros).
+async function clearExpiredManualControl(): Promise<void> {
+  const res = await pool.query(
+    `SELECT id, local, visitante, stats FROM matches
+     WHERE estado != 'finished'
+       AND stats->>'manual_control' = 'true'
+       AND stats->>'manual_control_at' IS NOT NULL
+       AND (stats->>'manual_control_at')::timestamptz <= NOW() - INTERVAL '5 minutes'`
+  ).catch(() => ({ rows: [] }));
+
+  for (const row of res.rows) {
+    const stats = row.stats || {};
+    delete stats.manual_control;
+    delete stats.manual_control_at;
+    await pool.query(
+      'UPDATE matches SET stats = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [JSON.stringify(stats), row.id]
+    ).catch(() => {});
+    logSystem('info', 'SYNC',
+      `Control manual expirado: ${row.local} vs ${row.visitante}`,
+      `Sin cambios en ${MANUAL_CONTROL_TIMEOUT_MS / 60000} min — sync automático reanudado`
+    ).catch(() => {});
+  }
+}
+
 async function applyConfirmedDowngrades(): Promise<void> {
   const pending = await pool.query(
     `SELECT pd.*, m.local, m.visitante, m.goles_local, m.goles_visitante, m.estado, m.updated_at AS match_updated
@@ -1526,10 +1556,10 @@ async function applyConfirmedDowngrades(): Promise<void> {
     // Apply the automatic correction
     const updateRes = await pool.query(
       `UPDATE matches SET goles_local = $1, goles_visitante = $2,
-         stats = COALESCE(stats, '{}' ::jsonb) || '{"manual_control": true}'::jsonb,
+         stats = COALESCE(stats, '{}' ::jsonb) || jsonb_build_object('manual_control', true, 'manual_control_at', $4::text),
          updated_at = CURRENT_TIMESTAMP
        WHERE id = $3 RETURNING *`,
-      [row.proposed_local, row.proposed_visitante, row.match_id]
+      [row.proposed_local, row.proposed_visitante, row.match_id, new Date().toISOString()]
     ).catch(() => ({ rows: [] }));
 
     if (!updateRes.rows.length) continue;
@@ -1648,6 +1678,10 @@ export async function syncMatches(): Promise<{
   try {
   // Send reminders for upcoming matches (60 min and 30 min before kickoff)
   await sendUpcomingReminders();
+
+  // Auto-resume sync for live/upcoming matches frozen by a manual correction 5+ min ago.
+  // Finished matches are excluded — those stay frozen until reopened for árbitros.
+  await clearExpiredManualControl();
 
   // Apply confirmed downgrades older than 2 minutes (no árbitro correction needed)
   await applyConfirmedDowngrades();

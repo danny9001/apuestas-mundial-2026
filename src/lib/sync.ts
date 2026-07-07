@@ -707,6 +707,7 @@ export async function syncFixtureDownload(pendingGoalNotifs?: Map<number, Pendin
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
       const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
       const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+      estado = guardPrematureKnockoutFinish(estado, localMatch, finalGolesLocal, finalGolesVisitante, false);
 
       // Track downgrade consensus across sources for auto-correction
       if (pendingDowngrades && estado === 'live') {
@@ -1862,7 +1863,7 @@ export async function runKnockoutCascade() {
 
     const dbStandingsRes = await pool.query(
       'SELECT grupo, posicion, team FROM group_standings ORDER BY grupo, posicion ASC'
-    ).catch(() => ({ rows: [] as any[] }));
+    ).catch(() => ({ rows: [] as { grupo: string; posicion: number; team: string }[] }));
 
     if (dbStandingsRes.rows.length > 0) {
       for (const row of dbStandingsRes.rows) {

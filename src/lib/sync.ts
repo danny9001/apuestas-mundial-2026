@@ -47,6 +47,29 @@ async function isAnnulledScore(matchId: number, local: number, visitante: number
   return res.rows.length > 0;
 }
 
+// Knockout matches tied after regulation must go to a penalty shootout before a winner exists.
+// Some feeds (ApiFixture's "Finalizado", 365Scores statusGroup 4, football-data's "FINISHED")
+// flip a match to finished the moment normal/extra time ends, before the shootout is even played.
+// Keep the match "live" until this source reports a real penalty result, or another source
+// already recorded one — otherwise a tied knockout match gets closed mid-shootout.
+function guardPrematureKnockoutFinish(
+  estado: 'upcoming' | 'live' | 'finished',
+  localMatch: { grupo: string | null; stats?: { penales_local?: number; penales_visitante?: number } },
+  golesLocal: number,
+  golesVisitante: number,
+  hasPenaltiesFromThisSource: boolean
+): 'upcoming' | 'live' | 'finished' {
+  if (estado !== 'finished') return estado;
+  if (localMatch.grupo !== null) return estado;
+  if (golesLocal !== golesVisitante) return estado;
+  if (hasPenaltiesFromThisSource) return estado;
+  const existingStats = localMatch.stats || {};
+  const alreadyHasPenaltyResult = existingStats.penales_local != null && existingStats.penales_visitante != null &&
+    existingStats.penales_local !== existingStats.penales_visitante;
+  if (alreadyHasPenaltyResult) return estado;
+  return 'live';
+}
+
 const teamNameMapping: Record<string, string> = {
   'Germany': 'Alemania',
   'Saudi Arabia': 'Arabia Saudita',
@@ -284,6 +307,7 @@ export async function sync365Scores(pendingGoalNotifs?: Map<number, PendingGoalN
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
       const finalGolesLocal = (!hasScore || isDowngrade) ? (localMatch.goles_local || 0) : golesLocal;
       const finalGolesVisitante = (!hasScore || isDowngrade) ? (localMatch.goles_visitante || 0) : golesVisitante;
+      estado = guardPrematureKnockoutFinish(estado, localMatch, finalGolesLocal, finalGolesVisitante, hasPenalties);
 
       // Track downgrade consensus across sources for auto-correction
       if (pendingDowngrades && hasScore && estado === 'live') {
@@ -528,6 +552,7 @@ export async function syncApiFixture(pendingGoalNotifs?: Map<number, PendingGoal
         const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
         const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
         const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+        estado = guardPrematureKnockoutFinish(estado, localMatch, finalGolesLocal, finalGolesVisitante, false);
 
         if (pendingDowngrades && estado === 'live' && hasScore) {
           const ex = pendingDowngrades.get(localMatch.id);
@@ -895,6 +920,7 @@ export async function syncESPNScoreboard(pendingGoalNotifs?: Map<number, Pending
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
       const finalGolesLocal = (!hasScore || isDowngrade) ? (localMatch.goles_local || 0) : golesLocal;
       const finalGolesVisitante = (!hasScore || isDowngrade) ? (localMatch.goles_visitante || 0) : golesVisitante;
+      estado = guardPrematureKnockoutFinish(estado, localMatch, finalGolesLocal, finalGolesVisitante, hasPenalties);
 
       // Track downgrade consensus across sources for auto-correction
       if (pendingDowngrades && hasScore && estado === 'live') {
@@ -1257,6 +1283,7 @@ export async function syncFootballData(pendingGoalNotifs?: Map<number, PendingGo
       const isDowngrade = estado === 'live' && (golesLocal < (localMatch.goles_local || 0) || golesVisitante < (localMatch.goles_visitante || 0));
       const finalGolesLocal = isDowngrade ? (localMatch.goles_local || 0) : golesLocal;
       const finalGolesVisitante = isDowngrade ? (localMatch.goles_visitante || 0) : golesVisitante;
+      estado = guardPrematureKnockoutFinish(estado, localMatch, finalGolesLocal, finalGolesVisitante, hasPenalties);
 
       // Track downgrade consensus across sources for auto-correction
       if (pendingDowngrades && estado === 'live') {

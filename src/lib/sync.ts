@@ -1754,15 +1754,8 @@ export async function syncMatches(): Promise<{
   // Sync official standings every cycle (uses official tiebreakers from football-data.org)
   await syncGroupStandings();
 
-  // Disabled: the local R32→Octavos slot mapping (R32_TO_OCT) does not match the
-  // real FIFA 2026 bracket. It guessed "Francia vs México" for a slot that
-  // football-data.org still reports as undetermined (None vs None), while the
-  // authoritative feed had already confirmed Francia's real opponent as Paraguay
-  // in a different slot — producing a duplicate team across two Octavos matches.
-  // Team names for knockout rounds are obtained exclusively from the football-data.org
-  // sync (matched by external_id) until the R32→Octavos slot mapping can be verified
-  // against the official bracket. See openspec/changes/fix-octavos-doble-francia-2026-07-01.
-  // await runKnockoutCascade();
+  // Propagate knockout results: Cuartos → Semis → Final/Tercer Puesto (isPlaceholder guard).
+  await runKnockoutCascade();
 
   if (finishedCount > 0) {
     const { runBackup } = await import('./backup');

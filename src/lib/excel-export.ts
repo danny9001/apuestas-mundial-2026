@@ -52,7 +52,7 @@ export interface ExportFilters {
   };
 }
 
-// Styling Constants
+// Styling Constants (Executive Navy & Gold Palette + Graphic Design Badges)
 const PALETTE = {
   primaryNavy: '0F172A',
   secondaryNavy: '1E293B',
@@ -60,14 +60,17 @@ const PALETTE = {
   lightGold: 'FEF3C7',
   white: 'FFFFFF',
   textGold: 'F59E0B',
-  borderGray: 'E2E8F0',
+  borderGray: 'CBD5E1',
   zebraBg: 'F8FAFC',
+  // Badges
   badge3PtsBg: 'DCFCE7',
   badge3PtsFg: '15803D',
   badge1PtBg: 'DBEAFE',
   badge1PtFg: '1E40AF',
   badge0PtsBg: 'F3F4F6',
   badge0PtsFg: '4B5563',
+  badgePendingBg: 'FEF9C3',
+  badgePendingFg: '854D0E',
   // Podium Colors
   goldBg: 'FEF3C7',
   goldBorder: 'D97706',
@@ -195,7 +198,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   workbook.created = new Date();
 
   // ==========================================
-  // PESTAÑA 1: 🏆 GANADORES Y PREMIACIÓN (SHEET AL PRINCIPIO)
+  // PESTAÑA 1: 🏆 GANADORES Y PREMIACIÓN
   // ==========================================
   const winnersSheet = workbook.addWorksheet('🏆 Ganadores', {
     views: [{ showGridLines: true }],
@@ -228,7 +231,6 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   ];
 
   podiumData.forEach(p => {
-    // Header Row 5
     winnersSheet.mergeCells(5, p.colStart, 5, p.colEnd);
     const pHead = winnersSheet.getCell(5, p.colStart);
     pHead.value = p.place;
@@ -236,7 +238,6 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     pHead.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: p.bg } };
     pHead.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Details Rows 6 to 8
     winnersSheet.mergeCells(6, p.colStart, 6, p.colEnd);
     const pName = winnersSheet.getCell(6, p.colStart);
     pName.value = p.user ? p.user.nombre : 'Por definir';
@@ -255,7 +256,6 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     pScore.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: p.fg } };
     pScore.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Border around podium card
     for (let r = 5; r <= 8; r++) {
       for (let c = p.colStart; c <= p.colEnd; c++) {
         const cell = winnersSheet.getCell(r, c);
@@ -269,8 +269,8 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     }
   });
 
-  // TOP PREMIACIÓN TABLE (Row 11)
-  winnersSheet.mergeCells('A10:F10');
+  // TOP PREMIACIÓN TABLE (Row 10)
+  winnersSheet.mergeCells('A10:G10');
   const topWinTitle = winnersSheet.getCell('A10');
   topWinTitle.value = 'TABLA DE PREMIACIÓN GENERAL (SOLO PARTICIPANTES)';
   topWinTitle.font = { name: 'Calibri', size: 11, bold: true, color: { argb: PALETTE.white } };
@@ -302,9 +302,10 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     });
   });
 
-  winnersSheet.columns = [
-    { width: 12 }, { width: 26 }, { width: 24 }, { width: 28 }, { width: 24 }, { width: 16 }, { width: 20 }
-  ];
+  const winWidths = [12, 26, 24, 28, 24, 16, 20];
+  winWidths.forEach((w, i) => {
+    winnersSheet.getColumn(i + 1).width = w;
+  });
 
   // ==========================================
   // PESTAÑA 2: 📊 RESUMEN EJECUTIVO (SOLO PARTICIPANTES)
@@ -314,7 +315,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   });
 
   // Title Banner
-  summarySheet.mergeCells('A1:F2');
+  summarySheet.mergeCells('A1:G2');
   const titleCell = summarySheet.getCell('A1');
   titleCell.value = 'ELITEPASS MUNDIAL 2026 — INFORME EJECUTIVO DE PARTICIPANTES';
   titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: PALETTE.white } };
@@ -322,7 +323,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
   // Subtitle Timestamp
-  summarySheet.mergeCells('A3:F3');
+  summarySheet.mergeCells('A3:G3');
   const subTitleCell = summarySheet.getCell('A3');
   subTitleCell.value = `Métricas calculadas exclusivamente sobre ${participantes.length} participantes activos | Excluye visores y administradores`;
   subTitleCell.font = { name: 'Calibri', size: 9, italic: true, color: { argb: '64748B' } };
@@ -366,7 +367,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   });
 
   // Clasificación General Header (Row 8)
-  summarySheet.mergeCells('A8:F8');
+  summarySheet.mergeCells('A8:G8');
   const tableTitle = summarySheet.getCell('A8');
   tableTitle.value = 'CLASIFICACIÓN GENERAL DE PARTICIPANTES';
   tableTitle.font = { name: 'Calibri', size: 11, bold: true, color: { argb: PALETTE.white } };
@@ -399,14 +400,14 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
 
   // Section Visores at bottom of Resumen Ejecutivo
   let nextRow = 12 + participantes.length;
-  summarySheet.mergeCells(nextRow, 1, nextRow, 6);
+  summarySheet.mergeCells(nextRow, 1, nextRow, 7);
   const visTitle = summarySheet.getCell(nextRow, 1);
   visTitle.value = `OTROS REGISTROS: VISORES Y NO PARTICIPANTES (${visores.length})`;
   visTitle.font = { name: 'Calibri', size: 10, bold: true, color: { argb: PALETTE.white } };
   visTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '475569' } };
 
   nextRow++;
-  const visHeaders = ['Empresa', 'Nombre', 'Email', 'Rol', 'Tipo', 'Estado'];
+  const visHeaders = ['Empresa', 'Nombre', 'Email', 'Rol', 'Tipo', 'Estado', '-'];
   visHeaders.forEach((h, i) => {
     const cell = summarySheet.getCell(nextRow, i + 1);
     cell.value = h;
@@ -416,7 +417,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
 
   visores.forEach((v, vIdx) => {
     nextRow++;
-    const rowData = [v.empresa_nombre, v.nombre, v.email, v.tipo, 'Visor', 'Sin Clasificación'];
+    const rowData = [v.empresa_nombre, v.nombre, v.email, v.tipo, 'Visor', 'Sin Clasificación', '-'];
     rowData.forEach((val, cIdx) => {
       const cell = summarySheet.getCell(nextRow, cIdx + 1);
       cell.value = val;
@@ -425,9 +426,10 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     });
   });
 
-  summarySheet.columns = [
-    { width: 12 }, { width: 26 }, { width: 24 }, { width: 28 }, { width: 24 }, { width: 16 }, { width: 20 }
-  ];
+  const sumWidths = [12, 26, 24, 28, 24, 16, 20];
+  sumWidths.forEach((w, i) => {
+    summarySheet.getColumn(i + 1).width = w;
+  });
 
   // ==========================================
   // PESTAÑA 3: ⚽ MATRIZ DE PRONÓSTICOS
@@ -626,7 +628,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     };
   }
 
-  // Adjust Column Widths Dynamically
+  // Adjust Column Widths Dynamically for Matrix
   matrixSheet.getColumn(1).width = 10; // Posición
   matrixSheet.getColumn(2).width = 20; // Empresa
   matrixSheet.getColumn(3).width = 24; // Nombre
@@ -646,10 +648,16 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   });
 
   // ==========================================
-  // PESTAÑA 4: 📋 DETALLE APUESTAS (AUDITORÍA GRANULAR FILA POR APUESTA)
+  // PESTAÑA 4: 📋 DETALLE APUESTAS (AUDITORÍA GRANULAR COMPLETA FILA POR APUESTA)
   // ==========================================
   const detailSheet = workbook.addWorksheet('📋 Detalle Apuestas', {
     views: [{ state: 'frozen', ySplit: 2, showGridLines: true }],
+  });
+
+  // Explicit Column Widths BEFORE writing rows to avoid resetting values
+  const detColWidths = [22, 26, 28, 14, 22, 28, 20, 18, 26, 26, 22, 22];
+  detColWidths.forEach((w, i) => {
+    detailSheet.getColumn(i + 1).width = w;
   });
 
   // Title Banner
@@ -679,12 +687,12 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   detHeaders.forEach((h, i) => {
     const cell = detailSheet.getCell(2, i + 1);
     cell.value = h;
-    cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.textGold } };
+    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: PALETTE.textGold } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.secondaryNavy } };
     cell.alignment = { horizontal: i >= 7 ? 'center' : 'left', vertical: 'middle' };
   });
 
-  // Populate Row by Row (User x Match)
+  // Populate Row by Row (User x Match) for ALL USERS
   let detRowIndex = 3;
   allUsers.forEach(u => {
     matches.forEach(match => {
@@ -692,7 +700,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
       const isZebra = detRowIndex % 2 === 1;
 
       // 1. Resultado Real
-      let realScoreStr = 'Pendiente';
+      let realScoreStr = '⏳ Pendiente';
       if (match.goles_local !== null && match.goles_visitante !== null && match.estado === 'finished') {
         realScoreStr = `${match.local} ${match.goles_local} - ${match.goles_visitante} ${match.visitante}`;
         if (match.stats?.penaltis_local !== undefined && match.stats?.penaltis_visitante !== undefined) {
@@ -701,7 +709,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
       }
 
       // 2. Pronóstico Usuario
-      let predStr = 'Sin Pronóstico';
+      let predStr = '⚪ Sin Pronóstico';
       if (pred && pred.pred_local !== null && pred.pred_visitante !== null) {
         predStr = `${match.local} ${pred.pred_local} - ${pred.pred_visitante} ${match.visitante}`;
       }
@@ -721,12 +729,12 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
         penalesStr = `${penaltyWinnerReal} / ${userPredictedWinner} ${isExactPenaltyWinner ? '✓' : '✗'}`;
       }
 
-      // 4. Puntos
-      let puntosLabel = 'Pendiente';
+      // 4. Puntos con Badges Vistosos
+      let puntosLabel = '⏳ Pendiente';
       const pts = pred ? pred.puntos : null;
-      if (pts === 3) puntosLabel = '3 Pts (Exacto)';
-      else if (pts === 1) puntosLabel = '1 Pt (Acierto Ganador)';
-      else if (pts === 0) puntosLabel = '0 Pts (Sin Acierto)';
+      if (pts === 3) puntosLabel = '🎯 3 Pts (Marcador Exacto)';
+      else if (pts === 1) puntosLabel = '✅ 1 Pt (Acierto Ganador)';
+      else if (pts === 0) puntosLabel = '❌ 0 Pts (Sin Acierto)';
 
       const dateStr = match.fecha ? new Date(match.fecha).toLocaleString('es-BO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
 
@@ -768,6 +776,9 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
           } else if (pts === 0) {
             cell.font = { name: 'Calibri', size: 9, color: { argb: PALETTE.badge0PtsFg } };
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.badge0PtsBg } };
+          } else {
+            cell.font = { name: 'Calibri', size: 9, color: { argb: PALETTE.badgePendingFg } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.badgePendingBg } };
           }
         }
       });
@@ -783,22 +794,6 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
       to: `L${detRowIndex - 1}`,
     };
   }
-
-  // Adjust Column Widths for Detail Sheet
-  detailSheet.columns = [
-    { width: 22 }, // Empresa
-    { width: 26 }, // Participante
-    { width: 28 }, // Email
-    { width: 14 }, // Tipo
-    { width: 22 }, // Tincaso
-    { width: 26 }, // Partido
-    { width: 20 }, // Fase Torneo
-    { width: 18 }, // Fecha Partido
-    { width: 24 }, // Resultado Real
-    { width: 24 }, // Pronóstico Usuario
-    { width: 22 }, // Penales
-    { width: 20 }, // Puntos Obtenidos
-  ];
 
   // Export to Buffer
   const buffer = await workbook.xlsx.writeBuffer();

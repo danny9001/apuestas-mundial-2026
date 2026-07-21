@@ -258,7 +258,6 @@ export default function AdminPredictionsPage() {
       if (filterCompany !== 'all') params.append('company_id', filterCompany);
       if (filterRole !== 'all') params.append('role', filterRole);
       if (filterParticipa !== 'all') params.append('participa', filterParticipa);
-      if (predDateFilter) params.append('search', predDateFilter);
 
       const res = await fetch(`/api/admin/company-predictions/export?${params.toString()}`);
       if (!res.ok) {

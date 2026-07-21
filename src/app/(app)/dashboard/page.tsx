@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Trophy, X } from 'lucide-react';
+import { Trophy, X, Calendar, Sparkles, AlertCircle } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { getTeamFlag } from '@/lib/constants';
 import MatchCard from '@/components/MatchCard';
@@ -139,7 +139,18 @@ export default function DashboardPage() {
   const GRACE_MS = 15 * 60 * 1000;
   const canEditMatches = !!(user && ((user as any).arbitro_marcador || user.tipo === 'admin' || user.tipo === 'superadmin'));
   const todayMatches = matches.filter(m => m.estado === 'live' || isTodayBolivia(m.fecha)).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+  const upcomingMatches = matches.filter(m => m.estado === 'upcoming').sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).slice(0, 4);
   const countdownMatch = matches.filter(m => m.estado === 'upcoming' && new Date(m.fecha).getTime() > Date.now()).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
+
+  if (loading) {
+    return (
+      <div className="space-y-6 pb-8 animate-pulse">
+        <div className="h-32 bg-neutral-900/60 border border-neutral-850 rounded-2xl" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 h-24 bg-neutral-900/40 rounded-2xl" />
+        <div className="h-48 bg-neutral-900/50 border border-neutral-850 rounded-2xl" />
+      </div>
+    );
+  }
 
   return (
     <section className="space-y-6 pb-8">
@@ -155,7 +166,10 @@ export default function DashboardPage() {
         {user ? (
           <>
             <div>
-              <div className="text-[10px] text-yellow-500 font-black uppercase tracking-widest">Resumen de Quiniela</div>
+              <div className="text-[10px] text-yellow-500 font-black uppercase tracking-widest flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
+                Resumen de Quiniela Mundial 2026
+              </div>
               <h2 className="text-2xl font-black text-neutral-100 mt-1">¡Hola, {user.nombre}! 👋</h2>
               <p className="text-neutral-400 text-xs mt-1">Aquí tienes el estado actual de tus predicciones, tu ranking y las novedades del torneo.</p>
             </div>
@@ -187,7 +201,7 @@ export default function DashboardPage() {
         <div className="bg-gradient-to-r from-red-500/15 via-orange-500/5 to-transparent border border-red-500/30 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-lg animate-pulse">
           <div>
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-red-400">
-              <span>⚠️</span> ¡Falta registrar tu Tinkaso!
+              <AlertCircle className="w-4 h-4 text-red-400" /> ¡Falta registrar tu Tinkaso!
             </div>
             <p className="text-neutral-300 text-xs mt-1.5 leading-relaxed">
               Aún no has pronosticado al campeón del torneo en el <strong>Tinkaso</strong>. ¡No te quedes sin esos puntos extra!
@@ -274,8 +288,8 @@ export default function DashboardPage() {
       {/* Online Users */}
       {user && <OnlineUsers currentUserId={user.id} />}
 
-      {/* Partidos de Hoy */}
-      {todayMatches.length > 0 && (
+      {/* Partidos de Hoy (If available) */}
+      {todayMatches.length > 0 ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -329,6 +343,30 @@ export default function DashboardPage() {
             })}
           </div>
         </div>
+      ) : (
+        /* Fallback: Próximos Partidos a Pronosticar (So the page is NEVER blank) */
+        upcomingMatches.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-amber-500" />
+                <h3 className="text-sm xl:text-base font-black text-amber-500 uppercase tracking-widest">
+                  Próximos Encuentros del Torneo
+                </h3>
+                <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-mono font-black">
+                  Próximos 4
+                </span>
+              </div>
+              <Link href="/partidos" className="text-[10px] xl:text-xs text-yellow-500 hover:text-yellow-400 font-bold uppercase tracking-wider transition">Ver Fixture Completo →</Link>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {upcomingMatches.map(m => (
+                <MatchCard key={m.id} match={m} prediction={predictions.find(p => p.match_id === m.id)}
+                  compact={false} onBet={() => setBetModalMatch(m)} onClick={() => setInfoModalMatch(m)} />
+              ))}
+            </div>
+          </div>
+        )
       )}
 
       {/* Top 5 Leaderboard — filtered by company */}
@@ -387,9 +425,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-
-
-      {/* Match Summary Modal (Bug 6) */}
+      {/* Match Summary Modal */}
       {summaryMatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={() => setSummaryMatch(null)}>
           <div className="glass-card border border-neutral-800/80 border-t-2 border-t-yellow-500 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 animate-slide-in-up" onClick={e => e.stopPropagation()}>

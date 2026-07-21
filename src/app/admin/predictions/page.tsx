@@ -254,79 +254,32 @@ export default function AdminPredictionsPage() {
   const exportAllCompanyToExcel = async () => {
     setExportingAll(true);
     try {
-      const res = await fetch('/api/admin/company-predictions');
-      const data = await res.json();
-      if (!Array.isArray(data)) {
-        alert(data.error || 'Error al exportar');
+      const params = new URLSearchParams();
+      if (filterCompany !== 'all') params.append('company_id', filterCompany);
+      if (filterRole !== 'all') params.append('role', filterRole);
+      if (filterParticipa !== 'all') params.append('participa', filterParticipa);
+      if (predDateFilter) params.append('search', predDateFilter);
+
+      const res = await fetch(`/api/admin/company-predictions/export?${params.toString()}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        alert(errorData.error || 'Error al exportar la matriz Excel');
         setExportingAll(false);
         return;
       }
 
-      let filteredData = data;
-
-      // Apply Filters to Exported Data
-      if (filterCompany !== 'all') {
-        filteredData = filteredData.filter((p: any) => String(p.company_id) === filterCompany);
-      }
-      if (filterRole !== 'all') {
-        filteredData = filteredData.filter((p: any) => p.usuario_tipo === filterRole);
-      }
-      if (filterParticipa !== 'all') {
-        filteredData = filteredData.filter((p: any) => {
-          const isParticipante = p.usuario_participa !== false;
-          return filterParticipa === 'participante' ? isParticipante : !isParticipante;
-        });
-      }
-      if (predDateFilter) {
-        filteredData = filteredData.filter((p: any) => {
-          const matchDateStr = new Date(p.fecha).toISOString().slice(0, 10);
-          return (
-            matchDateStr.includes(predDateFilter) ||
-            p.fase.toLowerCase().includes(predDateFilter.toLowerCase()) ||
-            p.local.toLowerCase().includes(predDateFilter.toLowerCase()) ||
-            p.visitante.toLowerCase().includes(predDateFilter.toLowerCase())
-          );
-        });
-      }
-
-      if (filteredData.length === 0) {
-        alert('No hay pronósticos que coincidan con los filtros seleccionados para exportar.');
-        setExportingAll(false);
-        return;
-      }
-
-      const headers = ['Empresa', 'Participante', 'Correo', 'Rol', 'Tipo Participación', 'Partido', 'Pronóstico Local', 'Pronóstico Visitante', 'Fase', 'Fecha Partido', 'Puntos', 'Goles Local', 'Goles Visitante', 'Estado'];
-      
-      const rows = filteredData.map((p: any) => [
-        p.empresa_nombre,
-        p.usuario_nombre,
-        p.usuario_email,
-        p.usuario_tipo,
-        p.usuario_participa !== false ? 'Participante' : 'Visor',
-        `${p.local} vs ${p.visitante}`,
-        p.pred_local !== null ? p.pred_local : '',
-        p.pred_visitante !== null ? p.pred_visitante : '',
-        p.fase,
-        formatFecha(p.fecha),
-        p.puntos !== null ? p.puntos : 'Pendiente',
-        p.goles_local !== null ? p.goles_local : '',
-        p.goles_visitante !== null ? p.goles_visitante : '',
-        p.estado === 'finished' ? 'Finalizado' : p.estado === 'live' ? 'En vivo' : 'Pendiente'
-      ]);
-
-      const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(';'))].join('\n');
-      
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `pronosticos_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute("download", `matriz_pronosticos_mundial_${new Date().toISOString().slice(0, 10)}.xlsx`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
-      alert('Error de conexión al exportar');
+      alert('Error de conexión al exportar la matriz Excel');
     } finally {
       setExportingAll(false);
     }

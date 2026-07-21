@@ -80,6 +80,9 @@ const PALETTE = {
   bronzeFg: '9A3412',
 };
 
+// SuperAdmins to strictly exclude from all report sheets
+const EXCLUDED_EMAILS = ['dlandivar@genial-it.net', 'danny9001@gmail.com'];
+
 export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): Promise<Buffer> {
   const { companyId, role, participa, search, sessionUser } = filters;
 
@@ -95,7 +98,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   }
   matchQuery += ` ORDER BY fecha ASC, id ASC`;
 
-  // 2. Build Query for Users with Filters
+  // 2. Build Query for Users with Filters & Explicit SuperAdmin Exclusion
   let userQuery = `
     SELECT 
       u.id,
@@ -114,8 +117,9 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     LEFT JOIN companies c ON c.id = uc.company_id
     LEFT JOIN leaderboard l ON u.id = l.user_id
     WHERE u.activo = true
+      AND LOWER(u.email) NOT IN (${EXCLUDED_EMAILS.map((_, i) => `$${i + 1}`).join(', ')})
   `;
-  const userQueryParams: any[] = [];
+  const userQueryParams: any[] = [...EXCLUDED_EMAILS];
 
   // Superadmin vs Admin restriction
   if (sessionUser.tipo !== 'superadmin') {
@@ -320,7 +324,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   // Subtitle Timestamp
   summarySheet.mergeCells('A3:F3');
   const subTitleCell = summarySheet.getCell('A3');
-  subTitleCell.value = `Métricas calculadas exclusivamente sobre ${participantes.length} participantes activos | Excluye visores`;
+  subTitleCell.value = `Métricas calculadas exclusivamente sobre ${participantes.length} participantes activos | Excluye visores y administradores`;
   subTitleCell.font = { name: 'Calibri', size: 9, italic: true, color: { argb: '64748B' } };
   subTitleCell.alignment = { horizontal: 'center' };
 
@@ -426,9 +430,9 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   ];
 
   // ==========================================
-  // PESTAÑA 3: ⚽ MATRIZ Y AUDITORÍA DE PRONÓSTICOS (TODOS LOS USUARIOS)
+  // PESTAÑA 3: ⚽ MATRIZ DE PRONÓSTICOS
   // ==========================================
-  const matrixSheet = workbook.addWorksheet('⚽ Matriz y Auditoría', {
+  const matrixSheet = workbook.addWorksheet('⚽ Matriz de Pronósticos', {
     views: [
       {
         state: 'frozen',
@@ -592,7 +596,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
         if (isZebra) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.zebraBg } };
       });
 
-      // Puntos Badge Formatting (Conditional Formatting)
+      // Puntos Badge Formatting
       cellPuntos.alignment = { horizontal: 'center', vertical: 'middle' };
       cellPuntos.border = {
         bottom: { style: 'thin', color: { argb: PALETTE.borderGray } },
@@ -640,6 +644,161 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     matrixSheet.getColumn(startCol + 2).width = 18; // Penales
     matrixSheet.getColumn(startCol + 3).width = 10; // Puntos
   });
+
+  // ==========================================
+  // PESTAÑA 4: 📋 DETALLE APUESTAS (AUDITORÍA GRANULAR FILA POR APUESTA)
+  // ==========================================
+  const detailSheet = workbook.addWorksheet('📋 Detalle Apuestas', {
+    views: [{ state: 'frozen', ySplit: 2, showGridLines: true }],
+  });
+
+  // Title Banner
+  detailSheet.mergeCells('A1:L1');
+  const detTitle = detailSheet.getCell('A1');
+  detTitle.value = 'ELITEPASS MUNDIAL 2026 — REGISTRO DETALLADO DE APUESTAS PARA AUDITORÍA';
+  detTitle.font = { name: 'Calibri', size: 12, bold: true, color: { argb: PALETTE.white } };
+  detTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.primaryNavy } };
+  detTitle.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Subheaders (Row 2)
+  const detHeaders = [
+    'Empresa',
+    'Participante / Usuario',
+    'Email',
+    'Tipo',
+    'Tincaso (Campeón)',
+    'Partido (Encuentro)',
+    'Fase Torneo',
+    'Fecha Partido',
+    'Resultado Real',
+    'Pronóstico Usuario',
+    'Penales (Real / Predicho)',
+    'Puntos Obtenidos',
+  ];
+
+  detHeaders.forEach((h, i) => {
+    const cell = detailSheet.getCell(2, i + 1);
+    cell.value = h;
+    cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.textGold } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.secondaryNavy } };
+    cell.alignment = { horizontal: i >= 7 ? 'center' : 'left', vertical: 'middle' };
+  });
+
+  // Populate Row by Row (User x Match)
+  let detRowIndex = 3;
+  allUsers.forEach(u => {
+    matches.forEach(match => {
+      const pred = predMap.get(`${u.id}_${match.id}`);
+      const isZebra = detRowIndex % 2 === 1;
+
+      // 1. Resultado Real
+      let realScoreStr = 'Pendiente';
+      if (match.goles_local !== null && match.goles_visitante !== null && match.estado === 'finished') {
+        realScoreStr = `${match.local} ${match.goles_local} - ${match.goles_visitante} ${match.visitante}`;
+        if (match.stats?.penaltis_local !== undefined && match.stats?.penaltis_visitante !== undefined) {
+          realScoreStr += ` (${match.stats.penaltis_local}-${match.stats.penaltis_visitante} Pen.)`;
+        }
+      }
+
+      // 2. Pronóstico Usuario
+      let predStr = 'Sin Pronóstico';
+      if (pred && pred.pred_local !== null && pred.pred_visitante !== null) {
+        predStr = `${match.local} ${pred.pred_local} - ${pred.pred_visitante} ${match.visitante}`;
+      }
+
+      // 3. Penales
+      let penalesStr = 'N/A';
+      const isKnockoutDraw = match.fase !== 'Fase de Grupos' && match.goles_local === match.goles_visitante;
+      const penaltyWinnerReal = match.stats?.ganador || match.stats?.winner;
+
+      if ((match.penales_habilitados || isKnockoutDraw) && penaltyWinnerReal) {
+        let userPredictedWinner = '-';
+        if (pred && pred.pred_local !== null && pred.pred_visitante !== null) {
+          if (pred.pred_local > pred.pred_visitante) userPredictedWinner = match.local;
+          else if (pred.pred_local < pred.pred_visitante) userPredictedWinner = match.visitante;
+        }
+        const isExactPenaltyWinner = userPredictedWinner === penaltyWinnerReal;
+        penalesStr = `${penaltyWinnerReal} / ${userPredictedWinner} ${isExactPenaltyWinner ? '✓' : '✗'}`;
+      }
+
+      // 4. Puntos
+      let puntosLabel = 'Pendiente';
+      const pts = pred ? pred.puntos : null;
+      if (pts === 3) puntosLabel = '3 Pts (Exacto)';
+      else if (pts === 1) puntosLabel = '1 Pt (Acierto Ganador)';
+      else if (pts === 0) puntosLabel = '0 Pts (Sin Acierto)';
+
+      const dateStr = match.fecha ? new Date(match.fecha).toLocaleString('es-BO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+
+      const rowVals = [
+        u.empresa_nombre,
+        u.nombre,
+        u.email,
+        u.participa !== false ? 'Participante' : 'Visor',
+        u.tincaso || 'Sin Tincaso',
+        `${match.local} vs ${match.visitante}`,
+        match.fase,
+        dateStr,
+        realScoreStr,
+        predStr,
+        penalesStr,
+        puntosLabel,
+      ];
+
+      rowVals.forEach((val, cIdx) => {
+        const cell = detailSheet.getCell(detRowIndex, cIdx + 1);
+        cell.value = val;
+        cell.font = { name: 'Calibri', size: 9 };
+        cell.alignment = { horizontal: cIdx >= 7 ? 'center' : 'left', vertical: 'middle' };
+        cell.border = { bottom: { style: 'thin', color: { argb: PALETTE.borderGray } } };
+
+        if (isZebra) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.zebraBg } };
+        }
+
+        // Highlight Puntos Column (Col 12)
+        if (cIdx === 11) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          if (pts === 3) {
+            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.badge3PtsFg } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.badge3PtsBg } };
+          } else if (pts === 1) {
+            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.badge1PtFg } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.badge1PtBg } };
+          } else if (pts === 0) {
+            cell.font = { name: 'Calibri', size: 9, color: { argb: PALETTE.badge0PtsFg } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.badge0PtsBg } };
+          }
+        }
+      });
+
+      detRowIndex++;
+    });
+  });
+
+  // Enable Auto-Filter on Detail Sheet
+  if (detRowIndex > 3) {
+    detailSheet.autoFilter = {
+      from: 'A2',
+      to: `L${detRowIndex - 1}`,
+    };
+  }
+
+  // Adjust Column Widths for Detail Sheet
+  detailSheet.columns = [
+    { width: 22 }, // Empresa
+    { width: 26 }, // Participante
+    { width: 28 }, // Email
+    { width: 14 }, // Tipo
+    { width: 22 }, // Tincaso
+    { width: 26 }, // Partido
+    { width: 20 }, // Fase Torneo
+    { width: 18 }, // Fecha Partido
+    { width: 24 }, // Resultado Real
+    { width: 24 }, // Pronóstico Usuario
+    { width: 22 }, // Penales
+    { width: 20 }, // Puntos Obtenidos
+  ];
 
   // Export to Buffer
   const buffer = await workbook.xlsx.writeBuffer();

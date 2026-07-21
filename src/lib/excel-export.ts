@@ -7,6 +7,7 @@ export interface UserRow {
   email: string;
   tipo: string;
   participa: boolean;
+  tincaso: string | null;
   empresa_nombre: string;
   company_id: number | null;
   puntos_totales: number;
@@ -67,6 +68,16 @@ const PALETTE = {
   badge1PtFg: '1E40AF',
   badge0PtsBg: 'F3F4F6',
   badge0PtsFg: '4B5563',
+  // Podium Colors
+  goldBg: 'FEF3C7',
+  goldBorder: 'D97706',
+  goldFg: '92400E',
+  silverBg: 'F1F5F9',
+  silverBorder: '94A3B8',
+  silverFg: '334155',
+  bronzeBg: 'FFEDD5',
+  bronzeBorder: 'F97316',
+  bronzeFg: '9A3412',
 };
 
 export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): Promise<Buffer> {
@@ -91,7 +102,8 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
       u.nombre,
       u.email,
       u.tipo,
-      u.participa,
+      COALESCE(u.participa, true) as participa,
+      u.tincaso,
       uc.company_id,
       COALESCE(c.nombre, 'Sin Empresa') as empresa_nombre,
       COALESCE(l.puntos_totales, 0) as puntos_totales,
@@ -145,12 +157,16 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   ]);
 
   const matches: MatchRow[] = matchesRes.rows;
-  const users: UserRow[] = usersRes.rows;
+  const allUsers: UserRow[] = usersRes.rows;
+
+  // Separate Participantes and Visores
+  const participantes = allUsers.filter(u => u.participa !== false);
+  const visores = allUsers.filter(u => u.participa === false);
 
   // 4. Fetch Predictions for retrieved users & matches
   let preds: PredictionRow[] = [];
-  if (users.length > 0 && matches.length > 0) {
-    const userIds = users.map(u => u.id);
+  if (allUsers.length > 0 && matches.length > 0) {
+    const userIds = allUsers.map(u => u.id);
     const matchIds = matches.map(m => m.id);
 
     const predsRes = await pool.query(
@@ -175,16 +191,128 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   workbook.created = new Date();
 
   // ==========================================
-  // TAB 1: RESUMEN EJECUTIVO (KPIs)
+  // PESTAÑA 1: 🏆 GANADORES Y PREMIACIÓN (SHEET AL PRINCIPIO)
   // ==========================================
-  const summarySheet = workbook.addWorksheet('Resumen Ejecutivo', {
+  const winnersSheet = workbook.addWorksheet('🏆 Ganadores', {
+    views: [{ showGridLines: true }],
+  });
+
+  // Title Banner
+  winnersSheet.mergeCells('A1:F2');
+  const winTitle = winnersSheet.getCell('A1');
+  winTitle.value = 'ELITEPASS MUNDIAL 2026 — PODIO DE GANADORES Y PREMIACIÓN';
+  winTitle.font = { name: 'Calibri', size: 14, bold: true, color: { argb: PALETTE.white } };
+  winTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.primaryNavy } };
+  winTitle.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Subtitle Timestamp
+  winnersSheet.mergeCells('A3:F3');
+  const winSub = winnersSheet.getCell('A3');
+  winSub.value = `Informe oficial de podio generado el ${new Date().toLocaleString('es-BO')} | Clasificación basada en participantes activos`;
+  winSub.font = { name: 'Calibri', size: 9, italic: true, color: { argb: '64748B' } };
+  winSub.alignment = { horizontal: 'center' };
+
+  // PODIUM CARDS (1er, 2do, 3er Lugar)
+  const top1 = participantes.length > 0 ? participantes[0] : null;
+  const top2 = participantes.length > 1 ? participantes[1] : null;
+  const top3 = participantes.length > 2 ? participantes[2] : null;
+
+  const podiumData = [
+    { place: '🥇 1er LUGAR (CAMPEÓN)', user: top1, bg: PALETTE.goldBg, border: PALETTE.goldBorder, fg: PALETTE.goldFg, colStart: 1, colEnd: 2 },
+    { place: '🥈 2do LUGAR (SUBCAMPEÓN)', user: top2, bg: PALETTE.silverBg, border: PALETTE.silverBorder, fg: PALETTE.silverFg, colStart: 3, colEnd: 4 },
+    { place: '🥉 3er LUGAR (TERCER PUESTO)', user: top3, bg: PALETTE.bronzeBg, border: PALETTE.bronzeBorder, fg: PALETTE.bronzeFg, colStart: 5, colEnd: 6 },
+  ];
+
+  podiumData.forEach(p => {
+    // Header Row 5
+    winnersSheet.mergeCells(5, p.colStart, 5, p.colEnd);
+    const pHead = winnersSheet.getCell(5, p.colStart);
+    pHead.value = p.place;
+    pHead.font = { name: 'Calibri', size: 10, bold: true, color: { argb: p.fg } };
+    pHead.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: p.bg } };
+    pHead.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Details Rows 6 to 8
+    winnersSheet.mergeCells(6, p.colStart, 6, p.colEnd);
+    const pName = winnersSheet.getCell(6, p.colStart);
+    pName.value = p.user ? p.user.nombre : 'Por definir';
+    pName.font = { name: 'Calibri', size: 12, bold: true, color: { argb: PALETTE.primaryNavy } };
+    pName.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    winnersSheet.mergeCells(7, p.colStart, 7, p.colEnd);
+    const pCompany = winnersSheet.getCell(7, p.colStart);
+    pCompany.value = p.user ? `${p.user.empresa_nombre} (${p.user.email})` : '-';
+    pCompany.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: '475569' } };
+    pCompany.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    winnersSheet.mergeCells(8, p.colStart, 8, p.colEnd);
+    const pScore = winnersSheet.getCell(8, p.colStart);
+    pScore.value = p.user ? `${p.user.puntos_totales} Pts | ${p.user.exactos} Exactos | Tincaso: ${p.user.tincaso || 'Sin Tincaso'}` : '-';
+    pScore.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: p.fg } };
+    pScore.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Border around podium card
+    for (let r = 5; r <= 8; r++) {
+      for (let c = p.colStart; c <= p.colEnd; c++) {
+        const cell = winnersSheet.getCell(r, c);
+        cell.border = {
+          top: r === 5 ? { style: 'medium', color: { argb: p.border } } : undefined,
+          bottom: r === 8 ? { style: 'medium', color: { argb: p.border } } : undefined,
+          left: c === p.colStart ? { style: 'medium', color: { argb: p.border } } : undefined,
+          right: c === p.colEnd ? { style: 'medium', color: { argb: p.border } } : undefined,
+        };
+      }
+    }
+  });
+
+  // TOP PREMIACIÓN TABLE (Row 11)
+  winnersSheet.mergeCells('A10:F10');
+  const topWinTitle = winnersSheet.getCell('A10');
+  topWinTitle.value = 'TABLA DE PREMIACIÓN GENERAL (SOLO PARTICIPANTES)';
+  topWinTitle.font = { name: 'Calibri', size: 11, bold: true, color: { argb: PALETTE.white } };
+  topWinTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.secondaryNavy } };
+
+  const winHeaders = ['Posición', 'Participante', 'Empresa', 'Email', 'Tincaso (Campeón Predicho)', 'Puntos Totales', 'Marcadores Exactos'];
+  winHeaders.forEach((h, i) => {
+    const colNum = i + 1;
+    const cell = winnersSheet.getCell(11, colNum);
+    cell.value = h;
+    cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.textGold } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.primaryNavy } };
+    cell.alignment = { horizontal: i === 0 || i >= 5 ? 'center' : 'left' };
+  });
+
+  const top15Participantes = participantes.slice(0, 15);
+  top15Participantes.forEach((u, rIdx) => {
+    const rowNum = 12 + rIdx;
+    const rowData = [u.posicion, u.nombre, u.empresa_nombre, u.email, u.tincaso || 'Sin Tincaso', Number(u.puntos_totales), Number(u.exactos)];
+    rowData.forEach((val, cIdx) => {
+      const cell = winnersSheet.getCell(rowNum, cIdx + 1);
+      cell.value = val;
+      cell.font = { name: 'Calibri', size: 9.5, bold: rIdx < 3 || cIdx === 5 };
+      cell.alignment = { horizontal: cIdx === 0 || cIdx >= 5 ? 'center' : 'left' };
+      cell.border = { bottom: { style: 'thin', color: { argb: PALETTE.borderGray } } };
+      if (rIdx % 2 === 1) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.zebraBg } };
+      }
+    });
+  });
+
+  winnersSheet.columns = [
+    { width: 12 }, { width: 26 }, { width: 24 }, { width: 28 }, { width: 24 }, { width: 16 }, { width: 20 }
+  ];
+
+  // ==========================================
+  // PESTAÑA 2: 📊 RESUMEN EJECUTIVO (SOLO PARTICIPANTES)
+  // ==========================================
+  const summarySheet = workbook.addWorksheet('📊 Resumen Ejecutivo', {
     views: [{ showGridLines: true }],
   });
 
   // Title Banner
   summarySheet.mergeCells('A1:F2');
   const titleCell = summarySheet.getCell('A1');
-  titleCell.value = 'ELITEPASS MUNDIAL 2026 — INFORME EJECUTIVO DE PRONÓSTICOS';
+  titleCell.value = 'ELITEPASS MUNDIAL 2026 — INFORME EJECUTIVO DE PARTICIPANTES';
   titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: PALETTE.white } };
   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.primaryNavy } };
   titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -192,26 +320,27 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   // Subtitle Timestamp
   summarySheet.mergeCells('A3:F3');
   const subTitleCell = summarySheet.getCell('A3');
-  subTitleCell.value = `Reporte generado el ${new Date().toLocaleString('es-BO')} | Total usuarios: ${users.length} | Total partidos: ${matches.length}`;
+  subTitleCell.value = `Métricas calculadas exclusivamente sobre ${participantes.length} participantes activos | Excluye visores`;
   subTitleCell.font = { name: 'Calibri', size: 9, italic: true, color: { argb: '64748B' } };
   subTitleCell.alignment = { horizontal: 'center' };
 
-  // KPI Metrics Calculation
-  const totalPredictions = preds.filter(p => p.pred_local !== null).length;
-  const avgPoints = users.length > 0 ? (users.reduce((acc, u) => acc + Number(u.puntos_totales), 0) / users.length).toFixed(1) : '0.0';
-  const topPredictor = users.length > 0 ? users[0] : null;
-  const totalExactScores = users.reduce((acc, u) => acc + Number(u.exactos), 0);
+  // KPI Metrics Calculation (100% PARTICIPANTES)
+  const partUserIds = new Set(participantes.map(u => u.id));
+  const partPreds = preds.filter(p => partUserIds.has(p.user_id) && p.pred_local !== null);
+  const avgPointsPart = participantes.length > 0 ? (participantes.reduce((acc, u) => acc + Number(u.puntos_totales), 0) / participantes.length).toFixed(1) : '0.0';
+  const topPredictorPart = participantes.length > 0 ? participantes[0] : null;
+  const totalExactScoresPart = participantes.reduce((acc, u) => acc + Number(u.exactos), 0);
 
   // KPI Cards Block (Rows 5-6)
-  const kpis = [
-    { label: 'Total Participantes', val: users.length },
-    { label: 'Pronósticos Registrados', val: totalPredictions },
-    { label: 'Promedio Pts / Usuario', val: avgPoints },
-    { label: 'Líder del Torneo', val: topPredictor ? `${topPredictor.nombre} (${topPredictor.puntos_totales} pts)` : 'N/A' },
-    { label: 'Marcadores Exactos (3 pts)', val: totalExactScores },
+  const kpisPart = [
+    { label: 'Total Participantes', val: participantes.length },
+    { label: 'Pronósticos Registrados', val: partPreds.length },
+    { label: 'Promedio Pts / Participante', val: avgPointsPart },
+    { label: 'Líder del Torneo', val: topPredictorPart ? `${topPredictorPart.nombre} (${topPredictorPart.puntos_totales} pts)` : 'N/A' },
+    { label: 'Marcadores Exactos (3 pts)', val: totalExactScoresPart },
   ];
 
-  kpis.forEach((kpi, idx) => {
+  kpisPart.forEach((kpi, idx) => {
     const colIdx = idx + 1; // Cols A to E
     const labelCell = summarySheet.getCell(5, colIdx);
     const valueCell = summarySheet.getCell(6, colIdx);
@@ -232,32 +361,31 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     };
   });
 
-  // Top 10 Table Header (Row 9)
+  // Clasificación General Header (Row 8)
   summarySheet.mergeCells('A8:F8');
   const tableTitle = summarySheet.getCell('A8');
-  tableTitle.value = 'TOP CLASIFICACIÓN GENERAL';
+  tableTitle.value = 'CLASIFICACIÓN GENERAL DE PARTICIPANTES';
   tableTitle.font = { name: 'Calibri', size: 11, bold: true, color: { argb: PALETTE.white } };
   tableTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.secondaryNavy } };
 
-  const topHeaders = ['Posición', 'Nombre', 'Empresa', 'Email', 'Puntos Totales', 'Marcadores Exactos'];
+  const topHeaders = ['Posición', 'Nombre', 'Empresa', 'Email', 'Tincaso (Campeón)', 'Puntos Totales', 'Marcadores Exactos'];
   topHeaders.forEach((h, i) => {
     const cell = summarySheet.getCell(9, i + 1);
     cell.value = h;
     cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.textGold } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.primaryNavy } };
-    cell.alignment = { horizontal: i === 0 || i >= 4 ? 'center' : 'left' };
+    cell.alignment = { horizontal: i === 0 || i >= 5 ? 'center' : 'left' };
   });
 
-  // Top Rows Data
-  const topList = users.slice(0, 15);
-  topList.forEach((u, rIdx) => {
+  // Participantes Rows
+  participantes.forEach((u, rIdx) => {
     const rowNum = 10 + rIdx;
-    const rowData = [u.posicion, u.nombre, u.empresa_nombre, u.email, Number(u.puntos_totales), Number(u.exactos)];
+    const rowData = [u.posicion, u.nombre, u.empresa_nombre, u.email, u.tincaso || 'Sin Tincaso', Number(u.puntos_totales), Number(u.exactos)];
     rowData.forEach((val, cIdx) => {
       const cell = summarySheet.getCell(rowNum, cIdx + 1);
       cell.value = val;
       cell.font = { name: 'Calibri', size: 9.5 };
-      cell.alignment = { horizontal: cIdx === 0 || cIdx >= 4 ? 'center' : 'left' };
+      cell.alignment = { horizontal: cIdx === 0 || cIdx >= 5 ? 'center' : 'left' };
       cell.border = { bottom: { style: 'thin', color: { argb: PALETTE.borderGray } } };
       if (rIdx % 2 === 1) {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.zebraBg } };
@@ -265,29 +393,57 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     });
   });
 
+  // Section Visores at bottom of Resumen Ejecutivo
+  let nextRow = 12 + participantes.length;
+  summarySheet.mergeCells(nextRow, 1, nextRow, 6);
+  const visTitle = summarySheet.getCell(nextRow, 1);
+  visTitle.value = `OTROS REGISTROS: VISORES Y NO PARTICIPANTES (${visores.length})`;
+  visTitle.font = { name: 'Calibri', size: 10, bold: true, color: { argb: PALETTE.white } };
+  visTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '475569' } };
+
+  nextRow++;
+  const visHeaders = ['Empresa', 'Nombre', 'Email', 'Rol', 'Tipo', 'Estado'];
+  visHeaders.forEach((h, i) => {
+    const cell = summarySheet.getCell(nextRow, i + 1);
+    cell.value = h;
+    cell.font = { name: 'Calibri', size: 8.5, bold: true, color: { argb: PALETTE.white } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '64748B' } };
+  });
+
+  visores.forEach((v, vIdx) => {
+    nextRow++;
+    const rowData = [v.empresa_nombre, v.nombre, v.email, v.tipo, 'Visor', 'Sin Clasificación'];
+    rowData.forEach((val, cIdx) => {
+      const cell = summarySheet.getCell(nextRow, cIdx + 1);
+      cell.value = val;
+      cell.font = { name: 'Calibri', size: 9, color: { argb: '64748B' } };
+      cell.border = { bottom: { style: 'thin', color: { argb: PALETTE.borderGray } } };
+    });
+  });
+
   summarySheet.columns = [
-    { width: 12 }, { width: 26 }, { width: 24 }, { width: 28 }, { width: 16 }, { width: 20 }
+    { width: 12 }, { width: 26 }, { width: 24 }, { width: 28 }, { width: 24 }, { width: 16 }, { width: 20 }
   ];
 
   // ==========================================
-  // TAB 2: MATRIZ DE PRONÓSTICOS
+  // PESTAÑA 3: ⚽ MATRIZ Y AUDITORÍA DE PRONÓSTICOS (TODOS LOS USUARIOS)
   // ==========================================
-  const matrixSheet = workbook.addWorksheet('Matriz de Pronósticos', {
+  const matrixSheet = workbook.addWorksheet('⚽ Matriz y Auditoría', {
     views: [
       {
         state: 'frozen',
-        xSplit: 8, // Freeze left 8 user columns
+        xSplit: 9, // Freeze left 9 user columns
         ySplit: 2, // Freeze top 2 header rows
-        activeCell: 'I3',
+        activeCell: 'J3',
         showGridLines: true,
       },
     ],
   });
 
   // Static Left User Headers (Row 1 & 2)
-  matrixSheet.mergeCells('A1:H1');
+  matrixSheet.mergeCells('A1:I1');
   const userGroupHeader = matrixSheet.getCell('A1');
-  userGroupHeader.value = 'DATOS DEL PARTICIPANTE';
+  userGroupHeader.value = 'DATOS DEL USUARIO Y TINCASO';
   userGroupHeader.font = { name: 'Calibri', size: 10, bold: true, color: { argb: PALETTE.textGold } };
   userGroupHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.primaryNavy } };
   userGroupHeader.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -299,6 +455,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     'Email',
     'Rol',
     'Tipo',
+    'Tincaso (Campeón)',
     'Puntos Totales',
     'Marcadores Exactos',
   ];
@@ -308,13 +465,13 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     cell.value = sh;
     cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: PALETTE.white } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.secondaryNavy } };
-    cell.alignment = { horizontal: colIdx === 0 || colIdx >= 6 ? 'center' : 'left', vertical: 'middle' };
+    cell.alignment = { horizontal: colIdx === 0 || colIdx >= 7 ? 'center' : 'left', vertical: 'middle' };
     cell.border = { right: { style: 'thin', color: { argb: PALETTE.accentGold } } };
   });
 
   // Match Group Headers & Subheaders (Row 1 & 2)
   matches.forEach((match, mIdx) => {
-    const startCol = 9 + mIdx * 4; // Col I, M, Q...
+    const startCol = 10 + mIdx * 4; // Col J, N, R...
     const endCol = startCol + 3;
 
     // Row 1: Merged Match Header
@@ -346,19 +503,20 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     });
   });
 
-  // Populate Matrix User Rows (Row 3 onwards)
-  users.forEach((u, uIdx) => {
+  // Populate Matrix User Rows for ALL USERS (Row 3 onwards)
+  allUsers.forEach((u, uIdx) => {
     const rowNum = 3 + uIdx;
     const isZebra = uIdx % 2 === 1;
 
     // User Left Data
     const userVals = [
-      u.posicion,
+      u.participa !== false ? u.posicion : '-',
       u.empresa_nombre,
       u.nombre,
       u.email,
       u.tipo,
       u.participa !== false ? 'Participante' : 'Visor',
+      u.tincaso || 'Sin Tincaso',
       Number(u.puntos_totales),
       Number(u.exactos),
     ];
@@ -366,11 +524,11 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     userVals.forEach((val, cIdx) => {
       const cell = matrixSheet.getCell(rowNum, cIdx + 1);
       cell.value = val;
-      cell.font = { name: 'Calibri', size: 9.5, bold: cIdx === 2 || cIdx === 6 };
-      cell.alignment = { horizontal: cIdx === 0 || cIdx >= 6 ? 'center' : 'left', vertical: 'middle' };
+      cell.font = { name: 'Calibri', size: 9.5, bold: cIdx === 2 || cIdx === 7 };
+      cell.alignment = { horizontal: cIdx === 0 || cIdx >= 7 ? 'center' : 'left', vertical: 'middle' };
       cell.border = {
         bottom: { style: 'thin', color: { argb: PALETTE.borderGray } },
-        right: cIdx === 7 ? { style: 'medium', color: { argb: PALETTE.accentGold } } : { style: 'thin', color: { argb: PALETTE.borderGray } },
+        right: cIdx === 8 ? { style: 'medium', color: { argb: PALETTE.accentGold } } : { style: 'thin', color: { argb: PALETTE.borderGray } },
       };
       if (isZebra) {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.zebraBg } };
@@ -379,7 +537,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
 
     // Per-Match Prediction Columns
     matches.forEach((match, mIdx) => {
-      const startCol = 9 + mIdx * 4;
+      const startCol = 10 + mIdx * 4;
       const pred = predMap.get(`${u.id}_${match.id}`);
 
       // 1. Score Real
@@ -457,10 +615,10 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   });
 
   // Enable Auto-Filter on User Columns
-  if (users.length > 0) {
+  if (allUsers.length > 0) {
     matrixSheet.autoFilter = {
       from: 'A2',
-      to: `H${users.length + 2}`,
+      to: `I${allUsers.length + 2}`,
     };
   }
 
@@ -471,11 +629,12 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
   matrixSheet.getColumn(4).width = 28; // Email
   matrixSheet.getColumn(5).width = 12; // Rol
   matrixSheet.getColumn(6).width = 14; // Tipo
-  matrixSheet.getColumn(7).width = 16; // Puntos Totales
-  matrixSheet.getColumn(8).width = 18; // Marcadores Exactos
+  matrixSheet.getColumn(7).width = 22; // Tincaso
+  matrixSheet.getColumn(8).width = 16; // Puntos Totales
+  matrixSheet.getColumn(9).width = 18; // Marcadores Exactos
 
   matches.forEach((_, mIdx) => {
-    const startCol = 9 + mIdx * 4;
+    const startCol = 10 + mIdx * 4;
     matrixSheet.getColumn(startCol).width = 15;     // Score Real
     matrixSheet.getColumn(startCol + 1).width = 13; // Pronóstico
     matrixSheet.getColumn(startCol + 2).width = 18; // Penales

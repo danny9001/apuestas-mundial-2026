@@ -78,7 +78,36 @@ export async function GET(req: NextRequest) {
         }))
       : [];
 
-    const response = NextResponse.json({ matchId, total, isClosed, trend, topScores });
+    let userPredictions: any[] = [];
+    if (isClosed) {
+      let query = `
+        SELECT 
+          u.id as user_id,
+          u.nombre,
+          u.avatar,
+          c.nombre as empresa_nombre,
+          p.pred_local,
+          p.pred_visitante,
+          p.puntos
+        FROM predictions p
+        JOIN users u ON p.user_id = u.id
+        LEFT JOIN user_companies uc ON uc.user_id = u.id
+        LEFT JOIN companies c ON c.id = uc.company_id
+        WHERE p.match_id = $1 
+          AND u.activo = true 
+          AND u.participa IS NOT FALSE
+      `;
+      const params: any[] = [matchId];
+      if (user.tipo !== 'superadmin') {
+        query += ` AND uc.company_id IN (SELECT company_id FROM user_companies WHERE user_id = $2)`;
+        params.push(user.id);
+      }
+      query += ` ORDER BY u.nombre ASC`;
+      const predsRes = await pool.query(query, params);
+      userPredictions = predsRes.rows;
+    }
+
+    const response = NextResponse.json({ matchId, total, isClosed, trend, topScores, userPredictions });
     response.headers.set('Cache-Control', 'no-store, max-age=0');
     return response;
   } catch (error: unknown) {

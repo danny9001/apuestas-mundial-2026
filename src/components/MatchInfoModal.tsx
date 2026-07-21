@@ -113,10 +113,19 @@ interface BetStats {
   isClosed: boolean;
   trend: { local: number; empate: number; visitante: number } | null;
   topScores: { pred_local: number; pred_visitante: number; count: number; pct: number }[];
+  userPredictions?: {
+    user_id: number;
+    nombre: string;
+    avatar: string;
+    empresa_nombre: string;
+    pred_local: number;
+    pred_visitante: number;
+    puntos: number | null;
+  }[];
 }
 
 export default function MatchInfoModal({ match, prediction, onBet, onClose }: MatchInfoModalProps) {
-  const { predictionCloseMinutes } = useApp();
+  const { user, predictionCloseMinutes } = useApp();
   const [betStats, setBetStats] = useState<BetStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
@@ -423,6 +432,67 @@ export default function MatchInfoModal({ match, prediction, onBet, onClose }: Ma
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Pronósticos del Grupo (Hacerlo Social) */}
+        {betStats && betStats.isClosed && betStats.userPredictions && betStats.userPredictions.length > 0 && (
+          <div className="bg-neutral-900/40 border border-neutral-900 rounded-xl p-5 space-y-4">
+            <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center justify-between border-b border-neutral-850 pb-2">
+              <span className="flex items-center gap-1.5">
+                <span className="text-sm">👥</span>
+                <span>Pronósticos del Grupo ({betStats.userPredictions.length})</span>
+              </span>
+              <span className="text-yellow-500 text-[9px] uppercase tracking-wider font-mono">Apuestas Reveladas</span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[220px] overflow-y-auto pr-1">
+              {betStats.userPredictions.map((up) => {
+                const isMe = user?.id === up.user_id;
+                return (
+                  <div 
+                    key={up.user_id} 
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition ${
+                      isMe 
+                        ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500 font-bold' 
+                        : 'bg-neutral-950/50 border-neutral-850 hover:bg-neutral-900/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img 
+                        src={(up.avatar && up.avatar !== 'null' && up.avatar !== 'undefined') ? up.avatar : 'https://stg00vm.blob.core.windows.net/jet00/default.webp'} 
+                        onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://stg00vm.blob.core.windows.net/jet00/default.webp'; }}
+                        className="w-7 h-7 rounded-full border border-neutral-850 object-cover flex-shrink-0"
+                        alt="avatar" 
+                      />
+                      <div className="min-w-0">
+                        <div className="text-xs text-neutral-250 truncate">{up.nombre}</div>
+                        <div className="text-[8px] text-neutral-500 uppercase truncate">{up.empresa_nombre}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 flex-shrink-0 font-mono">
+                      <span className="text-xs font-black bg-neutral-900 border border-neutral-800 px-2 py-1 rounded text-neutral-300">
+                        {up.pred_local} – {up.pred_visitante}
+                      </span>
+                      {up.puntos !== null && (
+                        <span 
+                          className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                            up.puntos === 3 
+                              ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                              : up.puntos === 1 
+                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                                : 'bg-neutral-800 text-neutral-500 border border-neutral-800'
+                          }`}
+                        >
+                          {up.puntos} pts
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

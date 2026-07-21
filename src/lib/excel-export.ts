@@ -692,6 +692,25 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
     cell.alignment = { horizontal: i >= 7 ? 'center' : 'left', vertical: 'middle' };
   });
 
+  // Shared styles for performance and preventing style limit corruption in ExcelJS
+  const styleFontCalibri9 = { name: 'Calibri', size: 9 };
+  const styleAlignLeftMiddle = { horizontal: 'left' as const, vertical: 'middle' as const };
+  const styleAlignCenterMiddle = { horizontal: 'center' as const, vertical: 'middle' as const };
+  const styleBorderBottomThinGray = { bottom: { style: 'thin' as const, color: { argb: PALETTE.borderGray } } };
+  const styleFillZebra = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: PALETTE.zebraBg } };
+
+  const styleFont3Pts = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.badge3PtsFg } };
+  const styleFill3Pts = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: PALETTE.badge3PtsBg } };
+
+  const styleFont1Pt = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.badge1PtFg } };
+  const styleFill1Pt = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: PALETTE.badge1PtBg } };
+
+  const styleFont0Pts = { name: 'Calibri', size: 9, color: { argb: PALETTE.badge0PtsFg } };
+  const styleFill0Pts = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: PALETTE.badge0PtsBg } };
+
+  const styleFontPending = { name: 'Calibri', size: 9, color: { argb: PALETTE.badgePendingFg } };
+  const styleFillPending = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: PALETTE.badgePendingBg } };
+
   // Populate Row by Row (User x Match) for ALL USERS
   let detRowIndex = 3;
   allUsers.forEach(u => {
@@ -732,7 +751,7 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
       // 4. Puntos con Badges Vistosos
       let puntosLabel = '⏳ Pendiente';
       const pts = pred ? pred.puntos : null;
-      if (pts === 3) puntosLabel = '🎯 3 Pts (Marcador Exacto)';
+      if (pts === 3) puntosLabel = '🎯 3 Pts (Exacto)';
       else if (pts === 1) puntosLabel = '✅ 1 Pt (Acierto Ganador)';
       else if (pts === 0) puntosLabel = '❌ 0 Pts (Sin Acierto)';
 
@@ -756,29 +775,29 @@ export async function generateExecutiveMatrixWorkbook(filters: ExportFilters): P
       rowVals.forEach((val, cIdx) => {
         const cell = detailSheet.getCell(detRowIndex, cIdx + 1);
         cell.value = val;
-        cell.font = { name: 'Calibri', size: 9 };
-        cell.alignment = { horizontal: cIdx >= 7 ? 'center' : 'left', vertical: 'middle' };
-        cell.border = { bottom: { style: 'thin', color: { argb: PALETTE.borderGray } } };
+        cell.font = styleFontCalibri9;
+        cell.alignment = cIdx >= 7 ? styleAlignCenterMiddle : styleAlignLeftMiddle;
+        cell.border = styleBorderBottomThinGray;
 
         if (isZebra) {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.zebraBg } };
+          cell.fill = styleFillZebra;
         }
 
         // Highlight Puntos Column (Col 12)
         if (cIdx === 11) {
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.alignment = styleAlignCenterMiddle;
           if (pts === 3) {
-            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.badge3PtsFg } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.badge3PtsBg } };
+            cell.font = styleFont3Pts;
+            cell.fill = styleFill3Pts;
           } else if (pts === 1) {
-            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: PALETTE.badge1PtFg } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.badge1PtBg } };
+            cell.font = styleFont1Pt;
+            cell.fill = styleFill1Pt;
           } else if (pts === 0) {
-            cell.font = { name: 'Calibri', size: 9, color: { argb: PALETTE.badge0PtsFg } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.badge0PtsBg } };
+            cell.font = styleFont0Pts;
+            cell.fill = styleFill0Pts;
           } else {
-            cell.font = { name: 'Calibri', size: 9, color: { argb: PALETTE.badgePendingFg } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALETTE.badgePendingBg } };
+            cell.font = styleFontPending;
+            cell.fill = styleFillPending;
           }
         }
       });
